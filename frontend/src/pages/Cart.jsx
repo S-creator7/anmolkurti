@@ -6,6 +6,7 @@ import CartTotal from '../components/CartTotal';
 import BestSeller from '../components/BestSeller'
 import OurPolicy from '../components/OurPolicy'
 import NewsletterBox from '../components/NewsletterBox'
+import ScrollToTop from "../components/scrollToTop";
 
 const Cart = () => {
 
@@ -34,6 +35,7 @@ const Cart = () => {
 
   return (
     <div className='border-t pt-14'>
+      <ScrollToTop />
 
       <div className=' text-2xl mb-3'>
         <Title text1={'YOUR'} text2={'CART'} />

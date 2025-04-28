@@ -5,10 +5,12 @@ import BestSeller from '../components/BestSeller'
 import OurPolicy from '../components/OurPolicy'
 import NewsletterBox from '../components/NewsletterBox'
 import { assets } from '../assets/assets'
+import ScrollToTop from "../components/scrollToTop";
 
 const Home = () => {
   return (
     <div>
+      <ScrollToTop />
       <Hero />
       <img className='w-full py-3  sm:w-full' src={assets.banner_kids}/>
       <LatestCollection/>

@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useState } from 'react'
 import { ShopContext } from '../context/ShopContext'
 import Title from '../components/Title';
 import axios from 'axios';
+import ScrollToTop from "../components/scrollToTop";
 
 const Orders = () => {
 
@@ -41,7 +42,7 @@ const Orders = () => {
 
   return (
     <div className='border-t pt-16'>
-
+        <ScrollToTop />
         <div className='text-2xl'>
             <Title text1={'MY'} text2={'ORDERS'}/>
         </div>
