@@ -12,9 +12,9 @@ const Home = () => {
     <div>
       <ScrollToTop />
       <Hero />
-      <img className='w-full py-3  sm:w-full' src={assets.banner_kids}/>
+      {/* <img className='w-full py-3  sm:w-full' src={assets.banner_kids}/> */}
       <LatestCollection/>
-      <img className='w-full py-3 sm:w-full' src={assets.banner_women}/>
+      {/* <img className='w-full py-3 sm:w-full' src={assets.banner_women}/> */}
       <BestSeller/>
       <OurPolicy/>
       <NewsletterBox/>
