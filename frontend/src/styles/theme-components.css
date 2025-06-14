@@ -1,0 +1,74 @@
+/* Pink Theme Components */
+
+/* Pink Gradient Backgrounds */
+.pink-gradient {
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--primary-color) 100%);
+}
+
+/* Custom Badges */
+.badge-pink {
+  background-color: var(--primary-color);
+  color: var(--text-light);
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+/* Progress Bars */
+.progress-bar {
+  height: 8px;
+  background-color: var(--primary-light);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: var(--primary-color);
+  transition: width 0.3s ease;
+}
+
+/* Custom Cards */
+.pink-card {
+  background: var(--text-light);
+  border: 2px solid var(--primary-light);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.pink-card:hover {
+  border-color: var(--primary-color);
+  transform: translateY(-5px);
+  box-shadow: 0 8px 25px rgba(255, 105, 180, 0.2);
+}
+
+/* Custom Buttons */
+.btn-pink-outline {
+  border: 2px solid var(--primary-color);
+  color: var(--primary-color);
+  background: transparent;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.btn-pink-outline:hover {
+  background: var(--primary-color);
+  color: var(--text-light);
+  transform: translateY(-2px);
+}
+
+/* Input Fields */
+.input-pink {
+  border: 2px solid var(--primary-light);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  transition: all 0.3s ease;
+}
+
+.input-pink:focus {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(255, 105, 180, 0.2);
+  outline: none;
+}

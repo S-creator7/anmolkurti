@@ -11,7 +11,7 @@ const Home = () => {
   return (
     <div>
       <ScrollToTop />
-      <Hero />
+      <Hero  />
       {/* <img className='w-full py-3  sm:w-full' src={assets.banner_kids}/> */}
       <LatestCollection/>
       {/* <img className='w-full py-3 sm:w-full' src={assets.banner_women}/> */}
