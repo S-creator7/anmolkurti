@@ -5,6 +5,7 @@ import razorpay from 'razorpay'
 import crypto from 'crypto';
 import shortid from "shortid";
 import tempOrderModel from "../models/tempOrderModel.js"
+import productModel from "../models/productModel.js";
 
 // global variables
 const currency = 'inr'
@@ -37,6 +38,7 @@ const placeOrder = async (req, res) => {
 
         const newOrder = new orderModel(orderData)
         await newOrder.save()
+        await updateStock(items); // Deduct stock
 
         await userModel.findByIdAndUpdate(userId, { cartData: {} })
 
@@ -116,6 +118,8 @@ const verifyStripe = async (req, res) => {
         if (success === "true") {
             await orderModel.findByIdAndUpdate(orderId, { payment: true });
             await userModel.findByIdAndUpdate(userId, { cartData: {} })
+             const order = await orderModel.findById(orderId);
+            await updateStock(order.items); // Deduct stock
             res.json({ success: true });
         } else {
             await orderModel.findByIdAndDelete(orderId)
@@ -259,6 +263,7 @@ const verifyRazorpay = async (req, res) => {
         });
 
         await userModel.findByIdAndUpdate(userId, { cartData: {} });
+        await updateStock(orderMeta.items); // Deduct stock
 
         res.json({ success: true, message: "Payment Successful" });
 
@@ -333,6 +338,22 @@ const updateStatus = async (req, res) => {
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
+    }
+}
+
+// Helper function to update stock
+async function updateStock(items) {
+    for (const item of items) {
+        const product = await productModel.findById(item.id);
+        if (!product) continue;
+
+        // Update stock for each size/quantity
+        for (const [size, quantity] of Object.entries(item.sizes)) {
+            const currentStock = product.stock.get(size) || 0;
+            product.stock.set(size, Math.max(0, currentStock - quantity));
+        }
+
+        await product.save();
     }
 }
 

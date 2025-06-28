@@ -8,7 +8,8 @@ import productRouter from './routes/productRoute.js'
 import cartRouter from './routes/cartRoute.js'
 import orderRouter from './routes/orderRoute.js'
 import dotenv from 'dotenv';
-
+import { checkStockAlerts } from "./services/stockAlertChecker.js";
+import cron from "node-cron";
 dotenv.config();
 
 // App Config
@@ -24,6 +25,11 @@ connectCloudinary()
 app.use(express.json())
 app.use(cors())
 
+
+// Run every hour
+cron.schedule('0 * * * *', () => {
+    checkStockAlerts();
+});
 
 // api endpoints
 app.use('/api/user',userRouter)

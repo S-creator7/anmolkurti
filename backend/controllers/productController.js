@@ -6,7 +6,7 @@ import userModel from "../models/userModel.js"
 const addProduct = async (req, res) => {
     try {
 
-        const { name, description, price, category, subCategory, sizes, bestseller } = req.body
+        const { name, description, price, category, subCategory, sizes, bestseller,stock } = req.body
 
         const image1 = req.files.image1 && req.files.image1[0]
         const image2 = req.files.image2 && req.files.image2[0]
@@ -28,6 +28,7 @@ const addProduct = async (req, res) => {
                 return result.secure_url
             })
         )
+        const stockObj = stock ? JSON.parse(stock) : {};
 
         const productData = {
             name,
@@ -37,8 +38,10 @@ const addProduct = async (req, res) => {
             subCategory,
             bestseller: bestseller === "true" ? true : false,
             sizes: JSON.parse(sizes),
+            stock: stockObj,
             image: imagesUrl,
-            date: Date.now()
+            date: Date.now(),
+            stockAlerts: [] // Initialize alerts array
         }
 
         console.log(productData);
@@ -51,6 +54,31 @@ const addProduct = async (req, res) => {
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
+    }
+}
+
+
+
+//add stock alert subscription
+const addStockAlert = async (req, res) => {
+    try {
+        const { productId, email } = req.body;
+        const product = await productModel.findById(productId);
+        
+        if (!product) {
+            return res.json({ success: false, message: "Product not found" });
+        }
+        
+        // Add email if not already subscribed
+        if (!product.stockAlerts.includes(email)) {
+            product.stockAlerts.push(email);
+            await product.save();
+        }
+        
+        res.json({ success: true, message: "You'll be notified when back in stock" });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
     }
 }
 
@@ -101,4 +129,4 @@ const singleProduct = async (req, res) => {
     }
 }
 
-export { listProducts, addProduct, removeProduct, singleProduct }
+export { listProducts, addProduct, removeProduct, singleProduct ,addStockAlert }
