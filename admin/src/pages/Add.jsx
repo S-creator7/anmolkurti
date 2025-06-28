@@ -18,6 +18,7 @@ const Add = ({token}) => {
    const [subCategory, setSubCategory] = useState("Topwear");
    const [bestseller, setBestseller] = useState(false);
    const [sizes, setSizes] = useState([]);
+   const [stock, setStock] = useState({});
 
    const onSubmitHandler = async (e) => {
     e.preventDefault();
@@ -33,6 +34,7 @@ const Add = ({token}) => {
       formData.append("subCategory",subCategory)
       formData.append("bestseller",bestseller)
       formData.append("sizes",JSON.stringify(sizes))
+      formData.append("stock", JSON.stringify(stock));
 
       image1 && formData.append("image1",image1)
       image2 && formData.append("image2",image2)
@@ -50,6 +52,8 @@ const Add = ({token}) => {
         setImage3(false)
         setImage4(false)
         setPrice('')
+        setSizes([])
+        setStock({})
       } else {
         toast.error(response.data.message)
       }
@@ -145,26 +149,45 @@ const Add = ({token}) => {
               <p className={`${sizes.includes("XXL") ? "bg-pink-100" : "bg-slate-200" } px-3 py-1 cursor-pointer`}>XXL</p>
             </div>
 
-            <div onClick={()=>setSizes(prev => prev.includes("XXL") ? prev.filter( item => item !== "3XL") : [...prev,"3XL"])}>
+            <div onClick={()=>setSizes(prev => prev.includes("3XL") ? prev.filter( item => item !== "3XL") : [...prev,"3XL"])}>
               <p className={`${sizes.includes("3XL") ? "bg-pink-100" : "bg-slate-200" } px-3 py-1 cursor-pointer`}>3XL</p>
             </div>
 
-            <div onClick={()=>setSizes(prev => prev.includes("XXL") ? prev.filter( item => item !== "4XL") : [...prev,"4XL"])}>
+            <div onClick={()=>setSizes(prev => prev.includes("4XL") ? prev.filter( item => item !== "4XL") : [...prev,"4XL"])}>
               <p className={`${sizes.includes("4XL") ? "bg-pink-100" : "bg-slate-200" } px-3 py-1 cursor-pointer`}>4XL</p>
             </div>
 
-            <div onClick={()=>setSizes(prev => prev.includes("XXL") ? prev.filter( item => item !== "5XL") : [...prev,"5XL"])}>
+            <div onClick={()=>setSizes(prev => prev.includes("5XL") ? prev.filter( item => item !== "5XL") : [...prev,"5XL"])}>
               <p className={`${sizes.includes("5XL") ? "bg-pink-100" : "bg-slate-200" } px-3 py-1 cursor-pointer`}>5XL</p>
             </div>
 
-            <div onClick={()=>setSizes(prev => prev.includes("XXL") ? prev.filter( item => item !== "6XL") : [...prev,"6XL"])}>
+            <div onClick={()=>setSizes(prev => prev.includes("6XL") ? prev.filter( item => item !== "6XL") : [...prev,"6XL"])}>
               <p className={`${sizes.includes("6XL") ? "bg-pink-100" : "bg-slate-200" } px-3 py-1 cursor-pointer`}>6XL</p>
             </div>
-            <div onClick={()=>setSizes(prev => prev.includes("XXL") ? prev.filter( item => item !== "7XL") : [...prev,"7XL"])}>
+            <div onClick={()=>setSizes(prev => prev.includes("7XL") ? prev.filter( item => item !== "7XL") : [...prev,"7XL"])}>
               <p className={`${sizes.includes("7XL") ? "bg-pink-100" : "bg-slate-200" } px-3 py-1 cursor-pointer`}>7XL</p>
             </div>
           </div>
         </div>
+     
+          <div className='mt-4'>
+  <p className='mb-2'>Stock per Size</p>
+  <div className='grid grid-cols-3 gap-2'>
+    {sizes.map(size => (
+      <div key={size} className='flex items-center'>
+        <span className='mr-2 w-8'>{size}:</span>
+        <input
+          type="number"
+          min="0"
+          value={stock[size] || 0}
+          onChange={(e) => setStock({...stock, [size]: parseInt(e.target.value)})}
+          className='w-full px-2 py-1 border'
+        />
+      </div>
+    ))}
+  </div>
+</div>
+
 
         <div className='flex gap-2 mt-2'>
           <input onChange={() => setBestseller(prev => !prev)} checked={bestseller} type="checkbox" id='bestseller' />
