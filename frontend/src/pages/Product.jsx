@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { ShopContext } from '../context/ShopContext';
 import { assets } from '../assets/assets';
 import RelatedProducts from '../components/RelatedProducts';
@@ -8,10 +8,31 @@ import ScrollToTop from "../components/scrollToTop";
 const Product = () => {
 
   const { productId } = useParams();
-  const { products, currency ,addToCart } = useContext(ShopContext);
+  const navigate = useNavigate();
+  const { products, currency ,addToCart, cartItems } = useContext(ShopContext);
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('')
   const [size,setSize] = useState('')
+  const [email, setEmail] = useState('');
+  const [showAlertForm, setShowAlertForm] = useState(false);
+  const { subscribeStockAlert } = useContext(ShopContext);
+  //checking stock status 
+    // Convert stock object to Map if needed
+    const stockMap = productData.stock instanceof Map ? productData.stock : new Map(Object.entries(productData.stock || {}));
+    const inStock = size ? (stockMap.get(size) || 0) > 0 : false;
+
+  // Get quantity of selected product and size in cart
+  const cartQuantity = size && cartItems[productId] && cartItems[productId][size] ? cartItems[productId][size] : 0;
+
+ // Handle alert subscription
+  const handleStockAlert = async () => {
+    if (!email) {
+      toast.error("Please enter your email");
+      return;
+    }
+    await subscribeStockAlert(productData._id, email);
+    setShowAlertForm(false);
+  };
 
   const fetchProductData = async () => {
 
@@ -65,13 +86,47 @@ const Product = () => {
           <div className='flex flex-col gap-4 my-8'>
               <p>Select Size</p>
               <div className='flex gap-2'>
-                {productData.sizes.map((item,index)=>(
-                  <button onClick={()=>setSize(item)} className={`border py-2 px-4 bg-gray-100 ${item === size ? 'border-orange-500' : ''}`} key={index}>{item}</button>
-                ))}
+                {productData.sizes.map((item,index) => {
+                  const sizeStock = stockMap.get(item) || 0;
+                  return (
+                    <button 
+                      onClick={() => setSize(item)} 
+                      className={`border py-2 px-4 ${item === size ? 'border-orange-500' : ''} 
+                                 ${sizeStock === 0 ? 'bg-gray-200 text-gray-400 ' : 'bg-gray-100'}`} 
+                      key={index}
+                      disabled={sizeStock === 0}
+                    >
+                      {item} {sizeStock === 0 && '(Out of Stock)'}
+                    </button>
+                  )
+                })}
               </div>
+              {!inStock && size && (
+                <div className="mt-4 text-red-600 font-semibold">
+                  Product is out of stock for selected size.
+                </div>
+              )}
+            </div>
+          <div className="mb-4">
+            <p>Quantity in Cart: {cartQuantity}</p>
           </div>
-          <button onClick={()=>addToCart(productData._id,size)} className='bg-black text-white px-8 py-3 text-sm active:bg-gray-700'>ADD TO CART</button>
-          <button onClick={()=>addToCart(productData._id,size)} className='bg-black text-white mx-4 px-12 py-3 text-sm active:bg-gray-700'>BUY NOW</button>
+          <button 
+            onClick={() => addToCart(productData._id, size)} 
+            className='bg-black text-white px-8 py-3 text-sm active:bg-gray-700' 
+            disabled={!inStock}
+          >
+            ADD TO CART
+          </button>
+          <button 
+            onClick={() => {
+              addToCart(productData._id, size);
+              navigate('/cart');
+            }} 
+            className='bg-black text-white mx-4 px-12 py-3 text-sm active:bg-gray-700' 
+            disabled={!inStock}
+          >
+            BUY NOW
+          </button>
           <hr className='mt-8 sm:w-4/5' />
           <div className='text-sm text-gray-500 mt-5 flex flex-col gap-1'>
               <p>100% Original product.</p>
@@ -101,4 +156,4 @@ const Product = () => {
   ) : <div className=' opacity-0'></div>
 }
 
-export default Product
+export default Product;

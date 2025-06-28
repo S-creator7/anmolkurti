@@ -25,6 +25,14 @@ const ShopContextProvider = (props) => {
             return;
         }
 
+        // Check stock availability before adding to cart
+        const product = products.find(p => p._id === itemId);
+        const availableStock = product?.stock?.[size] ?? product?.stock?.get?.(size) ?? 0;
+        if (availableStock <= 0) {
+            toast.error('Selected size is out of stock');
+            return;
+        }
+
         let cartData = structuredClone(cartItems);
 
         if (cartData[itemId]) {
@@ -53,6 +61,19 @@ const ShopContextProvider = (props) => {
         }
 
     }
+    const subscribeStockAlert = async (productId, email) => {
+    try {
+        await axios.post(
+            backendUrl + '/api/product/stock-alert', 
+            { productId, email },
+            { headers: { token } }
+        );
+        toast.success("You'll be notified when back in stock!");
+    } catch (error) {
+        console.log(error);
+        toast.error(error.response?.data?.message || error.message);
+    }
+};
 
     const getCartCount = () => {
         let totalCount = 0;
@@ -142,6 +163,7 @@ const ShopContextProvider = (props) => {
     }, [])
 
     useEffect(() => {
+
         if (!token && localStorage.getItem('token')) {
             setToken(localStorage.getItem('token'))
             getUserCart(localStorage.getItem('token'))
@@ -152,7 +174,8 @@ const ShopContextProvider = (props) => {
     }, [token])
 
     const value = {
-        products, currency, delivery_fee,
+        products, currency,    subscribeStockAlert
+, delivery_fee,
         search, setSearch, showSearch, setShowSearch,
         cartItems, addToCart,setCartItems,
         getCartCount, updateQuantity,
