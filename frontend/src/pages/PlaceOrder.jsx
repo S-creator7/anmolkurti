@@ -14,6 +14,7 @@ import { useRazorpay } from 'react-razorpay';
 const PlaceOrder = () => {
     const { error, isLoading, Razorpay } = useRazorpay();
     const [method, setMethod] = useState('cod');
+    const [checkoutMode, setCheckoutMode] = useState(null); // 'guest' or 'login'
     const { navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
     const [formData, setFormData] = useState({
         firstName: '',
@@ -26,6 +27,18 @@ const PlaceOrder = () => {
         country: '',
         phone: ''
     })
+
+    // Determine if user is logged in
+    const isLoggedIn = !!token;
+
+    // Auto-set checkout mode based on login status
+    React.useEffect(() => {
+        if (isLoggedIn) {
+            setCheckoutMode('login');
+        } else if (checkoutMode === null) {
+            setCheckoutMode('guest'); // Default to guest if not logged in
+        }
+    }, [isLoggedIn, checkoutMode]);
 
     const onChangeHandler = (event) => {
         const name = event.target.name
@@ -45,10 +58,20 @@ const PlaceOrder = () => {
             receipt: order.receipt,
             handler: async (response) => {
                 try {
-                    const razorPayVerified = await axios.post(import.meta.env.VITE_BACKEND_URL + '/api/order/verifyRazorpay', response, { headers: { token } });
+                    // For guests, don't send token
+                    const headers = checkoutMode === 'guest' ? {} : { token };
+                    const razorPayVerified = await axios.post(import.meta.env.VITE_BACKEND_URL + '/api/order/verifyRazorpay', response, { headers });
+                    
                     if (razorPayVerified.data.success) {
-                        navigate('/orders');
-                        setCartItems({});
+                        if (checkoutMode === 'guest') {
+                            // For guests, redirect to a thank you page or order tracking
+                            toast.success('Order placed successfully! Check your email for order details.');
+                            setCartItems({});
+                            navigate('/');
+                        } else {
+                            navigate('/orders');
+                            setCartItems({});
+                        }
                     } else {
                         toast.error("Payment verified but order not placed!");
                     }
@@ -97,22 +120,39 @@ const PlaceOrder = () => {
                 amount: getCartAmount() + delivery_fee
             }
 
+            // Add guest checkout data if in guest mode
+            if (checkoutMode === 'guest') {
+                orderData.isGuest = true;
+                orderData.guestInfo = {
+                    name: `${formData.firstName} ${formData.lastName}`,
+                    email: formData.email,
+                    phone: formData.phone
+                };
+            }
+
+            // Set headers based on checkout mode
+            const headers = checkoutMode === 'guest' ? {} : { token };
 
             switch (method) {
 
                 // API Calls for COD
                 case 'cod':
-                    const response = await axios.post(backendUrl + '/api/order/place', orderData, { headers: { token } })
+                    const response = await axios.post(backendUrl + '/api/order/place', orderData, { headers })
                     if (response.data.success) {
                         setCartItems({})
-                        navigate('/orders')
+                        if (checkoutMode === 'guest') {
+                            toast.success('Order placed successfully! Check your email for order details.');
+                            navigate('/');
+                        } else {
+                            navigate('/orders');
+                        }
                     } else {
                         toast.error(response.data.message)
                     }
                     break;
 
                 case 'stripe':
-                    const responseStripe = await axios.post(backendUrl + '/api/order/stripe', orderData, { headers: { token } })
+                    const responseStripe = await axios.post(backendUrl + '/api/order/stripe', orderData, { headers })
                     if (responseStripe.data.success) {
                         const { session_url } = responseStripe.data
                         window.location.replace(session_url)
@@ -123,9 +163,8 @@ const PlaceOrder = () => {
 
                 case 'razorpay':
 
-                    const responseRazorpay = await axios.post(backendUrl + '/api/order/razorpay', orderData, { headers: { token } })
+                    const responseRazorpay = await axios.post(backendUrl + '/api/order/razorpay', orderData, { headers })
                     console.log("RAZORPAY Response:", responseRazorpay.data);
-
 
                     if (responseRazorpay.data.success) {
                         initPay(responseRazorpay.data.order)
@@ -146,6 +185,39 @@ const PlaceOrder = () => {
         }
     }
 
+    // Show checkout mode selector if not logged in
+    if (!isLoggedIn && checkoutMode === null) {
+        return (
+            <div className='border-t pt-14'>
+                <div className='text-center max-w-md mx-auto'>
+                    <Title text1={'CHECKOUT'} text2={'OPTIONS'} />
+                    <div className='space-y-6 mt-8'>
+                        <div className='bg-gray-50 p-6 rounded-lg'>
+                            <h3 className='text-lg font-semibold mb-3'>Continue as Guest</h3>
+                            <p className='text-gray-600 mb-4'>Quick checkout without creating an account</p>
+                            <button
+                                onClick={() => setCheckoutMode('guest')}
+                                className='w-full bg-orange-500 text-white py-3 px-6 rounded hover:bg-orange-600 transition-colors'
+                            >
+                                Continue as Guest
+                            </button>
+                        </div>
+                        
+                        <div className='bg-gray-50 p-6 rounded-lg'>
+                            <h3 className='text-lg font-semibold mb-3'>Login to Your Account</h3>
+                            <p className='text-gray-600 mb-4'>Access your account, order history, and saved addresses</p>
+                            <button
+                                onClick={() => navigate('/login')}
+                                className='w-full bg-black text-white py-3 px-6 rounded hover:bg-gray-800 transition-colors'
+                            >
+                                Login / Sign Up
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div>
@@ -154,9 +226,25 @@ const PlaceOrder = () => {
                 {/* ------------- Left Side ---------------- */}
                 <div className='flex flex-col gap-4 w-full sm:max-w-[480px]'>
 
-                    <div className='text-xl sm:text-2xl my-3'>
-                        <Title text1={'DELIVERY'} text2={'INFORMATION'} />
+                    {/* Checkout Mode Indicator */}
+                    <div className='flex items-center justify-between mb-4'>
+                        <div className='text-xl sm:text-2xl'>
+                            <Title text1={'DELIVERY'} text2={'INFORMATION'} />
+                        </div>
+                        {!isLoggedIn && (
+                            <div className='flex items-center gap-2 text-sm'>
+                                <span className='text-orange-500 font-medium'>Guest Checkout</span>
+                                <button
+                                    type="button"
+                                    onClick={() => navigate('/login')}
+                                    className='text-blue-500 hover:underline'
+                                >
+                                    Login instead?
+                                </button>
+                            </div>
+                        )}
                     </div>
+
                     <div className='flex gap-3'>
                         <input required onChange={onChangeHandler} name='firstName' value={formData.firstName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='First name' />
                         <input required onChange={onChangeHandler} name='lastName' value={formData.lastName} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Last name' />
@@ -172,6 +260,15 @@ const PlaceOrder = () => {
                         <input required onChange={onChangeHandler} name='country' value={formData.country} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="text" placeholder='Country' />
                     </div>
                     <input required onChange={onChangeHandler} name='phone' value={formData.phone} className='border border-gray-300 rounded py-1.5 px-3.5 w-full' type="number" placeholder='Phone' />
+                    
+                    {checkoutMode === 'guest' && (
+                        <div className='bg-blue-50 p-4 rounded-lg mt-4'>
+                            <p className='text-sm text-blue-700'>
+                                <strong>Guest Checkout:</strong> You'll receive order updates via email. 
+                                Consider creating an account for easier order tracking and faster future checkouts.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
                 {/* ------------- Right Side ------------------ */}
@@ -200,7 +297,9 @@ const PlaceOrder = () => {
                         </div>
 
                         <div className='w-full text-end mt-8'>
-                            <button type='submit' className='bg-black text-white px-16 py-3 text-sm'>PLACE ORDER</button>
+                            <button type='submit' className='bg-black text-white px-16 py-3 text-sm'>
+                                {checkoutMode === 'guest' ? 'PLACE ORDER AS GUEST' : 'PLACE ORDER'}
+                            </button>
                         </div>
                     </div>
                 </div>
