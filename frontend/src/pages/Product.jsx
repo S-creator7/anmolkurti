@@ -298,7 +298,7 @@ const Product = () => {
           
           <div className='flex gap-4 mb-6'>
             <button 
-              onClick={() => addToCart(productData._id, size)} 
+            onClick={() => addToCart(productData._id, productData.hasSize ? size : null)} 
               className='flex-1 bg-black text-white px-8 py-3 text-sm hover:bg-gray-800 transition-colors' 
               disabled={!inStock || !size}
             >
@@ -312,7 +312,19 @@ const Product = () => {
               BUY NOW
             </button>
           </div>
-          
+          {/* //--- */}
+          {/* <button 
+            onClick={() => {
+              addToCart(productData._id, productData.hasSize ? size : null);
+              navigate('/cart');
+            }} 
+            className='bg-black text-white mx-4 px-12 py-3 text-sm active:bg-gray-700' 
+            disabled={!inStock}
+          >
+            BUY NOW
+          </button> */}
+          {/* ///---- */}
+
           <hr className='mt-8 sm:w-4/5' />
           <div className='text-sm text-gray-500 mt-5 flex flex-col gap-1'>
               <p>100% Original product.</p>
