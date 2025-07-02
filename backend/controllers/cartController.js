@@ -4,15 +4,17 @@ import userModel from "../models/userModel.js"
 // add products to user cart
 const addToCart = async (req,res) => {
     try {
-        
+        console.log("Add to cart request body:", req.body);
         const { userId, itemId, size } = req.body
 
         if (!userId) {
+            console.log("User ID missing in add to cart request");
             return res.json({ success: false, message: "User ID is required" });
         }
 
         const userData = await userModel.findById(userId)
         if (!userData) {
+            console.log("User not found for ID:", userId);
             return res.status(404).json({ success: false, message: "User not found" })
         }
         let cartData = userData.cartData || {};

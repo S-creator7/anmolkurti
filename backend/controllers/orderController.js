@@ -435,7 +435,7 @@ const userOrders = async (req, res) => {
 }
 
 // Guest Order Tracking - New function for guests to track orders
-const guestOrderTracking = async (req, res) => {
+export const guestOrderTracking = async (req, res) => {
     try {
         const { email, phone } = req.body;
 

@@ -1,4 +1,4 @@
-import React from 'react';
+// import React from 'react';
 import Title from '../components/Title';
 
 const PrivacyPolicy = () => {
@@ -11,7 +11,7 @@ const PrivacyPolicy = () => {
       <div className='max-w-4xl mx-auto space-y-8 text-gray-700'>
         <div className='bg-gray-50 p-6 rounded-lg'>
           <p className='text-lg text-center'>
-            At Anmol Kurti's, we are committed to protecting your privacy and ensuring the security of your personal information. 
+            At Anmol Kurtis, we are committed to protecting your privacy and ensuring the security of your personal information. 
             This Privacy Policy explains how we collect, use, and safeguard your data when you visit our website or make a purchase.
           </p>
         </div>
@@ -112,7 +112,7 @@ const PrivacyPolicy = () => {
         </section>
 
         <section>
-          <h2 className='text-xl font-semibold mb-4 text-gray-900'>9. Children's Privacy</h2>
+          <h2 className='text-xl font-semibold mb-4 text-gray-900'>9. Childrens Privacy</h2>
           <p>Our services are not intended for children under 13 years of age. We do not knowingly collect personal information from children. If we discover that we have collected information from a child, we will delete it promptly.</p>
         </section>
 

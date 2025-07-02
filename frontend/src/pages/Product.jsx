@@ -1,4 +1,4 @@
-import React, { useContext, useEffect, useState } from 'react'
+import { useContext, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ShopContext } from '../context/ShopContext';
 import { useWishlist } from '../context/WishlistContext';
@@ -23,8 +23,6 @@ const Product = () => {
       setSize(''); // Clear size selection if product has no size
     }
   }, [productData.hasSize])
-  const [email, setEmail] = useState('');
-  const [showAlertForm, setShowAlertForm] = useState(false);
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const { subscribeStockAlert } = useContext(ShopContext);
@@ -45,16 +43,6 @@ const Product = () => {
     ? (size && cartItems[productId] && cartItems[productId][size] ? cartItems[productId][size] : 0)
     : (cartItems[productId] ? cartItems[productId].quantity || 0 : 0);
 
-  // Handle alert subscription
-  const handleStockAlert = async () => {
-    if (!email) {
-      toast.error("Please enter your email");
-      return;
-    }
-    await subscribeStockAlert(productData._id, email);
-    setShowAlertForm(false);
-  };
-
   // Handle wishlist toggle
   const handleWishlistToggle = async () => {
     if (isInWishlist(productData._id)) {
@@ -68,28 +56,6 @@ const Product = () => {
   const handleImageChange = (item, index) => {
     setImage(item);
     setImageIndex(index);
-  };
-
-  // Handle Buy Now - redirect to place order directly
-  const handleBuyNow = () => {
-    if (!size) {
-      toast.error('Please select a size');
-      return;
-    }
-    if (!inStock) {
-      toast.error('Product is out of stock');
-      return;
-    }
-    
-    // Add to cart and navigate to place order
-    addToCart(productData._id, size);
-    navigate('/place-order', { 
-      state: { 
-        directBuy: true, 
-        productId: productData._id, 
-        size 
-      } 
-    });
   };
 
   // Share functionality
@@ -297,20 +263,52 @@ const Product = () => {
           </div>
           
           <div className='flex gap-4 mb-6'>
-            <button 
-            onClick={() => addToCart(productData._id, productData.hasSize ? size : null)} 
-              className='flex-1 bg-black text-white px-8 py-3 text-sm hover:bg-gray-800 transition-colors' 
-              disabled={!inStock || !size}
-            >
-              ADD TO CART
-            </button>
-            <button 
-              onClick={handleBuyNow}
-              className='flex-1 bg-orange-500 text-white px-8 py-3 text-sm hover:bg-orange-600 transition-colors' 
-              disabled={!inStock || !size}
-            >
-              BUY NOW
-            </button>
+              <button 
+              onClick={async () => {
+                console.log("Add to cart button clicked");
+                try {
+                  await addToCart(productData._id, productData.hasSize ? size : null);
+                  toast.success("Product added to cart");
+                } catch (error) {
+                  console.error("Error adding to cart:", error);
+                  toast.error("Failed to add product to cart");
+                }
+              }} 
+                className='flex-1 bg-black text-white px-8 py-3 text-sm hover:bg-gray-800 transition-colors' 
+                disabled={!inStock || (productData.hasSize && !size)}
+              >
+                ADD TO CART
+              </button>
+              <button 
+                onClick={async () => {
+                  console.log("Buy now button clicked");
+                  if (!size && productData.hasSize) {
+                    toast.error("Please select a size");
+                    return;
+                  }
+                  if (!inStock) {
+                    toast.error("Product is out of stock");
+                    return;
+                  }
+                  try {
+                    await addToCart(productData._id, productData.hasSize ? size : null);
+                    navigate('/place-order', { 
+                      state: { 
+                        directBuy: true, 
+                        productId: productData._id, 
+                        size 
+                      } 
+                    });
+                  } catch (error) {
+                    console.error("Error in buy now:", error);
+                    toast.error("Failed to process buy now");
+                  }
+                }}
+                className='flex-1 bg-orange-500 text-white px-8 py-3 text-sm hover:bg-orange-600 transition-colors' 
+                disabled={!inStock || (productData.hasSize && !size)}
+              >
+                BUY NOW
+              </button>
           </div>
           {/* //--- */}
           {/* <button 
