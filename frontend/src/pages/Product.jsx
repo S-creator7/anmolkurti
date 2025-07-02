@@ -13,16 +13,31 @@ const Product = () => {
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('')
   const [size,setSize] = useState('')
+
+  useEffect(() => {
+    if (!productData.hasSize) {
+      setSize(''); // Clear size selection if product has no size
+    }
+  }, [productData.hasSize])
   const [email, setEmail] = useState('');
   const [showAlertForm, setShowAlertForm] = useState(false);
   const { subscribeStockAlert } = useContext(ShopContext);
-  //checking stock status 
+    //checking stock status 
     // Convert stock object to Map if needed
-    const stockMap = productData.stock instanceof Map ? productData.stock : new Map(Object.entries(productData.stock || {}));
-    const inStock = size ? (stockMap.get(size) || 0) > 0 : false;
+    const stockMap = productData.hasSize
+      ? (productData.stock instanceof Map ? productData.stock : new Map(Object.entries(productData.stock || {})))
+      : (typeof productData.stock === 'object' && productData.stock !== null && 'value' in productData.stock
+          ? new Map([['', productData.stock.value]])
+          : new Map());
+
+    const inStock = productData.hasSize
+      ? (size ? (stockMap.get(size) || 0) > 0 : false)
+      : (typeof productData.stock === 'number' ? productData.stock > 0 : (productData.stock && productData.stock.value > 0));
 
   // Get quantity of selected product and size in cart
-  const cartQuantity = size && cartItems[productId] && cartItems[productId][size] ? cartItems[productId][size] : 0;
+  const cartQuantity = productData.hasSize
+    ? (size && cartItems[productId] && cartItems[productId][size] ? cartItems[productId][size] : 0)
+    : (cartItems[productId] ? cartItems[productId].quantity || 0 : 0);
 
  // Handle alert subscription
   const handleStockAlert = async () => {
@@ -84,34 +99,47 @@ const Product = () => {
           <p className='mt-5 text-3xl font-medium'>{currency}{productData.price}</p>
           <p className='mt-5 text-gray-500 md:w-4/5'>{productData.description}</p>
           <div className='flex flex-col gap-4 my-8'>
-              <p>Select Size</p>
-              <div className='flex gap-2'>
-                {productData.sizes.map((item,index) => {
-                  const sizeStock = stockMap.get(item) || 0;
-                  return (
-                    <button 
-                      onClick={() => setSize(item)} 
-                      className={`border py-2 px-4 ${item === size ? 'border-orange-500' : ''} 
-                                 ${sizeStock === 0 ? 'bg-gray-200 text-gray-400 ' : 'bg-gray-100'}`} 
-                      key={index}
-                      disabled={sizeStock === 0}
-                    >
-                      {item} {sizeStock === 0 && '(Out of Stock)'}
-                    </button>
-                  )
-                })}
-              </div>
-              {!inStock && size && (
-                <div className="mt-4 text-red-600 font-semibold">
-                  Product is out of stock for selected size.
-                </div>
+              {productData.hasSize ? (
+                <>
+                  <p>Select Size</p>
+                  <div className='flex gap-2'>
+                    {productData.sizes.map((item,index) => {
+                      const sizeStock = stockMap.get(item) || 0;
+                      return (
+                        <button 
+                          onClick={() => setSize(item)} 
+                          className={`border py-2 px-4 ${item === size ? 'border-orange-500' : ''} 
+                                     ${sizeStock === 0 ? 'bg-gray-200 text-gray-400 ' : 'bg-gray-100'}`} 
+                          key={index}
+                          disabled={sizeStock === 0}
+                        >
+                          {item} {sizeStock === 0 && '(Out of Stock)'}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {!inStock && size && (
+                    <div className="mt-4 text-red-600 font-semibold">
+                      Product is out of stock for selected size.
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <p>Stock: {typeof productData.stock === 'number' ? productData.stock : 0}</p>
+                  {!inStock && (
+                    <div className="mt-4 text-red-600 font-semibold">
+                      Product is out of stock.
+                    </div>
+                  )}
+                </>
               )}
             </div>
           <div className="mb-4">
             <p>Quantity in Cart: {cartQuantity}</p>
           </div>
           <button 
-            onClick={() => addToCart(productData._id, size)} 
+            onClick={() => addToCart(productData._id, productData.hasSize ? size : null)} 
             className='bg-black text-white px-8 py-3 text-sm active:bg-gray-700' 
             disabled={!inStock}
           >
@@ -119,7 +147,7 @@ const Product = () => {
           </button>
           <button 
             onClick={() => {
-              addToCart(productData._id, size);
+              addToCart(productData._id, productData.hasSize ? size : null);
               navigate('/cart');
             }} 
             className='bg-black text-white mx-4 px-12 py-3 text-sm active:bg-gray-700' 

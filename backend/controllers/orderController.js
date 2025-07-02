@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
 import Stripe from 'stripe'
@@ -7,6 +10,7 @@ import shortid from "shortid";
 import tempOrderModel from "../models/tempOrderModel.js"
 import productModel from "../models/productModel.js";
 
+
 // global variables
 const currency = 'inr'
 const deliveryCharge = 10
@@ -15,8 +19,8 @@ const deliveryCharge = 10
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
 
 const razorpayInstance = new razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID,
-    key_secret: process.env.RAZORPAY_SECRET_KEY,
+    key_id: process.env.RAZORPAY_KEY_ID || '',
+    key_secret: process.env.RAZORPAY_SECRET_KEY || '',
 })
 
 // Placing orders using COD Method
@@ -347,14 +351,90 @@ async function updateStock(items) {
         const product = await productModel.findById(item.id);
         if (!product) continue;
 
-        // Update stock for each size/quantity
-        for (const [size, quantity] of Object.entries(item.sizes)) {
-            const currentStock = product.stock.get(size) || 0;
-            product.stock.set(size, Math.max(0, currentStock - quantity));
+        if (product.hasSize) {
+            // Update stock for each size/quantity
+            for (const [size, quantity] of Object.entries(item.sizes)) {
+                const currentStock = product.stock.get(size) || 0;
+                product.stock.set(size, Math.max(0, currentStock - quantity));
+            }
+        } else {
+            // For products without sizes, stock is a number
+            const quantity = item.quantity || 0;
+            const currentStock = typeof product.stock === 'number' ? product.stock : 0;
+            product.stock = Math.max(0, currentStock - quantity);
         }
 
         await product.save();
     }
 }
 
-export { verifyRazorpay, verifyStripe, placeOrder, placeOrderStripe, placeOrderRazorpay, allOrders, userOrders, updateStatus }
+// New helper function to validate stock availability before placing order
+async function validateStockAvailability(items) {
+    for (const item of items) {
+        const product = await productModel.findById(item.id);
+        if (!product) {
+            return { success: false, message: `Product with id ${item.id} not found` };
+        }
+
+        if (product.hasSize) {
+            for (const [size, quantity] of Object.entries(item.sizes)) {
+                const currentStock = product.stock.get(size) || 0;
+                if (quantity > currentStock) {
+                    return { success: false, message: `Insufficient stock for size ${size} of product ${product.name}` };
+                }
+            }
+        } else {
+            const quantity = item.quantity || 0;
+            const currentStock = typeof product.stock === 'number' ? product.stock : 0;
+            if (quantity > currentStock) {
+                return { success: false, message: `Insufficient stock for product ${product.name}` };
+            }
+        }
+    }
+    return { success: true };
+}
+
+import mongoose from 'mongoose';
+
+const getBestsellers = async (req, res) => {
+  try {
+    // Aggregate order items to count total quantity sold per product
+    const bestsellers = await orderModel.aggregate([
+      { $unwind: "$items" },
+      { $group: {
+          _id: "$items.id",
+          totalQuantity: { $sum: "$items.quantity" },
+          totalRevenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } }
+        }
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: "products",
+          localField: "_id",
+          foreignField: "_id",
+          as: "product"
+        }
+      },
+      { $unwind: "$product" },
+      {
+        $project: {
+          _id: 1,
+          totalQuantity: 1,
+          totalRevenue: 1,
+          productName: "$product.name",
+          category: "$product.category",
+          price: "$product.price",
+          image: { $arrayElemAt: ["$product.image", 0] }
+        }
+      }
+    ]);
+    res.json({ success: true, bestsellers });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export { verifyRazorpay, verifyStripe, placeOrder, placeOrderStripe, placeOrderRazorpay, allOrders, userOrders, updateStatus, getBestsellers }

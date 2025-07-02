@@ -5,19 +5,28 @@ const productSchema = new mongoose.Schema({
     description: { type: String, required: true },
     price: { type: Number, required: true },
     image: { type: Array, required: true },
-    category: { type: String, required: true },
-    subCategory: { type: String, required: true },
+    gender: { type: String, required: true, index: true },
+    category: { type: String, required: true, index: true },
+    subCategory: { type: String, required: true, index: true },
+    occasion: { type: [String], default: [], index: true },
+    type: { type: [String], default: [], index: true },
+    filterTags: { type: [String], default: [], index: true },
     sizes: { type: Array, required: true },
+    hasSize: { type: Boolean, required: true, default: true },
     bestseller: { type: Boolean },
     date: { type: Number, required: true },
-    //adding stock tracking per size  
-    stock: { 
-        type: Map,
-        of: Number,
+    // stock can be either a Map (for sizes) or a Number (for no sizes)
+    stock: {
+        type: mongoose.Schema.Types.Mixed,
+        required: true,
         default: {}
     },
-    //tracking subscribers for out of stock alets
-        stockAlerts: [String]
+    //tracking subscribers for out of stock alerts
+    stockAlerts: [String],
+    filters: {
+        type: Object,
+        default: {}
+    }
 
 })
 

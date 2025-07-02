@@ -1,14 +1,15 @@
 import express from 'express'
-import { listProducts, addProduct, removeProduct, singleProduct , addStockAlert } from '../controllers/productController.js'
-import upload from '../middleware/multer.js';
-import adminAuth from '../middleware/adminAuth.js';
+import {listProducts, addProduct, removeProduct, singleProduct, addStockAlert, getFilterValues, getBestsellerProducts} from '../controllers/productController.js'
+import adminAuth from '../middleware/adminAuth.js'
 
-const productRouter = express.Router();
+const productRouter = express.Router()
 
-productRouter.post('/add',adminAuth,upload.fields([{name:'image1',maxCount:1},{name:'image2',maxCount:1},{name:'image3',maxCount:1},{name:'image4',maxCount:1}]),addProduct);
-productRouter.post('/remove',adminAuth,removeProduct);
-productRouter.post('/single',singleProduct);
-productRouter.get('/list',listProducts)
-productRouter.get('/stock-alert',addStockAlert)
+productRouter.get('/list', listProducts)
+productRouter.post('/add', adminAuth, addProduct)
+productRouter.post('/remove', adminAuth, removeProduct)
+productRouter.post('/single', singleProduct)
+productRouter.post('/stockAlert', addStockAlert)
+productRouter.get('/filters', getFilterValues)
+productRouter.get('/bestsellers', getBestsellerProducts)
 
 export default productRouter

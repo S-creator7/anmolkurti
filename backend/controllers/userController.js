@@ -9,7 +9,7 @@ const createToken = (id) => {
 }
 
 // Route for user loginAccelerate 
-const loginUser = async (req, res) => {
+export const loginUser = async (req, res) => {
     try {
 
         const { email, password } = req.body;
@@ -39,7 +39,7 @@ const loginUser = async (req, res) => {
 }
 
 // Route for user register
-const registerUser = async (req, res) => {
+export const registerUser = async (req, res) => {
     try {
 
         const { name, email, password } = req.body;
@@ -80,8 +80,7 @@ const registerUser = async (req, res) => {
     }
 }
 
-// Route for admin login
-const adminLogin = async (req, res) => {
+export const adminLogin = async (req, res) => {
     try {
         
         const {email,password} = req.body
@@ -99,5 +98,13 @@ const adminLogin = async (req, res) => {
     }
 }
 
+export const getAllUsers = async (req, res) => {
+    try {
+        const users = await userModel.find({}, 'name email');
+        res.json({ success: true, users });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
 
-export { loginUser, registerUser, adminLogin }

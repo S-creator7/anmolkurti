@@ -7,6 +7,7 @@ import userRouter from './routes/userRoute.js'
 import productRouter from './routes/productRoute.js'
 import cartRouter from './routes/cartRoute.js'
 import orderRouter from './routes/orderRoute.js'
+import filterRouter from './routes/filterRoute.js'
 import dotenv from 'dotenv';
 import { checkStockAlerts } from "./services/stockAlertChecker.js";
 import cron from "node-cron";
@@ -16,15 +17,12 @@ dotenv.config();
 const app = express()
 const port = process.env.PORT || 4000
 
-
-
 connectDB()
 connectCloudinary()
 
 // middlewares
 app.use(express.json())
 app.use(cors())
-
 
 // Run every hour
 cron.schedule('0 * * * *', () => {
@@ -36,6 +34,7 @@ app.use('/api/user',userRouter)
 app.use('/api/product',productRouter)
 app.use('/api/cart',cartRouter)
 app.use('/api/order',orderRouter)
+app.use('/api/filter', filterRouter)
 
 app.get('/',(req,res)=>{
     res.send("API Working")
