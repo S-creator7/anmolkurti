@@ -8,6 +8,9 @@ import productRouter from './routes/productRoute.js'
 import cartRouter from './routes/cartRoute.js'
 import orderRouter from './routes/orderRoute.js'
 import filterRouter from './routes/filterRoute.js'
+import couponRouter from './routes/couponRoute.js'
+import wishlistRouter from './routes/wishlistRoute.js'
+import contactRouter from './routes/contactRoute.js'
 import dotenv from 'dotenv';
 import { checkStockAlerts } from "./services/stockAlertChecker.js";
 import cron from "node-cron";
@@ -35,6 +38,9 @@ app.use('/api/product',productRouter)
 app.use('/api/cart',cartRouter)
 app.use('/api/order',orderRouter)
 app.use('/api/filter', filterRouter)
+app.use('/api/coupon',couponRouter)
+app.use('/api/wishlist',wishlistRouter)
+app.use('/api/contact',contactRouter)
 
 app.get('/',(req,res)=>{
     res.send("API Working")

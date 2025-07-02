@@ -6,16 +6,37 @@ const tempOrderSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
+  // For registered users
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
+    required: false, // ✅ Now optional for guest checkout
+  },
+  // For guest users
+  isGuest: {
+    type: Boolean,
+    default: false,
+  },
+  guestInfo: {
+    email: {
+      type: String,
+      required: function() { return this.isGuest; }
+    },
+    phone: {
+      type: String,
+      required: function() { return this.isGuest; }
+    },
+    name: {
+      type: String,
+      required: function() { return this.isGuest; }
+    }
   },
   items: [
     {
       productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
       quantity: Number,
-      price: Number
+      price: Number,
+      size: String
     }
   ],
   address: {

@@ -28,23 +28,44 @@ const placeOrder = async (req, res) => {
 
     try {
 
-        const { userId, items, amount, address } = req.body;
+        const { userId, items, amount, address, isGuest, guestInfo } = req.body;
 
+        // Validate required fields based on user type
+        if (!isGuest && !userId) {
+            return res.status(400).json({ success: false, message: "User ID is required for registered users" });
+        }
+
+        if (isGuest && (!guestInfo || !guestInfo.email || !guestInfo.phone || !guestInfo.name)) {
+            return res.status(400).json({ success: false, message: "Guest information (name, email, phone) is required for guest checkout" });
+        }
+
+        // Create order data based on user type
         const orderData = {
-            userId,
             items,
             address,
             amount,
             paymentMethod: "COD",
             payment: false,
-            date: Date.now()
+            date: Date.now(),
+            isGuest: isGuest || false
+        };
+
+        if (isGuest) {
+            orderData.guestInfo = guestInfo;
+            orderData.orderType = 'guest';
+        } else {
+            orderData.userId = userId;
+            orderData.orderType = 'regular';
         }
 
         const newOrder = new orderModel(orderData)
         await newOrder.save()
         await updateStock(items); // Deduct stock
 
-        await userModel.findByIdAndUpdate(userId, { cartData: {} })
+        // Clear cart only for registered users (guests don't have persistent carts)
+        if (!isGuest && userId) {
+            await userModel.findByIdAndUpdate(userId, { cartData: {} })
+        }
 
         res.json({ success: true, message: "Order Placed" })
 
@@ -60,17 +81,35 @@ const placeOrder = async (req, res) => {
 const placeOrderStripe = async (req, res) => {
     try {
 
-        const { userId, items, amount, address } = req.body
+        const { userId, items, amount, address, isGuest, guestInfo } = req.body
         const { origin } = req.headers;
 
+        // Validate required fields based on user type
+        if (!isGuest && !userId) {
+            return res.status(400).json({ success: false, message: "User ID is required for registered users" });
+        }
+
+        if (isGuest && (!guestInfo || !guestInfo.email || !guestInfo.phone || !guestInfo.name)) {
+            return res.status(400).json({ success: false, message: "Guest information (name, email, phone) is required for guest checkout" });
+        }
+
+        // Create order data based on user type
         const orderData = {
-            userId,
             items,
             address,
             amount,
             paymentMethod: "Stripe",
             payment: false,
-            date: Date.now()
+            date: Date.now(),
+            isGuest: isGuest || false
+        };
+
+        if (isGuest) {
+            orderData.guestInfo = guestInfo;
+            orderData.orderType = 'guest';
+        } else {
+            orderData.userId = userId;
+            orderData.orderType = 'regular';
         }
 
         const newOrder = new orderModel(orderData)
@@ -120,9 +159,18 @@ const verifyStripe = async (req, res) => {
 
     try {
         if (success === "true") {
+            const order = await orderModel.findById(orderId);
+            if (!order) {
+                return res.json({ success: false, message: "Order not found" });
+            }
+
             await orderModel.findByIdAndUpdate(orderId, { payment: true });
-            await userModel.findByIdAndUpdate(userId, { cartData: {} })
-             const order = await orderModel.findById(orderId);
+            
+            // Clear cart only for registered users (guests don't have persistent carts)
+            if (!order.isGuest && userId) {
+                await userModel.findByIdAndUpdate(userId, { cartData: {} })
+            }
+            
             await updateStock(order.items); // Deduct stock
             res.json({ success: true });
         } else {
@@ -180,7 +228,16 @@ const verifyStripe = async (req, res) => {
 const placeOrderRazorpay = async (req, res) => {
     try {
         const payment_capture = 1;
-        const { userId, items, amount, address } = req.body;
+        const { userId, items, amount, address, isGuest, guestInfo } = req.body;
+
+        // Validate required fields based on user type
+        if (!isGuest && !userId) {
+            return res.status(400).json({ success: false, message: "User ID is required for registered users" });
+        }
+
+        if (isGuest && (!guestInfo || !guestInfo.email || !guestInfo.phone || !guestInfo.name)) {
+            return res.status(400).json({ success: false, message: "Guest information (name, email, phone) is required for guest checkout" });
+        }
 
         const options = {
             amount: amount * 100,
@@ -188,7 +245,9 @@ const placeOrderRazorpay = async (req, res) => {
             receipt: shortid.generate(),
             payment_capture,
             notes: {
-                userId,
+                userId: userId || 'guest',
+                isGuest: isGuest || false,
+                guestEmail: isGuest ? guestInfo.email : null,
                 address: JSON.stringify(address), // Keep notes simple
             },
         };
@@ -202,13 +261,21 @@ const placeOrderRazorpay = async (req, res) => {
         });
 
         // Store temporary order details in DB
-        await tempOrderModel.create({
+        const tempOrderData = {
             razorpayOrderId: order.id,
-            userId,
             items,
             address,
             amount,
-        });
+            isGuest: isGuest || false
+        };
+
+        if (isGuest) {
+            tempOrderData.guestInfo = guestInfo;
+        } else {
+            tempOrderData.userId = userId;
+        }
+
+        await tempOrderModel.create(tempOrderData);
 
         res.json({
             success: true,
@@ -254,19 +321,34 @@ const verifyRazorpay = async (req, res) => {
             return res.status(404).json({ success: false, message: "Order metadata not found" });
         }
 
-        const { userId, items, address, amount } = orderMeta;
+        const { userId, items, address, amount, isGuest, guestInfo } = orderMeta;
 
-        await orderModel.create({
-            userId,
+        // Create order data based on user type
+        const orderData = {
             items,
             address,
             amount,
             paymentMethod: "Razorpay",
             payment: true,
-            date: Date.now()
-        });
+            date: Date.now(),
+            isGuest: isGuest || false
+        };
 
-        await userModel.findByIdAndUpdate(userId, { cartData: {} });
+        if (isGuest) {
+            orderData.guestInfo = guestInfo;
+            orderData.orderType = 'guest';
+        } else {
+            orderData.userId = userId;
+            orderData.orderType = 'regular';
+        }
+
+        await orderModel.create(orderData);
+
+        // Clear cart only for registered users (guests don't have persistent carts)
+        if (!isGuest && userId) {
+            await userModel.findByIdAndUpdate(userId, { cartData: {} });
+        }
+        
         await updateStock(orderMeta.items); // Deduct stock
 
         res.json({ success: true, message: "Payment Successful" });
@@ -305,8 +387,30 @@ const allOrders = async (req, res) => {
 
     try {
 
-        const orders = await orderModel.find({})
-        res.json({ success: true, orders })
+        const orders = await orderModel.find({}).sort({ date: -1 })
+        
+        // Transform orders to include customer info for display
+        const transformedOrders = orders.map(order => {
+            const orderObj = order.toObject();
+            
+            if (order.isGuest) {
+                orderObj.customerInfo = {
+                    name: order.guestInfo.name,
+                    email: order.guestInfo.email,
+                    phone: order.guestInfo.phone,
+                    type: 'Guest'
+                };
+            } else {
+                orderObj.customerInfo = {
+                    userId: order.userId,
+                    type: 'Registered'
+                };
+            }
+            
+            return orderObj;
+        });
+
+        res.json({ success: true, orders: transformedOrders })
 
     } catch (error) {
         console.log(error)
@@ -315,13 +419,13 @@ const allOrders = async (req, res) => {
 
 }
 
-// User Order Data For Forntend
+// User Order Data For Frontend
 const userOrders = async (req, res) => {
     try {
 
         const { userId } = req.body
 
-        const orders = await orderModel.find({ userId })
+        const orders = await orderModel.find({ userId, isGuest: false })
         res.json({ success: true, orders })
 
     } catch (error) {
@@ -329,6 +433,38 @@ const userOrders = async (req, res) => {
         res.json({ success: false, message: error.message })
     }
 }
+
+// Guest Order Tracking - New function for guests to track orders
+const guestOrderTracking = async (req, res) => {
+    try {
+        const { email, phone } = req.body;
+
+        if (!email && !phone) {
+            return res.json({ success: false, message: "Email or phone number is required" });
+        }
+
+        const query = { 
+            isGuest: true,
+            $or: []
+        };
+
+        if (email) {
+            query.$or.push({ 'guestInfo.email': email });
+        }
+        
+        if (phone) {
+            query.$or.push({ 'guestInfo.phone': phone });
+        }
+
+        const orders = await orderModel.find(query).sort({ date: -1 });
+        
+        res.json({ success: true, orders });
+
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
 
 // update order status from Admin Panel
 const updateStatus = async (req, res) => {

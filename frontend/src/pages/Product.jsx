@@ -1,17 +1,21 @@
 import React, { useContext, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ShopContext } from '../context/ShopContext';
+import { useWishlist } from '../context/WishlistContext';
 import { assets } from '../assets/assets';
 import RelatedProducts from '../components/RelatedProducts';
 import ScrollToTop from "../components/scrollToTop";
+import { toast } from 'react-toastify';
 
 const Product = () => {
 
   const { productId } = useParams();
   const navigate = useNavigate();
   const { products, currency ,addToCart, cartItems } = useContext(ShopContext);
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('')
+  const [imageIndex, setImageIndex] = useState(0);
   const [size,setSize] = useState('')
 
   useEffect(() => {
@@ -21,6 +25,8 @@ const Product = () => {
   }, [productData.hasSize])
   const [email, setEmail] = useState('');
   const [showAlertForm, setShowAlertForm] = useState(false);
+  const [showFullDescription, setShowFullDescription] = useState(false);
+  const [showShareMenu, setShowShareMenu] = useState(false);
   const { subscribeStockAlert } = useContext(ShopContext);
     //checking stock status 
     // Convert stock object to Map if needed
@@ -39,7 +45,7 @@ const Product = () => {
     ? (size && cartItems[productId] && cartItems[productId][size] ? cartItems[productId][size] : 0)
     : (cartItems[productId] ? cartItems[productId].quantity || 0 : 0);
 
- // Handle alert subscription
+  // Handle alert subscription
   const handleStockAlert = async () => {
     if (!email) {
       toast.error("Please enter your email");
@@ -49,16 +55,81 @@ const Product = () => {
     setShowAlertForm(false);
   };
 
-  const fetchProductData = async () => {
+  // Handle wishlist toggle
+  const handleWishlistToggle = async () => {
+    if (isInWishlist(productData._id)) {
+      await removeFromWishlist(productData._id);
+    } else {
+      await addToWishlist(productData._id);
+    }
+  };
 
+  // Handle image change
+  const handleImageChange = (item, index) => {
+    setImage(item);
+    setImageIndex(index);
+  };
+
+  // Handle Buy Now - redirect to place order directly
+  const handleBuyNow = () => {
+    if (!size) {
+      toast.error('Please select a size');
+      return;
+    }
+    if (!inStock) {
+      toast.error('Product is out of stock');
+      return;
+    }
+    
+    // Add to cart and navigate to place order
+    addToCart(productData._id, size);
+    navigate('/place-order', { 
+      state: { 
+        directBuy: true, 
+        productId: productData._id, 
+        size 
+      } 
+    });
+  };
+
+  // Share functionality
+  const handleShare = (platform) => {
+    const url = window.location.href;
+    const text = `Check out this amazing ${productData.name}!`;
+    
+    let shareUrl = '';
+    switch (platform) {
+      case 'whatsapp':
+        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + ' ' + url)}`;
+        break;
+      case 'facebook':
+        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+        break;
+      case 'twitter':
+        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+        break;
+      case 'copy':
+        navigator.clipboard.writeText(url);
+        toast.success('Link copied to clipboard!');
+        setShowShareMenu(false);
+        return;
+      default:
+        return;
+    }
+    
+    window.open(shareUrl, '_blank');
+    setShowShareMenu(false);
+  };
+
+  const fetchProductData = async () => {
     products.map((item) => {
       if (item._id === productId) {
         setProductData(item)
         setImage(item.image[0])
+        setImageIndex(0)
         return null;
       }
     })
-
   }
 
   useEffect(() => {
@@ -76,18 +147,91 @@ const Product = () => {
           <div className='flex sm:flex-col overflow-x-auto sm:overflow-y-scroll justify-between sm:justify-normal sm:w-[18.7%] w-full'>
               {
                 productData.image.map((item,index)=>(
-                  <img onClick={()=>setImage(item)} src={item} key={index} className='w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer' alt="" />
+                  <img 
+                    onClick={() => handleImageChange(item, index)} 
+                    src={item} 
+                    key={index} 
+                    className={`w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer border-2 ${
+                      index === imageIndex ? 'border-orange-500' : 'border-transparent'
+                    } hover:border-orange-300 transition-colors`}
+                    alt="" 
+                  />
                 ))
               }
           </div>
-          <div className='w-full sm:w-[80%]'>
+          <div className='w-full sm:w-[80%] relative group'>
               <img className='w-full h-auto' src={image} alt="" />
+              
+              {/* Dot navigation overlay on hover */}
+              <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
+                <div className='flex space-x-2'>
+                  {productData.image.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleImageChange(productData.image[index], index)}
+                      className={`w-3 h-3 rounded-full transition-all duration-200 ${
+                        index === imageIndex 
+                          ? 'bg-orange-500 scale-125' 
+                          : 'bg-white bg-opacity-60 hover:bg-opacity-80'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+              
+              {/* Share button */}
+              <div className='absolute top-4 right-4'>
+                <div className='relative'>
+                  <button
+                    onClick={() => setShowShareMenu(!showShareMenu)}
+                    className='bg-white bg-opacity-80 hover:bg-opacity-100 p-2 rounded-full shadow-md transition-all duration-200'
+                    title='Share product'
+                  >
+                    <svg className='w-5 h-5 text-gray-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z' />
+                    </svg>
+                  </button>
+                  
+                  {showShareMenu && (
+                    <div className='absolute top-full right-0 mt-2 bg-white rounded-lg shadow-lg border py-2 min-w-[150px] z-10'>
+                      <button onClick={() => handleShare('whatsapp')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
+                        <span className='text-green-500'>📱</span> WhatsApp
+                      </button>
+                      <button onClick={() => handleShare('facebook')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
+                        <span className='text-blue-500'>📘</span> Facebook
+                      </button>
+                      <button onClick={() => handleShare('twitter')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
+                        <span className='text-blue-400'>🐦</span> Twitter
+                      </button>
+                      <button onClick={() => handleShare('copy')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
+                        <span className='text-gray-500'>📋</span> Copy Link
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
           </div>
         </div>
 
         {/* -------- Product Info ---------- */}
         <div className='flex-1'>
-          <h1 className='font-medium text-2xl mt-2'>{productData.name}</h1>
+          <div className='flex justify-between items-start mb-4'>
+            <h1 className='font-medium text-2xl mt-2'>{productData.name}</h1>
+            <button
+              onClick={handleWishlistToggle}
+              className={`p-2 rounded-full transition-all duration-200 ${
+                isInWishlist(productData._id)
+                  ? 'text-red-500 bg-red-50 hover:bg-red-100'
+                  : 'text-gray-400 bg-gray-50 hover:bg-gray-100 hover:text-red-500'
+              }`}
+              title={isInWishlist(productData._id) ? 'Remove from wishlist' : 'Add to wishlist'}
+            >
+              <svg className='w-6 h-6' fill={isInWishlist(productData._id) ? 'currentColor' : 'none'} stroke='currentColor' viewBox='0 0 24 24'>
+                <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' />
+              </svg>
+            </button>
+          </div>
+          
           <div className=' flex items-center gap-1 mt-2'>
               <img src={assets.star_icon} alt="" className="w-3 5" />
               <img src={assets.star_icon} alt="" className="w-3 5" />
@@ -97,7 +241,20 @@ const Product = () => {
               <p className='pl-2'>(122)</p>
           </div>
           <p className='mt-5 text-3xl font-medium'>{currency}{productData.price}</p>
-          <p className='mt-5 text-gray-500 md:w-4/5'>{productData.description}</p>
+          
+          {/* Expandable Description */}
+          <div className='mt-5'>
+            <p className={`text-gray-500 md:w-4/5 transition-all duration-300 ${showFullDescription ? '' : 'line-clamp-3'}`}>
+              {productData.description}
+            </p>
+            <button
+              onClick={() => setShowFullDescription(!showFullDescription)}
+              className='text-orange-500 hover:text-orange-600 text-sm mt-2 font-medium'
+            >
+              {showFullDescription ? 'Show Less' : 'Read More'}
+            </button>
+          </div>
+          
           <div className='flex flex-col gap-4 my-8'>
               {productData.hasSize ? (
                 <>
@@ -138,23 +295,24 @@ const Product = () => {
           <div className="mb-4">
             <p>Quantity in Cart: {cartQuantity}</p>
           </div>
-          <button 
-            onClick={() => addToCart(productData._id, productData.hasSize ? size : null)} 
-            className='bg-black text-white px-8 py-3 text-sm active:bg-gray-700' 
-            disabled={!inStock}
-          >
-            ADD TO CART
-          </button>
-          <button 
-            onClick={() => {
-              addToCart(productData._id, productData.hasSize ? size : null);
-              navigate('/cart');
-            }} 
-            className='bg-black text-white mx-4 px-12 py-3 text-sm active:bg-gray-700' 
-            disabled={!inStock}
-          >
-            BUY NOW
-          </button>
+          
+          <div className='flex gap-4 mb-6'>
+            <button 
+              onClick={() => addToCart(productData._id, size)} 
+              className='flex-1 bg-black text-white px-8 py-3 text-sm hover:bg-gray-800 transition-colors' 
+              disabled={!inStock || !size}
+            >
+              ADD TO CART
+            </button>
+            <button 
+              onClick={handleBuyNow}
+              className='flex-1 bg-orange-500 text-white px-8 py-3 text-sm hover:bg-orange-600 transition-colors' 
+              disabled={!inStock || !size}
+            >
+              BUY NOW
+            </button>
+          </div>
+          
           <hr className='mt-8 sm:w-4/5' />
           <div className='text-sm text-gray-500 mt-5 flex flex-col gap-1'>
               <p>100% Original product.</p>
@@ -177,7 +335,6 @@ const Product = () => {
       </div>
 
       {/* --------- display related products ---------- */}
-
       <RelatedProducts category={productData.category} subCategory={productData.subCategory} />
 
     </div>

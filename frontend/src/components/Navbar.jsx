@@ -2,12 +2,14 @@ import React, { useContext, useState } from 'react'
 import {assets} from '../assets/assets'
 import { Link, NavLink } from 'react-router-dom'
 import { ShopContext } from '../context/ShopContext';
+import { useWishlist } from '../context/WishlistContext';
 
 const Navbar = () => {
 
     const [visible,setVisible] = useState(false);
 
     const {setShowSearch , getCartCount , navigate, token, setToken, setCartItems} = useContext(ShopContext);
+    const { getWishlistCount } = useWishlist();
 
     const logout = () => {
         navigate('/login')
@@ -53,10 +55,24 @@ const Navbar = () => {
                     <div className='flex flex-col gap-2 w-36 py-3 px-5  bg-slate-100 text-gray-500 rounded'>
                         <p className='cursor-pointer hover:text-black'>My Profile</p>
                         <p onClick={()=>navigate('/orders')} className='cursor-pointer hover:text-black'>Orders</p>
+                        <p onClick={()=>navigate('/wishlist')} className='cursor-pointer hover:text-black'>Wishlist</p>
                         <p onClick={logout} className='cursor-pointer hover:text-black'>Logout</p>
                     </div>
                 </div>}
-            </div> 
+            </div>
+
+            {/* Wishlist Icon */}
+            <Link to='/wishlist' className='relative' title="Wishlist">
+                <svg className='w-5 h-5 text-gray-700 hover:text-red-500 transition-colors' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z' />
+                </svg>
+                {getWishlistCount() > 0 && (
+                    <p className='absolute right-[-5px] bottom-[-5px] w-4 text-center leading-4 bg-red-500 text-white aspect-square rounded-full text-[8px]'>
+                        {getWishlistCount()}
+                    </p>
+                )}
+            </Link>
+            
             <Link to='/cart' className='relative'>
                 <img src={assets.cart_icon} className='w-5 min-w-5' alt="" />
                 <p className='absolute right-[-5px] bottom-[-5px] w-4 text-center leading-4 bg-black text-white aspect-square rounded-full text-[8px]'>{getCartCount()}</p>
@@ -75,6 +91,12 @@ const Navbar = () => {
                     <NavLink onClick={()=>setVisible(false)} className='py-2 pl-6 border' to='/collection'>COLLECTION</NavLink>
                     <NavLink onClick={()=>setVisible(false)} className='py-2 pl-6 border' to='/about'>ABOUT</NavLink>
                     <NavLink onClick={()=>setVisible(false)} className='py-2 pl-6 border' to='/contact'>CONTACT</NavLink>
+                    {token && (
+                        <>
+                            <NavLink onClick={()=>setVisible(false)} className='py-2 pl-6 border' to='/wishlist'>WISHLIST</NavLink>
+                            <NavLink onClick={()=>setVisible(false)} className='py-2 pl-6 border' to='/orders'>ORDERS</NavLink>
+                        </>
+                    )}
                 </div>
         </div>
 
