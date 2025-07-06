@@ -9,8 +9,11 @@ import { assets } from '../assets/assets'
 const Orders = ({ token }) => {
 
   const [orders, setOrders] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const limit = 10
 
-  const fetchAllOrders = async () => {
+  const fetchAllOrders = async (page = 1) => {
 
     if (!token) {
       return null;
@@ -18,9 +21,11 @@ const Orders = ({ token }) => {
 
     try {
 
-      const response = await axios.post(backendUrl + '/api/order/list', {}, { headers: { token } })
+      const response = await axios.post(backendUrl + '/api/order/list', { page, limit }, { headers: { token } })
       if (response.data.success) {
         setOrders(response.data.orders.reverse())
+        setCurrentPage(response.data.currentPage)
+        setTotalPages(response.data.totalPages)
       } else {
         toast.error(response.data.message)
       }
@@ -36,7 +41,7 @@ const Orders = ({ token }) => {
     try {
       const response = await axios.post(backendUrl + '/api/order/status' , {orderId, status:event.target.value}, { headers: {token}})
       if (response.data.success) {
-        await fetchAllOrders()
+        await fetchAllOrders(currentPage)
       }
     } catch (error) {
       console.log(error)
@@ -45,8 +50,14 @@ const Orders = ({ token }) => {
   }
 
   useEffect(() => {
-    fetchAllOrders();
-  }, [token])
+    fetchAllOrders(currentPage);
+  }, [token, currentPage])
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+    }
+  }
 
   return (
     <div>
@@ -92,8 +103,25 @@ const Orders = ({ token }) => {
           ))
         }
       </div>
+      <div className="mt-4 flex justify-center items-center gap-4">
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 border rounded disabled:opacity-50"
+        >
+          Previous
+        </button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 border rounded disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
     </div>
   )
 }
 
-export default Orders
+export default Orders;

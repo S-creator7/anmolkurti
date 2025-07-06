@@ -92,47 +92,75 @@ const deleteFilter = async (req, res) => {
 import productModel from "../models/productModel.js";
 const getDynamicFilters = async (req, res) => {
   try {
-    const { category } = req.query; // Add category parameter
+    // Extract all filter query params
+    const { gender, category, subCategory, occasion, type, filterTags } = req.query;
 
-    // Build match object if category is specified
-    const match = category ? { category } : {};
-    
+    // Build match object based on provided filters
+    const match = {};
+
+    if (gender) match.gender = { $in: gender.split(',') };
+    if (category) match.category = { $in: category.split(',') };
+    if (subCategory) match.subCategory = { $in: subCategory.split(',') };
+    if (occasion) match.occasion = { $in: occasion.split(',') };
+    if (type) match.type = { $in: type.split(',') };
+    if (filterTags) match.filterTags = { $in: filterTags.split(',') };
+
+    console.log("Match filter:", match);
+
+    // If no filters provided, fetch without match filter
+    const filterForDistinct = Object.keys(match).length > 0 ? match : {};
+
     const [
       genders,
-      categories,
+      categoriesRaw,
       occasions,
       types,
-      filterTags,
+      filterTagsArr,
     ] = await Promise.all([
-      productModel.distinct("gender", match),
-      productModel.distinct("category", match),
-      productModel.distinct("occasion", match),
-      productModel.distinct("type", match),
-      productModel.distinct("filterTags", match),
+      productModel.distinct("gender", filterForDistinct),
+      productModel.distinct("category", filterForDistinct),
+      productModel.distinct("occasion", filterForDistinct),
+      productModel.distinct("type", filterForDistinct),
+      productModel.distinct("filterTags", filterForDistinct),
     ]);
+
+    // Exclude gender values from categories
+    const genderValues = ['men', 'women', 'children'];
+    const categories = categoriesRaw.filter(cat => !genderValues.includes(cat.toLowerCase().trim()));
 
     // For each category, get distinct subCategories
     const subCategoryMap = {};
+
+    // Build category match filter based on gender filter if present
+    let categoryMatch = {};
+    if (match.gender) {
+      categoryMatch.gender = match.gender;
+    }
+
     for (const cat of categories) {
-      const subCats = await productModel.distinct("subCategory", { category: cat });
+      // Apply category and gender filter when fetching subCategories
+      const subCats = await productModel.distinct("subCategory", { category: cat, ...categoryMatch });
       subCategoryMap[cat.toLowerCase().trim()] = subCats.map(subCat => subCat.toLowerCase().trim());
     }
 
     // Flatten and normalize arrays
- const flattenAndNormalize = (arr) => {
-  return [...new Set(
-    arr.flat().filter(v => v && v.trim() !== '').map(v => v.toLowerCase().trim())
-  )];
-};
+    const flattenAndNormalize = (arr) => {
+      return [...new Set(
+        arr.flat().filter(v => v && v.trim() !== '').map(v => v.toLowerCase().trim())
+      )];
+    };
+
     res.json({
       success: true,
       filters: {
         gender: genders.map(g => g.toLowerCase().trim()),
         category: categories.map(c => c.toLowerCase().trim()),
-        subCategoryMap,
+        subCategoryMap: Object.fromEntries(
+          Object.entries(subCategoryMap).map(([k, v]) => [k, v.map(s => s.toLowerCase().trim())])
+        ),
         occasion: flattenAndNormalize(occasions),
         type: flattenAndNormalize(types),
-        filterTags: flattenAndNormalize(filterTags),
+        filterTags: flattenAndNormalize(filterTagsArr),
       },
     });
   } catch (error) {

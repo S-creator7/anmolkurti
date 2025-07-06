@@ -19,6 +19,9 @@ const Cart = () => {
 
   useEffect(() => {
 
+    console.log("Cart.jsx - cartItems:", cartItems);
+    console.log("Cart.jsx - products:", products);
+
     if (products.length > 0) {
       const tempData = [];
       for (const items in cartItems) {
@@ -32,6 +35,7 @@ const Cart = () => {
           }
         }
       }
+      console.log("Cart.jsx - cartData:", tempData);
       setCartData(tempData);
     }
   }, [cartItems, products])
@@ -68,10 +72,14 @@ const Cart = () => {
       ) : (
         <>
           <div>
-            {
+              {
               cartData.map((item, index) => {
 
                 const productData = products.find((product) => product._id === item._id);
+
+                if (!productData) {
+                  return null; // Skip rendering if product data is missing
+                }
 
                 return (
                   <div key={`${item._id}-${item.size}`} className='py-4 border-t border-b text-gray-700 grid grid-cols-[4fr_0.5fr_0.5fr] sm:grid-cols-[4fr_2fr_0.5fr] items-center gap-4'>

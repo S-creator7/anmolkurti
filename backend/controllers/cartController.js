@@ -1,4 +1,5 @@
 import userModel from "../models/userModel.js"
+import productModel from "../models/productModel.js"
 
 
 // add products to user cart
@@ -17,7 +18,39 @@ const addToCart = async (req,res) => {
             console.log("User not found for ID:", userId);
             return res.status(404).json({ success: false, message: "User not found" })
         }
+
+        // Fetch product to check stock
+        const product = await productModel.findById(itemId)
+        if (!product) {
+            console.log("Product not found for ID:", itemId);
+            return res.status(404).json({ success: false, message: "Product not found" })
+        }
+
         let cartData = userData.cartData || {};
+        let currentQuantity = 0;
+        if (cartData[itemId] && cartData[itemId][size]) {
+            currentQuantity = cartData[itemId][size];
+        }
+
+        // Determine available stock for the size
+        let availableStock = 0;
+        if (product.hasSize) {
+            if (product.stock && product.stock[size] !== undefined) {
+                availableStock = product.stock[size];
+            } else {
+                availableStock = 0;
+            }
+        } else {
+            if (typeof product.stock === 'number') {
+                availableStock = product.stock;
+            } else {
+                availableStock = 0;
+            }
+        }
+
+        if (currentQuantity + 1 > availableStock) {
+            return res.json({ success: false, message: "Cannot add more than available stock" });
+        }
 
         if (cartData[itemId]) {
             if (cartData[itemId][size]) {

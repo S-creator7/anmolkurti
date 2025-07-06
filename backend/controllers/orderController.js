@@ -138,8 +138,8 @@ const placeOrderStripe = async (req, res) => {
         })
 
         const session = await stripe.checkout.sessions.create({
-            success_url: `${origin}/verify?success=true&orderId=${newOrder._id}`,
-            cancel_url: `${origin}/verify?success=false&orderId=${newOrder._id}`,
+            success_url: origin + '/verify?success=true&orderId=' + newOrder._id.toString(),
+            cancel_url: origin + '/verify?success=false&orderId=' + newOrder._id.toString(),
             line_items,
             mode: 'payment',
         })
@@ -382,42 +382,53 @@ const verifyRazorpay = async (req, res) => {
 // }
 
 
-// All Orders data for Admin Panel
-const allOrders = async (req, res) => {
+const listOrdersPaginated = async (req, res) => {
+  try {
+    let { page = 1, limit = 10 } = req.body;
+    page = parseInt(page);
+    limit = parseInt(limit);
 
-    try {
+    const total = await orderModel.countDocuments();
 
-        const orders = await orderModel.find({}).sort({ date: -1 })
-        
-        // Transform orders to include customer info for display
-        const transformedOrders = orders.map(order => {
-            const orderObj = order.toObject();
-            
-            if (order.isGuest) {
-                orderObj.customerInfo = {
-                    name: order.guestInfo.name,
-                    email: order.guestInfo.email,
-                    phone: order.guestInfo.phone,
-                    type: 'Guest'
-                };
-            } else {
-                orderObj.customerInfo = {
-                    userId: order.userId,
-                    type: 'Registered'
-                };
-            }
-            
-            return orderObj;
-        });
+    const orders = await orderModel.find({})
+      .sort({ date: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
 
-        res.json({ success: true, orders: transformedOrders })
+    // Transform orders to include customer info for display
+    const transformedOrders = orders.map(order => {
+      const orderObj = order.toObject();
 
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
+      if (order.isGuest) {
+        orderObj.customerInfo = {
+          name: order.guestInfo.name,
+          email: order.guestInfo.email,
+          phone: order.guestInfo.phone,
+          type: 'Guest'
+        };
+      } else {
+        orderObj.customerInfo = {
+          userId: order.userId,
+          type: 'Registered'
+        };
+      }
 
-}
+      return orderObj;
+    });
+
+    res.json({
+      success: true,
+      orders: transformedOrders,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      totalOrders: total
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
 // User Order Data For Frontend
 const userOrders = async (req, res) => {
@@ -509,21 +520,21 @@ async function validateStockAvailability(items) {
     for (const item of items) {
         const product = await productModel.findById(item.id);
         if (!product) {
-            return { success: false, message: `Product with id ${item.id} not found` };
+            return { success: false, message: "Product with id " + item.id + " not found" };
         }
 
         if (product.hasSize) {
             for (const [size, quantity] of Object.entries(item.sizes)) {
                 const currentStock = product.stock.get(size) || 0;
                 if (quantity > currentStock) {
-                    return { success: false, message: `Insufficient stock for size ${size} of product ${product.name}` };
+                    return { success: false, message: "Insufficient stock for size " + size + " of product " + product.name };
                 }
             }
         } else {
             const quantity = item.quantity || 0;
             const currentStock = typeof product.stock === 'number' ? product.stock : 0;
             if (quantity > currentStock) {
-                return { success: false, message: `Insufficient stock for product ${product.name}` };
+                return { success: false, message: "Insufficient stock for product " + product.name };
             }
         }
     }
@@ -573,4 +584,28 @@ const getBestsellers = async (req, res) => {
   }
 };
 
-export { verifyRazorpay, verifyStripe, placeOrder, placeOrderStripe, placeOrderRazorpay, allOrders, userOrders, updateStatus, getBestsellers }
+const getDashboardMetrics = async (req, res) => {
+  try {
+    const totalOrders = await orderModel.countDocuments();
+    const totalSalesAgg = await orderModel.aggregate([
+      {
+        $group: {
+          _id: null,
+          totalSales: { $sum: "$amount" }
+        }
+      }
+    ]);
+    const totalSales = totalSalesAgg.length > 0 ? totalSalesAgg[0].totalSales : 0;
+
+    res.json({
+      success: true,
+      totalOrders,
+      totalSales
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export { verifyRazorpay, verifyStripe, placeOrder, placeOrderStripe, placeOrderRazorpay, listOrdersPaginated, userOrders, updateStatus, getBestsellers, getDashboardMetrics }

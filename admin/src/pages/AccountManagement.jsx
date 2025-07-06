@@ -12,6 +12,8 @@ const AccountManagement = ({ token }) => {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingBestsellers, setLoadingBestsellers] = useState(false);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [totalSales, setTotalSales] = useState(0);
+  const [totalOrders, setTotalOrders] = useState(0);
 
   const fetchOrders = async () => {
     setLoadingOrders(true);
@@ -34,13 +36,13 @@ const AccountManagement = ({ token }) => {
   const fetchProducts = async () => {
     setLoadingProducts(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/product/list`, {
+      const response = await axios.get(`${backendUrl}/api/product/low-stock`, {
         headers: { token }
       });
       if (response.data.success) {
         setProducts(response.data.products);
       } else {
-        toast.error('Failed to fetch products');
+        toast.error('Failed to fetch low stock products');
       }
     } catch (error) {
       toast.error(error.message);
@@ -93,18 +95,33 @@ const AccountManagement = ({ token }) => {
     }
   };
 
+  const fetchDashboardMetrics = async () => {
+    try {
+      const response = await axios.get(`${backendUrl}/api/order/dashboard-metrics`, {
+        headers: { token }
+      });
+      if (response.data.success) {
+        setTotalSales(response.data.totalSales);
+        setTotalOrders(response.data.totalOrders);
+      } else {
+        toast.error('Failed to fetch dashboard metrics');
+      }
+    } catch (error) {
+      toast.error(error.message);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
     fetchProducts();
     fetchBestsellers();
     fetchCustomers();
+    fetchDashboardMetrics();
   }, []);
 
-  // Calculate total sales amount
-  const totalSales = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
-
-  // Count total orders
-  const totalOrders = orders.length;
+  // Remove calculation of totalSales and totalOrders from orders state
+  // const totalSales = orders.reduce((sum, order) => sum + (order.amount || 0), 0);
+  // const totalOrders = orders.length;
 
   // Identify low stock products (stock less than threshold, e.g., 5)
   const lowStockThreshold = 5;
@@ -252,6 +269,3 @@ const AccountManagement = ({ token }) => {
 };
 
 export default AccountManagement;
-
-
-

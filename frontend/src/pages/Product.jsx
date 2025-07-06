@@ -1,3 +1,4 @@
+
 import { useContext, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ShopContext } from '../context/ShopContext';
@@ -11,7 +12,7 @@ const Product = () => {
 
   const { productId } = useParams();
   const navigate = useNavigate();
-  const { products, currency ,addToCart, cartItems } = useContext(ShopContext);
+  const { products, currency ,addToCart, cartItems, setProducts } = useContext(ShopContext);
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('')
@@ -25,7 +26,6 @@ const Product = () => {
   }, [productData.hasSize])
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
-  const { subscribeStockAlert } = useContext(ShopContext);
     //checking stock status 
     // Convert stock object to Map if needed
     const stockMap = productData.hasSize
@@ -88,16 +88,37 @@ const Product = () => {
   };
 
   const fetchProductData = async () => {
-    products.map((item) => {
+    let found = false;
+    products.forEach((item) => {
       if (item._id === productId) {
         setProductData(item)
         setImage(item.image[0])
         setImageIndex(0)
-        return null;
+        found = true;
       }
-    })
+    });
+    if (!found) {
+      try {
+        const response = await fetch('/api/product/single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId }),
+        });
+        const data = await response.json();
+        if (data.success) {
+        setProductData(data.product);
+        setImage(data.product.image[0]);
+        setImageIndex(0);
+        // Update products state in ShopContext to include this product if not already present
+        if (!products.find(p => p._id === data.product._id)) {
+          setProducts(prevProducts => [...prevProducts, data.product]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching product data:", error);
+    }
   }
-
+}; // 
   useEffect(() => {
     fetchProductData();
   }, [productId,products])
@@ -266,9 +287,15 @@ const Product = () => {
               <button 
               onClick={async () => {
                 console.log("Add to cart button clicked");
+                console.log("productData:", productData);
+                console.log("products state:", products);
                 try {
-                  await addToCart(productData._id, productData.hasSize ? size : null);
-                  toast.success("Product added to cart");
+                  const success = await addToCart(productData, productData.hasSize ? size : null);
+                  if (success) {
+                    toast.success("Product added to cart");
+                  } else {
+                    toast.error("Cannot add product to cart");
+                  }
                 } catch (error) {
                   console.error("Error adding to cart:", error);
                   toast.error("Failed to add product to cart");
@@ -282,6 +309,8 @@ const Product = () => {
               <button 
                 onClick={async () => {
                   console.log("Buy now button clicked");
+                  console.log("productData:", productData);
+                  console.log("products state:", products);
                   if (!size && productData.hasSize) {
                     toast.error("Please select a size");
                     return;
@@ -290,8 +319,9 @@ const Product = () => {
                     toast.error("Product is out of stock");
                     return;
                   }
-                  try {
-                    await addToCart(productData._id, productData.hasSize ? size : null);
+                  // Check if product is already in cart
+                  if (cartQuantity > 0) {
+                    console.log("Product already in cart, navigating to place order without adding again");
                     navigate('/place-order', { 
                       state: { 
                         directBuy: true, 
@@ -299,6 +329,22 @@ const Product = () => {
                         size 
                       } 
                     });
+                    return;
+                  }
+                  try {
+                    const success = await addToCart(productData, productData.hasSize ? size : null);
+                    if (success) {
+                      console.log("Product added to cart successfully, navigating to place order");
+                      navigate('/place-order', { 
+                        state: { 
+                          directBuy: true, 
+                          productId: productData._id, 
+                          size 
+                        } 
+                      });
+                    } else {
+                      toast.error("Failed to add product to cart");
+                    }
                   } catch (error) {
                     console.error("Error in buy now:", error);
                     toast.error("Failed to process buy now");
@@ -348,7 +394,6 @@ const Product = () => {
       <RelatedProducts category={productData.category} subCategory={productData.subCategory} />
 
     </div>
-  ) : <div className=' opacity-0'></div>
-}
-
+  ) : (<div className=' opacity-0'></div>)
+};
 export default Product;
