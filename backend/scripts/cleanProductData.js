@@ -1,73 +1,97 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import mongoose from 'mongoose';
 import productModel from '../models/productModel.js';
 
-const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/yourdbname';
+const connectDB = async (mongoUri) => {
+  mongoose.connection.on('connected', () => {
+    console.log("DB Connected");
+  });
 
-const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-
-const normalizeString = (str) => {
-  if (!str || typeof str !== 'string') return null;
-  return str.trim();
+  await mongoose.connect(mongoUri);
 };
 
-const normalizeArray = (arr) => {
-  if (!Array.isArray(arr)) return [];
-  return arr
-    .map(item => (typeof item === 'string' ? item.trim() : null))
-    .filter(item => item && item.length > 0);
-};
-
-async function cleanProductData() {
+const cleanProductData = async () => {
   try {
-    await mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true });
-    console.log('Connected to MongoDB');
+    const mongoUri = process.argv[2] || process.env.MONGODB_URI;
+    if (!mongoUri) {
+      throw new Error("MongoDB connection string must be provided as argument or in MONGODB_URI env variable");
+    }
+    console.log("Using MongoDB URI:", mongoUri);
+    await connectDB(mongoUri);
 
     const products = await productModel.find({});
 
     for (const product of products) {
       let updated = false;
 
-      // Normalize strings
-      const gender = normalizeString(product.gender);
-      if (gender !== product.gender) {
-        product.gender = gender;
-        updated = true;
+      // Clean gender field
+      if (typeof product.gender === 'string') {
+        const cleanedGender = product.gender.replace(/["']/g, '').trim().toLowerCase();
+        if (cleanedGender !== product.gender) {
+          product.gender = cleanedGender;
+          updated = true;
+        }
       }
 
-      const category = normalizeString(product.category);
-      if (category !== product.category) {
-        product.category = category;
-        updated = true;
+      // Clean category field
+      if (typeof product.category === 'string') {
+        try {
+          let cleanedCategory = product.category.replace(/["']/g, '').trim().toLowerCase();
+          // Remove gender values from category if present
+          const genderValues = ['men', 'women', 'children'];
+          if (genderValues.includes(cleanedCategory)) {
+            cleanedCategory = '';
+          }
+          if (cleanedCategory !== product.category) {
+            product.category = cleanedCategory;
+            updated = true;
+          }
+        } catch (error) {
+          console.error('Error cleaning category for product', product._id, error);
+        }
       }
 
-      const subCategory = normalizeString(product.subCategory);
-      if (subCategory !== product.subCategory) {
-        product.subCategory = subCategory;
-        updated = true;
+      // Clean subCategory field
+      if (typeof product.subCategory === 'string') {
+        const cleanedSubCategory = product.subCategory.replace(/["']/g, '').trim().toLowerCase();
+        if (cleanedSubCategory !== product.subCategory) {
+          product.subCategory = cleanedSubCategory;
+          updated = true;
+        }
       }
 
-      // Normalize arrays
-      const occasion = normalizeArray(product.occasion);
-      if (JSON.stringify(occasion) !== JSON.stringify(product.occasion)) {
-        product.occasion = occasion;
-        updated = true;
+      // Clean occasion array
+      if (Array.isArray(product.occasion)) {
+        const cleanedOccasion = product.occasion.map(item => item.replace(/["']/g, '').trim().toLowerCase());
+        if (JSON.stringify(cleanedOccasion) !== JSON.stringify(product.occasion)) {
+          product.occasion = cleanedOccasion;
+          updated = true;
+        }
       }
 
-      const type = normalizeArray(product.type);
-      if (JSON.stringify(type) !== JSON.stringify(product.type)) {
-        product.type = type;
-        updated = true;
+      // Clean type array
+      if (Array.isArray(product.type)) {
+        const cleanedType = product.type.map(item => item.replace(/["']/g, '').trim().toLowerCase());
+        if (JSON.stringify(cleanedType) !== JSON.stringify(product.type)) {
+          product.type = cleanedType;
+          updated = true;
+        }
       }
 
-      const filterTags = normalizeArray(product.filterTags);
-      if (JSON.stringify(filterTags) !== JSON.stringify(product.filterTags)) {
-        product.filterTags = filterTags;
-        updated = true;
+      // Clean filterTags array
+      if (Array.isArray(product.filterTags)) {
+        const cleanedFilterTags = product.filterTags.map(item => item.replace(/["']/g, '').trim().toLowerCase());
+        if (JSON.stringify(cleanedFilterTags) !== JSON.stringify(product.filterTags)) {
+          product.filterTags = cleanedFilterTags;
+          updated = true;
+        }
       }
 
       if (updated) {
         await product.save();
-        console.log(`Updated product ${product._id}`);
+        console.log(`Cleaned product ${product._id}`);
       }
     }
 
@@ -77,6 +101,6 @@ async function cleanProductData() {
     console.error('Error cleaning product data:', error);
     process.exit(1);
   }
-}
+};
 
 cleanProductData();

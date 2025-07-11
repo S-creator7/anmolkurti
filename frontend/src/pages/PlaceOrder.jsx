@@ -12,7 +12,10 @@ import ScrollToTop from "../components/scrollToTop";
 import { useRazorpay } from 'react-razorpay';
 import CouponCode from '../components/CouponCode';
 
+import { useLocation } from 'react-router-dom';
+
 const PlaceOrder = () => {
+    const location = useLocation();
     const { error, isLoading, Razorpay } = useRazorpay();
     const [method, setMethod] = useState('cod');
     const [checkoutMode, setCheckoutMode] = useState(null); // 'guest' or 'login'
@@ -144,14 +147,30 @@ const PlaceOrder = () => {
 
             let orderItems = []
 
-            for (const items in cartItems) {
-                for (const item in cartItems[items]) {
-                    if (cartItems[items][item] > 0) {
-                        const itemInfo = structuredClone(products.find(product => product._id === items))
-                        if (itemInfo) {
-                            itemInfo.size = item
-                            itemInfo.quantity = cartItems[items][item]
-                            orderItems.push(itemInfo)
+            if (location.state && location.state.directBuy) {
+                // Skip adding directBuy product to orderItems because it is already in cartItems
+                for (const items in cartItems) {
+                    for (const item in cartItems[items]) {
+                        if (cartItems[items][item] > 0) {
+                            const itemInfo = structuredClone(products.find(product => product._id === items))
+                            if (itemInfo) {
+                                itemInfo.size = item
+                                itemInfo.quantity = cartItems[items][item]
+                                orderItems.push(itemInfo)
+                            }
+                        }
+                    }
+                }
+            } else {
+                for (const items in cartItems) {
+                    for (const item in cartItems[items]) {
+                        if (cartItems[items][item] > 0) {
+                            const itemInfo = structuredClone(products.find(product => product._id === items))
+                            if (itemInfo) {
+                                itemInfo.size = item
+                                itemInfo.quantity = cartItems[items][item]
+                                orderItems.push(itemInfo)
+                            }
                         }
                     }
                 }

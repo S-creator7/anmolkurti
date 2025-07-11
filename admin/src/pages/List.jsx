@@ -6,13 +6,18 @@ import { toast } from 'react-toastify'
 const List = ({ token }) => {
 
   const [list, setList] = useState([])
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const limit = 10
 
-  const fetchList = async () => {
+  const fetchList = async (page = 1) => {
     try {
 
-      const response = await axios.get(backendUrl + '/api/product/list')
+      const response = await axios.get(backendUrl + '/api/product/list', { params: { page, limit } })
       if (response.data.success) {
         setList(response.data.products.reverse());
+        setCurrentPage(response.data.currentPage)
+        setTotalPages(response.data.totalPages)
       }
       else {
         toast.error(response.data.message)
@@ -31,7 +36,7 @@ const List = ({ token }) => {
 
       if (response.data.success) {
         toast.success(response.data.message)
-        await fetchList();
+        await fetchList(currentPage);
       } else {
         toast.error(response.data.message)
       }
@@ -43,8 +48,14 @@ const List = ({ token }) => {
   }
 
   useEffect(() => {
-    fetchList()
-  }, [])
+    fetchList(currentPage)
+  }, [currentPage])
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage)
+    }
+  }
 
   return (
     <>
@@ -76,8 +87,25 @@ const List = ({ token }) => {
         }
 
       </div>
+      <div className="mt-4 flex justify-center items-center gap-4">
+        <button
+          onClick={() => handlePageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 border rounded disabled:opacity-50"
+        >
+          Previous
+        </button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <button
+          onClick={() => handlePageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 border rounded disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
     </>
   )
 }
 
-export default List
+export default List;

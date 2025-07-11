@@ -102,12 +102,49 @@ const addStockAlert = async (req, res) => {
   }
 }
 
-// function for list product
+// function for list product with pagination and filtering
 const listProducts = async (req, res) => {
   try {
+    let { page = 1, limit = 10, gender, occasion, type, category, subCategory, filterTags, sort } = req.query;
+    page = parseInt(page);
+    limit = parseInt(limit);
 
-    const products = await productModel.find({});
-    res.json({ success: true, products })
+    const filter = {};
+
+    // Helper to create case-insensitive regex array for string fields
+    const createRegexArray = (values) => {
+      return values.map(value => new RegExp(`^${value}$`, 'i'));
+    };
+
+    if (gender) filter.gender = { $in: createRegexArray(gender.split(',')) };
+    if (occasion) filter.occasion = { $in: occasion.split(',') };
+    if (type) filter.type = { $in: type.split(',') };
+    if (category) filter.category = { $in: createRegexArray(category.split(',')) };
+    if (subCategory) filter.subCategory = { $in: createRegexArray(subCategory.split(',')) };
+    if (filterTags) filter.filterTags = { $in: filterTags.split(',') };
+
+    const total = await productModel.countDocuments(filter);
+
+    let query = productModel.find(filter)
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    // Apply sorting
+    if (sort === 'low-high') {
+      query = query.sort({ price: 1 });
+    } else if (sort === 'high-low') {
+      query = query.sort({ price: -1 });
+    }
+
+    const products = await query;
+
+    res.json({
+      success: true,
+      products,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      totalProducts: total
+    });
 
   } catch (error) {
     console.log(error)
@@ -230,5 +267,44 @@ const getBestsellerProducts = async (req, res) => {
     res.json({ success: false, message: error.message });
   }
 }
+
+export const getLowStockProducts = async (req, res) => {
+  try {
+    const lowStockThreshold = 5;
+
+    // Find products with stock less than threshold
+    const lowStockProducts = await productModel.find({
+      $or: [
+        { 
+          hasSize: true,
+          $expr: {
+            $lt: [
+              { $min: { $objectToArray: "$stock.v" } }, // This is complex, so we will handle in JS below
+              lowStockThreshold
+            ]
+          }
+        },
+        { 
+          hasSize: false,
+          stock: { $lt: lowStockThreshold }
+        }
+      ]
+    });
+
+    // Since MongoDB query for min stock in object is complex, fallback to filtering in JS
+    const filteredLowStockProducts = lowStockProducts.filter(product => {
+      if (product.hasSize) {
+        return Object.values(product.stock || {}).some(stockQty => stockQty < lowStockThreshold);
+      } else {
+        return product.stock < lowStockThreshold;
+      }
+    });
+
+    res.json({ success: true, products: filteredLowStockProducts });
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
 
 export { listProducts, addProduct, removeProduct, singleProduct, addStockAlert, getFilterValues, getBestsellerProducts }

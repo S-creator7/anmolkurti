@@ -1,3 +1,4 @@
+
 import { useContext, useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ShopContext } from '../context/ShopContext';
@@ -11,7 +12,7 @@ const Product = () => {
 
   const { productId } = useParams();
   const navigate = useNavigate();
-  const { products, currency ,addToCart, cartItems } = useContext(ShopContext);
+  const { products, currency ,addToCart, cartItems, setProducts } = useContext(ShopContext);
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('')
@@ -25,7 +26,6 @@ const Product = () => {
   }, [productData.hasSize])
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
-  const { subscribeStockAlert } = useContext(ShopContext);
     //checking stock status 
     // Convert stock object to Map if needed
     const stockMap = productData.hasSize
@@ -99,16 +99,37 @@ const Product = () => {
   };
 
   const fetchProductData = async () => {
-    const product = products.find((item) => item._id === productId);
-    if (product) {
-      setProductData(product);
-      setImage(product.image?.[0] || '');
-      setImageIndex(0);
-    } else {
-      console.warn(`Product not found for ID: ${productId}`);
+    let found = false;
+    products.forEach((item) => {
+      if (item._id === productId) {
+        setProductData(item)
+        setImage(item.image[0])
+        setImageIndex(0)
+        found = true;
+      }
+    });
+    if (!found) {
+      try {
+        const response = await fetch('/api/product/single', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ productId }),
+        });
+        const data = await response.json();
+        if (data.success) {
+        setProductData(data.product);
+        setImage(data.product.image[0]);
+        setImageIndex(0);
+        // Update products state in ShopContext to include this product if not already present
+        if (!products.find(p => p._id === data.product._id)) {
+          setProducts(prevProducts => [...prevProducts, data.product]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching product data:", error);
     }
   }
-
+}; // 
   useEffect(() => {
     fetchProductData();
   }, [productId,products])
@@ -278,10 +299,22 @@ const Product = () => {
           
           <div className='flex gap-4 mb-6'>
               <button 
-                onClick={() => {
-                  console.log("Add to cart button clicked");
-                  addToCart(productData._id, productData.hasSize ? size : null);
-                }} 
+              onClick={async () => {
+                console.log("Add to cart button clicked");
+                console.log("productData:", productData);
+                console.log("products state:", products);
+                try {
+                  const success = await addToCart(productData, productData.hasSize ? size : null);
+                  if (success) {
+                    toast.success("Product added to cart");
+                  } else {
+                    toast.error("Cannot add product to cart");
+                  }
+                } catch (error) {
+                  console.error("Error adding to cart:", error);
+                  toast.error("Failed to add product to cart");
+                }
+              }} 
                 className='flex-1 bg-black text-white px-8 py-3 text-sm hover:bg-gray-800 transition-colors' 
                 disabled={!isInStock() || (productData.hasSize && !size)}
               >
@@ -290,6 +323,8 @@ const Product = () => {
               <button 
                 onClick={() => {
                   console.log("Buy now button clicked");
+                  console.log("productData:", productData);
+                  console.log("products state:", products);
                   if (!size && productData.hasSize) {
                     toast.error("Please select a size");
                     return;
@@ -298,16 +333,36 @@ const Product = () => {
                     toast.error("Product is out of stock");
                     return;
                   }
-                  
-                  // Add to cart first, then navigate
-                  addToCart(productData._id, productData.hasSize ? size : null);
-                  navigate('/place-order', { 
-                    state: { 
-                      directBuy: true, 
-                      productId: productData._id, 
-                      size 
-                    } 
-                  });
+                  // Check if product is already in cart
+                  if (cartQuantity > 0) {
+                    console.log("Product already in cart, navigating to place order without adding again");
+                    navigate('/place-order', { 
+                      state: { 
+                        directBuy: true, 
+                        productId: productData._id, 
+                        size 
+                      } 
+                    });
+                    return;
+                  }
+                  try {
+                    const success = await addToCart(productData, productData.hasSize ? size : null);
+                    if (success) {
+                      console.log("Product added to cart successfully, navigating to place order");
+                      navigate('/place-order', { 
+                        state: { 
+                          directBuy: true, 
+                          productId: productData._id, 
+                          size 
+                        } 
+                      });
+                    } else {
+                      toast.error("Failed to add product to cart");
+                    }
+                  } catch (error) {
+                    console.error("Error in buy now:", error);
+                    toast.error("Failed to process buy now");
+                  }
                 }}
                 className='flex-1 bg-orange-500 text-white px-8 py-3 text-sm hover:bg-orange-600 transition-colors' 
                 disabled={!isInStock() || (productData.hasSize && !size)}
@@ -353,7 +408,6 @@ const Product = () => {
       <RelatedProducts category={productData.category} subCategory={productData.subCategory} />
 
     </div>
-  ) : <div className=' opacity-0'></div>
-}
-
+  ) : (<div className=' opacity-0'></div>)
+};
 export default Product;

@@ -284,11 +284,19 @@ const FilterPanel = ({ backendUrl, onFilterChange, selectedCategory, selectedFil
 
   useEffect(() => {
     fetchDynamicFilters();
-  }, []);
-
+  }, [selectedFilters]);
+  
   const fetchDynamicFilters = async () => {
     try {
-      const response = await axios.get(`${backendUrl}/api/filter/dynamic`);
+      // Build query params from selectedFilters
+      const params = new URLSearchParams();
+      Object.entries(selectedFilters).forEach(([key, values]) => {
+        if (values.length > 0) {
+          params.append(key, values.join(','));
+        }
+      });
+
+      const response = await axios.get(`${backendUrl}/api/filter/dynamic?${params.toString()}`);
       if (response.data.success) {
         setDynamicFilters(response.data.filters);
       }
@@ -357,7 +365,9 @@ const FilterPanel = ({ backendUrl, onFilterChange, selectedCategory, selectedFil
       {dynamicFilters.gender.length > 0 && (
         <div className="mb-6">
           <h4 className="font-medium mb-2">Gender</h4>
-          {dynamicFilters.gender.map(gender => (
+          {[...new Set(dynamicFilters.gender)]
+            .filter(gender => gender && gender.trim() !== '')
+            .map(gender => (
             <label key={gender} className="flex items-center mb-2 cursor-pointer">
               <input
                 type="checkbox"

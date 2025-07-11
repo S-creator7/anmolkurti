@@ -1,22 +1,23 @@
 import express from 'express'
-import {placeOrder, placeOrderStripe, placeOrderRazorpay, allOrders, userOrders, updateStatus, verifyStripe, verifyRazorpay, getBestsellers, guestOrderTracking} from '../controllers/orderController.js'
+import {placeOrder, placeOrderStripe, placeOrderRazorpay, listOrdersPaginated, userOrders, updateStatus, verifyStripe, verifyRazorpay, getBestsellers, guestOrderTracking, getDashboardMetrics} from '../controllers/orderController.js'
 import adminAuth  from '../middleware/adminAuth.js'
 import authUser from '../middleware/auth.js'
 
 const orderRouter = express.Router()
 
 // Admin Features
-orderRouter.post('/list',adminAuth,allOrders)
-orderRouter.post('/status',adminAuth,updateStatus)
+orderRouter.post('/list', adminAuth, listOrdersPaginated)
+orderRouter.post('/status', adminAuth, updateStatus)
 orderRouter.get('/bestsellers', adminAuth, getBestsellers)
+orderRouter.get('/dashboard-metrics', adminAuth, getDashboardMetrics)
 
 // Payment Features
-orderRouter.post('/place',placeOrder)
-orderRouter.post('/stripe',placeOrderStripe)
-orderRouter.post('/razorpay',placeOrderRazorpay)
+orderRouter.post('/place', placeOrder)
+orderRouter.post('/stripe', placeOrderStripe)
+orderRouter.post('/razorpay', placeOrderRazorpay)
 
 // User Feature 
-orderRouter.post('/userorders',authUser,userOrders)
+orderRouter.post('/userorders', authUser, userOrders)
 
 // Guest Features
 orderRouter.post('/guest-tracking', guestOrderTracking)

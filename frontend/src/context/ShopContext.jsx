@@ -1,4 +1,4 @@
-import { createContext, useEffect, useState } from "react";
+import React, { createContext, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import axios from 'axios';
@@ -27,6 +27,11 @@ const ShopContextProvider = (props) => {
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [cartItems, setCartItems] = useState({});
+
+  // Debugging: log cartItems changes
+  React.useEffect(() => {
+    console.log("ShopContext - cartItems updated:", cartItems);
+  }, [cartItems]);
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [filters, setFilters] = useState({
@@ -40,28 +45,28 @@ const ShopContextProvider = (props) => {
   const [token, setToken] = useState('');
   const navigate = useNavigate();
 
-  const addToCart = async (itemId, size) => {
-    const product = products.find(p => p._id === itemId);
+  const addToCart = async (product, size) => {
     if (!product) {
       toast.error('Product not found');
-      return;
+      return false;
     }
+    const itemId = product._id;
 
     if (product.hasSize) {
       if (!size) {
         toast.error('Select Product Size');
-        return;
+        return false;
       }
       const availableStock = product.stock?.[size] || 0;
       const currentCartQty = cartItems[itemId]?.[size] ?? 0;
       
       if (availableStock <= 0) {
         toast.error('Selected size is out of stock');
-        return;
+        return false;
       }
       if (currentCartQty >= availableStock) {
         toast.error('Cannot add more than available stock for selected size');
-        return;
+        return false;
       }
     } else {
       const availableStock = typeof product.stock === 'number' ? product.stock : 0;
@@ -69,11 +74,11 @@ const ShopContextProvider = (props) => {
       
       if (availableStock <= 0) {
         toast.error('Product is out of stock');
-        return;
+        return false;
       }
       if (currentCartQty >= availableStock) {
         toast.error('Cannot add more than available stock');
-        return;
+        return false;
       }
     }
 
@@ -104,19 +109,21 @@ const ShopContextProvider = (props) => {
 
     if (token) {
       try {
-        const userId = localStorage.getItem('userId');
-        const cartItemData = { 
-          userId, 
-          itemId, 
-          size: product.hasSize ? size : 'quantity'
-        };
-          
-        await axios.post(backendUrl + '/api/cart/add', cartItemData, { headers: { token } });
+        await axios.post(backendUrl + '/api/cart/add', { itemId, size }, { headers: { token } });
+        // Fetch updated cart from backend to sync state
+        const response = await axios.post(backendUrl + '/api/cart/get', { userId: token }, { headers: { token } });
+        if (response.data.success) {
+          setCartItems(response.data.cartData);
+          console.log("ShopContext - cartItems synced after addToCart:", response.data.cartData);
+        }
+        return true;
       } catch (error) {
-        console.error('Error syncing cart with server:', error);
-        // Don't show error to user since local cart was updated
+        console.log(error);
+        toast.error(error.response?.data?.message || error.message);
+        return false;
       }
     }
+    return true;
   };
 
   const subscribeStockAlert = async (productId, email) => {
@@ -246,7 +253,8 @@ const ShopContextProvider = (props) => {
   type: normalizeArray(product.type),
   filterTags: normalizeArray(product.filterTags),
 }));
-        setProducts(normalizedProducts.reverse());
+        setProducts(normalizedProducts);
+        console.log("Products loaded:", normalizedProducts);
       } else {
         toast.error(response.data.message);
       }
@@ -257,17 +265,34 @@ const ShopContextProvider = (props) => {
   };
 
   const getUserCart = async (token) => {
+    console.log("getUserCart called with token:", token);
     try {
-      const userId = localStorage.getItem('userId');
+      let userId = null;
+      try {
+        const jwtDecode = (await import('jwt-decode')).default;
+        const decoded = jwtDecode(token);
+        console.log("Decoded token in getUserCart:", decoded);
+        userId = decoded.userId || decoded.id || decoded._id || null;
+        console.log("Extracted userId:", userId);
+      } catch (e) {
+        console.log('Failed to decode token', e);
+      }
+      if (!userId) {
+        console.log("User ID is null or undefined, cannot fetch cart");
+        return;
+      }
       const response = await axios.post(backendUrl + '/api/cart/get', { userId }, { headers: { token } });
+      console.log("Response from /api/cart/get:", response.data);
       if (response.data.success) {
         setCartItems(response.data.cartData);
+        console.log("ShopContext - cartItems after setCartItems:", response.data.cartData);
       }
     } catch (error) {
       console.log(error);
       toast.error(error.message);
     }
   };
+  
 
   useEffect(() => {
     getProductsData();
@@ -286,6 +311,7 @@ const ShopContextProvider = (props) => {
 const value = {
   fetchDynamicFilters,
   products,
+  setProducts,
   filteredProducts,
   filters,
   setFilters,
