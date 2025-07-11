@@ -34,9 +34,20 @@ const Product = () => {
           ? new Map([['', productData.stock.value]])
           : new Map());
 
-    const inStock = productData.hasSize
-      ? (size ? (stockMap.get(size) || 0) > 0 : false)
-      : (typeof productData.stock === 'number' ? productData.stock > 0 : (productData.stock && productData.stock.value > 0));
+    const isInStock = () => {
+      if (!productData) return false;
+      
+      if (productData.hasSize) {
+        // For products with sizes, check if selected size has stock
+        if (!size) return false; // No size selected
+        const sizeStock = productData.stock?.[size] || 0;
+        return sizeStock > 0;
+      } else {
+        // For products without sizes, check total stock
+        const totalStock = typeof productData.stock === 'number' ? productData.stock : 0;
+        return totalStock > 0;
+      }
+    };
 
   // Get quantity of selected product and size in cart
   const cartQuantity = productData.hasSize
@@ -88,14 +99,14 @@ const Product = () => {
   };
 
   const fetchProductData = async () => {
-    products.map((item) => {
-      if (item._id === productId) {
-        setProductData(item)
-        setImage(item.image[0])
-        setImageIndex(0)
-        return null;
-      }
-    })
+    const product = products.find((item) => item._id === productId);
+    if (product) {
+      setProductData(product);
+      setImage(product.image?.[0] || '');
+      setImageIndex(0);
+    } else {
+      console.warn(`Product not found for ID: ${productId}`);
+    }
   }
 
   useEffect(() => {
@@ -112,7 +123,7 @@ const Product = () => {
         <div className='flex-1 flex flex-col-reverse gap-3 sm:flex-row'>
           <div className='flex sm:flex-col overflow-x-auto sm:overflow-y-scroll justify-between sm:justify-normal sm:w-[18.7%] w-full'>
               {
-                productData.image.map((item,index)=>(
+                productData.image?.map((item,index)=>(
                   <img 
                     onClick={() => handleImageChange(item, index)} 
                     src={item} 
@@ -121,8 +132,11 @@ const Product = () => {
                       index === imageIndex ? 'border-orange-500' : 'border-transparent'
                     } hover:border-orange-300 transition-colors`}
                     alt="" 
+                    onError={(e) => {
+                      e.target.src = '/placeholder-image.jpg'; // ✅ Fallback image
+                    }}
                   />
-                ))
+                )) || []
               }
           </div>
           <div className='w-full sm:w-[80%] relative group'>
@@ -131,7 +145,7 @@ const Product = () => {
               {/* Dot navigation overlay on hover */}
               <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
                 <div className='flex space-x-2'>
-                  {productData.image.map((_, index) => (
+                  {productData.image?.map((_, index) => (
                     <button
                       key={index}
                       onClick={() => handleImageChange(productData.image[index], index)}
@@ -141,7 +155,7 @@ const Product = () => {
                           : 'bg-white bg-opacity-60 hover:bg-opacity-80'
                       }`}
                     />
-                  ))}
+                  )) || []}
                 </div>
               </div>
               
@@ -226,13 +240,13 @@ const Product = () => {
                 <>
                   <p>Select Size</p>
                   <div className='flex gap-2'>
-                    {productData.sizes.map((item,index) => {
-                      const sizeStock = stockMap.get(item) || 0;
+                    {productData.sizes?.map((item,index) => {
+                      const sizeStock = productData.stock?.[item] || 0;
                       return (
                         <button 
                           onClick={() => setSize(item)} 
                           className={`border py-2 px-4 ${item === size ? 'border-orange-500' : ''} 
-                                     ${sizeStock === 0 ? 'bg-gray-200 text-gray-400 ' : 'bg-gray-100'}`} 
+                                     ${sizeStock === 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`} 
                           key={index}
                           disabled={sizeStock === 0}
                         >
@@ -241,7 +255,7 @@ const Product = () => {
                       )
                     })}
                   </div>
-                  {!inStock && size && (
+                  {!isInStock() && size && (
                     <div className="mt-4 text-red-600 font-semibold">
                       Product is out of stock for selected size.
                     </div>
@@ -250,7 +264,7 @@ const Product = () => {
               ) : (
                 <>
                   <p>Stock: {typeof productData.stock === 'number' ? productData.stock : 0}</p>
-                  {!inStock && (
+                  {!isInStock() && (
                     <div className="mt-4 text-red-600 font-semibold">
                       Product is out of stock.
                     </div>
@@ -264,48 +278,39 @@ const Product = () => {
           
           <div className='flex gap-4 mb-6'>
               <button 
-              onClick={async () => {
-                console.log("Add to cart button clicked");
-                try {
-                  await addToCart(productData._id, productData.hasSize ? size : null);
-                  toast.success("Product added to cart");
-                } catch (error) {
-                  console.error("Error adding to cart:", error);
-                  toast.error("Failed to add product to cart");
-                }
-              }} 
+                onClick={() => {
+                  console.log("Add to cart button clicked");
+                  addToCart(productData._id, productData.hasSize ? size : null);
+                }} 
                 className='flex-1 bg-black text-white px-8 py-3 text-sm hover:bg-gray-800 transition-colors' 
-                disabled={!inStock || (productData.hasSize && !size)}
+                disabled={!isInStock() || (productData.hasSize && !size)}
               >
                 ADD TO CART
               </button>
               <button 
-                onClick={async () => {
+                onClick={() => {
                   console.log("Buy now button clicked");
                   if (!size && productData.hasSize) {
                     toast.error("Please select a size");
                     return;
                   }
-                  if (!inStock) {
+                  if (!isInStock()) {
                     toast.error("Product is out of stock");
                     return;
                   }
-                  try {
-                    await addToCart(productData._id, productData.hasSize ? size : null);
-                    navigate('/place-order', { 
-                      state: { 
-                        directBuy: true, 
-                        productId: productData._id, 
-                        size 
-                      } 
-                    });
-                  } catch (error) {
-                    console.error("Error in buy now:", error);
-                    toast.error("Failed to process buy now");
-                  }
+                  
+                  // Add to cart first, then navigate
+                  addToCart(productData._id, productData.hasSize ? size : null);
+                  navigate('/place-order', { 
+                    state: { 
+                      directBuy: true, 
+                      productId: productData._id, 
+                      size 
+                    } 
+                  });
                 }}
                 className='flex-1 bg-orange-500 text-white px-8 py-3 text-sm hover:bg-orange-600 transition-colors' 
-                disabled={!inStock || (productData.hasSize && !size)}
+                disabled={!isInStock() || (productData.hasSize && !size)}
               >
                 BUY NOW
               </button>
@@ -317,7 +322,7 @@ const Product = () => {
               navigate('/cart');
             }} 
             className='bg-black text-white mx-4 px-12 py-3 text-sm active:bg-gray-700' 
-            disabled={!inStock}
+            disabled={!isInStock()}
           >
             BUY NOW
           </button> */}

@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react'
+import React, { useContext, useState, useEffect } from 'react'
 import Title from '../components/Title'
 import CartTotal from '../components/CartTotal'
 import { assets } from '../assets/assets'
@@ -10,11 +10,13 @@ import OurPolicy from '../components/OurPolicy'
 import NewsletterBox from '../components/NewsletterBox'
 import ScrollToTop from "../components/scrollToTop";
 import { useRazorpay } from 'react-razorpay';
+import CouponCode from '../components/CouponCode';
 
 const PlaceOrder = () => {
     const { error, isLoading, Razorpay } = useRazorpay();
     const [method, setMethod] = useState('cod');
     const [checkoutMode, setCheckoutMode] = useState(null); // 'guest' or 'login'
+    const [appliedCoupon, setAppliedCoupon] = useState(null);
     const { navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
     const [formData, setFormData] = useState({
         firstName: '',
@@ -32,7 +34,7 @@ const PlaceOrder = () => {
     const isLoggedIn = !!token;
 
     // Auto-set checkout mode based on login status
-    React.useEffect(() => {
+    useEffect(() => {
         if (isLoggedIn) {
             setCheckoutMode('login');
         } else if (checkoutMode === null) {
@@ -40,13 +42,49 @@ const PlaceOrder = () => {
         }
     }, [isLoggedIn, checkoutMode]);
 
+    useEffect(() => {
+        // ✅ Validate critical environment variables
+        const requiredEnvVars = {
+            'VITE_RAZORPAY_KEY_ID': import.meta.env.VITE_RAZORPAY_KEY_ID,
+            'VITE_BACKEND_URL': import.meta.env.VITE_BACKEND_URL
+        };
+
+        const missingVars = Object.entries(requiredEnvVars)
+            .filter(([key, value]) => !value)
+            .map(([key]) => key);
+
+        if (missingVars.length > 0) {
+            console.error('Missing environment variables:', missingVars);
+            toast.error('Payment gateway not configured properly');
+        }
+
+        // Rest of the useEffect logic...
+        if (checkoutMode === 'guest') {
+            // Guest checkout logic
+        } else {
+            // Regular checkout logic
+        }
+    }, [checkoutMode]);
+
     const onChangeHandler = (event) => {
         const name = event.target.name
         const value = event.target.value
         setFormData(data => ({ ...data, [name]: value }))
     }
 
+    const handleCouponApplied = (coupon) => {
+        setAppliedCoupon(coupon);
+    };
+
+    const handleRemoveCoupon = () => {
+        setAppliedCoupon(null);
+    };
+
     const initPay = (order) => {
+        if (!order || !order.amount || !order.currency) {
+            toast.error('Invalid order data received');
+            return;
+        }
 
         const options = {
             key: import.meta.env.VITE_RAZORPAY_KEY_ID,
@@ -82,8 +120,13 @@ const PlaceOrder = () => {
             }
 
         }
+        
+        if (!options.key) {
+            toast.error('Payment gateway not configured');
+            return;
+        }
+        
         const rzp = new Razorpay(options);
-
         rzp.open();
 
         if (isLoading) {
@@ -114,10 +157,17 @@ const PlaceOrder = () => {
                 }
             }
 
+            // ✅ Calculate total with coupon discount
+            const subtotal = getCartAmount();
+            const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
+            const shippingFee = appliedCoupon && appliedCoupon.discountType === 'free_shipping' ? 0 : delivery_fee;
+            const totalAmount = Math.max(0, subtotal - discountAmount + shippingFee);
+
             let orderData = {
                 address: formData,
                 items: orderItems,
-                amount: getCartAmount() + delivery_fee
+                amount: totalAmount,
+                couponCode: appliedCoupon ? appliedCoupon.code : null
             }
 
             // Add guest checkout data if in guest mode
@@ -166,10 +216,13 @@ const PlaceOrder = () => {
                     const responseRazorpay = await axios.post(backendUrl + '/api/order/razorpay', orderData, { headers })
                     console.log("RAZORPAY Response:", responseRazorpay.data);
 
-                    if (responseRazorpay.data.success) {
+                    if (responseRazorpay.data.success && responseRazorpay.data.order) {
                         initPay(responseRazorpay.data.order)
                     } else {
-                        toast.error("Failed to create Razorpay order: " + responseRazorpay.data.message?.error?.description || "Unauthorized");
+                        const errorMessage = responseRazorpay.data.message?.error?.description || 
+                                           responseRazorpay.data.message || 
+                                           "Failed to create Razorpay order";
+                        toast.error(errorMessage);
                     }
 
                     break;

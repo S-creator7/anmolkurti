@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import shortid from "shortid";
 import tempOrderModel from "../models/tempOrderModel.js"
 import productModel from "../models/productModel.js";
+import couponModel from "../models/couponModel.js";
 
 
 // global variables
@@ -24,58 +25,104 @@ const razorpayInstance = new razorpay({
 })
 
 // Placing orders using COD Method
-const placeOrder = async (req, res) => {
-
+export const placeOrder = async (req, res) => {
     try {
+        const { items, address, paymentMethod, couponCode } = req.body;
+        const userId = req.userId;
 
-        const { userId, items, amount, address, isGuest, guestInfo } = req.body;
-
-        // Validate required fields based on user type
-        if (!isGuest && !userId) {
-            return res.status(400).json({ success: false, message: "User ID is required for registered users" });
+        if (!items || items.length === 0) {
+            return res.status(400).json({ success: false, message: 'No items in cart' });
         }
 
-        if (isGuest && (!guestInfo || !guestInfo.email || !guestInfo.phone || !guestInfo.name)) {
-            return res.status(400).json({ success: false, message: "Guest information (name, email, phone) is required for guest checkout" });
+        // ✅ Add stock validation before placing order
+        const stockValidation = await validateStockAvailability(items);
+        if (!stockValidation.success) {
+            return res.status(400).json({ success: false, message: stockValidation.message });
         }
 
-        // Create order data based on user type
-        const orderData = {
+        // Calculate total amount
+        let totalAmount = 0;
+        for (const item of items) {
+            const product = await productModel.findById(item._id);
+            if (product) {
+                totalAmount += product.price * item.quantity;
+            }
+        }
+
+        // Apply coupon if provided
+        let discountAmount = 0;
+        if (couponCode) {
+            const coupon = await couponModel.findOne({ 
+                code: couponCode, 
+                isActive: true,
+                validFrom: { $lte: new Date() },
+                validUntil: { $gte: new Date() }
+            });
+            
+            if (coupon) {
+                // Check minimum order amount
+                if (totalAmount < coupon.minimumOrderAmount) {
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: `Minimum order amount of ₹${coupon.minimumOrderAmount} required for this coupon` 
+                    });
+                }
+                
+                // Check usage limit
+                if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+                    return res.status(400).json({ 
+                        success: false, 
+                        message: 'Coupon usage limit exceeded' 
+                    });
+                }
+                
+                // Calculate discount
+                if (coupon.discountType === 'percentage') {
+                    discountAmount = (totalAmount * coupon.discountValue) / 100;
+                    // Apply maximum discount limit
+                    if (coupon.maximumDiscountAmount) {
+                        discountAmount = Math.min(discountAmount, coupon.maximumDiscountAmount);
+                    }
+                } else {
+                    discountAmount = coupon.discountValue;
+                }
+                
+                totalAmount -= discountAmount;
+                
+                // Update coupon usage count
+                await couponModel.findByIdAndUpdate(coupon._id, {
+                    $inc: { usedCount: 1 }
+                });
+            } else {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: 'Invalid or expired coupon code' 
+                });
+            }
+        }
+
+        // Create order
+        const order = new orderModel({
+            userId,
             items,
             address,
-            amount,
-            paymentMethod: "COD",
-            payment: false,
-            date: Date.now(),
-            isGuest: isGuest || false
-        };
+            totalAmount,
+            discountAmount,
+            paymentMethod,
+            couponCode: couponCode || null
+        });
 
-        if (isGuest) {
-            orderData.guestInfo = guestInfo;
-            orderData.orderType = 'guest';
-        } else {
-            orderData.userId = userId;
-            orderData.orderType = 'regular';
-        }
+        await order.save();
 
-        const newOrder = new orderModel(orderData)
-        await newOrder.save()
-        await updateStock(items); // Deduct stock
+        // Update stock
+        await updateStock(items);
 
-        // Clear cart only for registered users (guests don't have persistent carts)
-        if (!isGuest && userId) {
-            await userModel.findByIdAndUpdate(userId, { cartData: {} })
-        }
-
-        res.json({ success: true, message: "Order Placed" })
-
-
+        res.status(201).json({ success: true, message: 'Order placed successfully', order });
     } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
+        console.error('Error placing order:', error);
+        res.status(500).json({ success: false, message: 'Failed to place order' });
     }
-
-}
+};
 
 // Placing orders using Stripe Method
 const placeOrderStripe = async (req, res) => {
@@ -484,17 +531,18 @@ const updateStatus = async (req, res) => {
 // Helper function to update stock
 async function updateStock(items) {
     for (const item of items) {
-        const product = await productModel.findById(item.id);
-        if (!product) continue;
+        const product = await productModel.findById(item._id);
+        if (!product) {
+            console.log(`Product not found for ID: ${item._id}`);
+            continue;
+        }
 
         if (product.hasSize) {
-            // Update stock for each size/quantity
-            for (const [size, quantity] of Object.entries(item.sizes)) {
-                const currentStock = product.stock.get(size) || 0;
-                product.stock.set(size, Math.max(0, currentStock - quantity));
-            }
+            const size = item.size;
+            const quantity = item.quantity || 0;
+            const currentStock = product.stock.get(size) || 0;
+            product.stock.set(size, Math.max(0, currentStock - quantity));
         } else {
-            // For products without sizes, stock is a number
             const quantity = item.quantity || 0;
             const currentStock = typeof product.stock === 'number' ? product.stock : 0;
             product.stock = Math.max(0, currentStock - quantity);
@@ -507,17 +555,17 @@ async function updateStock(items) {
 // New helper function to validate stock availability before placing order
 async function validateStockAvailability(items) {
     for (const item of items) {
-        const product = await productModel.findById(item.id);
+        const product = await productModel.findById(item._id);
         if (!product) {
-            return { success: false, message: `Product with id ${item.id} not found` };
+            return { success: false, message: `Product with id ${item._id} not found` };
         }
 
         if (product.hasSize) {
-            for (const [size, quantity] of Object.entries(item.sizes)) {
-                const currentStock = product.stock.get(size) || 0;
-                if (quantity > currentStock) {
-                    return { success: false, message: `Insufficient stock for size ${size} of product ${product.name}` };
-                }
+            const size = item.size;
+            const quantity = item.quantity || 0;
+            const currentStock = product.stock.get(size) || 0;
+            if (quantity > currentStock) {
+                return { success: false, message: `Insufficient stock for size ${size} of product ${product.name}` };
             }
         } else {
             const quantity = item.quantity || 0;

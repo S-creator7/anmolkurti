@@ -81,8 +81,11 @@ export const WishlistProvider = ({ children }) => {
       });
 
       if (response.data.success) {
-        // Add to local state
-        setWishlistItems(prev => [...prev, { productId: { _id: productId }, addedAt: new Date() }]);
+        // ✅ Add to local state with consistent structure
+        setWishlistItems(prev => [...prev, { 
+          productId: { _id: productId }, 
+          addedAt: new Date() 
+        }]);
         toast.success('Added to wishlist');
         return true;
       } else {
@@ -114,10 +117,11 @@ export const WishlistProvider = ({ children }) => {
       });
 
       if (response.data.success) {
-        // Remove from local state
-        setWishlistItems(prev => prev.filter(item => 
-          item.productId._id !== productId && item.productId !== productId
-        ));
+        // ✅ Remove from local state with consistent structure handling
+        setWishlistItems(prev => prev.filter(item => {
+          const itemProductId = item.productId?._id || item.productId;
+          return itemProductId !== productId;
+        }));
         toast.success('Removed from wishlist');
         return true;
       } else {
@@ -163,9 +167,11 @@ export const WishlistProvider = ({ children }) => {
   };
 
   const isInWishlist = (productId) => {
-    return wishlistItems.some(item => 
-      item.productId._id === productId || item.productId === productId
-    );
+    return wishlistItems.some(item => {
+      // ✅ Handle both data structures consistently
+      const itemProductId = item.productId?._id || item.productId;
+      return itemProductId === productId;
+    });
   };
 
   const getWishlistCount = () => {

@@ -52,8 +52,9 @@ const ShopContextProvider = (props) => {
         toast.error('Select Product Size');
         return;
       }
-      const availableStock = product.stock?.[size] ?? product.stock?.get?.(size) ?? 0;
+      const availableStock = product.stock?.[size] || 0;
       const currentCartQty = cartItems[itemId]?.[size] ?? 0;
+      
       if (availableStock <= 0) {
         toast.error('Selected size is out of stock');
         return;
@@ -65,6 +66,7 @@ const ShopContextProvider = (props) => {
     } else {
       const availableStock = typeof product.stock === 'number' ? product.stock : 0;
       const currentCartQty = cartItems[itemId]?.quantity ?? 0;
+      
       if (availableStock <= 0) {
         toast.error('Product is out of stock');
         return;
@@ -98,12 +100,21 @@ const ShopContextProvider = (props) => {
 
     setCartItems(cartData);
 
+    toast.success('Product added to cart!');
+
     if (token) {
       try {
-        await axios.post(backendUrl + '/api/cart/add', { itemId, size }, { headers: { token } });
+        const userId = localStorage.getItem('userId');
+        const cartItemData = { 
+          userId, 
+          itemId, 
+          size: product.hasSize ? size : 'quantity'
+        };
+          
+        await axios.post(backendUrl + '/api/cart/add', cartItemData, { headers: { token } });
       } catch (error) {
-        console.log(error);
-        toast.error(error.message);
+        console.error('Error syncing cart with server:', error);
+        // Don't show error to user since local cart was updated
       }
     }
   };
@@ -130,24 +141,28 @@ const ShopContextProvider = (props) => {
           if (cartItems[items][item] > 0) {
             totalCount += cartItems[items][item];
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error('Error calculating cart count:', error);
+        }
       }
     }
     return totalCount;
   };
-const fetchDynamicFilters = async (category = null) => {
-  try {
-    const params = category ? { category } : {};
-    const response = await axios.get(`${backendUrl}/api/filter/dynamic`, { params });
-    
-    if (response.data.success) {
-      return response.data.filters;
+
+  const fetchDynamicFilters = async (category = null) => {
+    try {
+      const params = category ? { category } : {};
+      const response = await axios.get(`${backendUrl}/api/filter/dynamic`, { params });
+      
+      if (response.data.success) {
+        return response.data.filters;
+      }
+    } catch (error) {
+      console.error('Error fetching filters:', error);
     }
-  } catch (error) {
-    console.error('Error fetching filters:', error);
-  }
-  return null;
-};
+    return null;
+  };
+
   const updateQuantity = async (itemId, size, quantity) => {
     let cartData = structuredClone(cartItems);
 
@@ -172,7 +187,13 @@ const fetchDynamicFilters = async (category = null) => {
 
     if (token) {
       try {
-        await axios.post(backendUrl + '/api/cart/update', { itemId, size, quantity }, { headers: { token } });
+        const userId = localStorage.getItem('userId');
+        await axios.post(backendUrl + '/api/cart/update', { 
+          userId, 
+          itemId, 
+          size, 
+          quantity 
+        }, { headers: { token } });
       } catch (error) {
         console.log(error);
         toast.error(error.message);
@@ -184,12 +205,19 @@ const fetchDynamicFilters = async (category = null) => {
     let totalAmount = 0;
     for (const items in cartItems) {
       let itemInfo = products.find((product) => product._id === items);
+      if (!itemInfo) {
+        console.warn(`Product not found for cart item: ${items}`);
+        continue;
+      }
+      
       for (const item in cartItems[items]) {
         try {
           if (cartItems[items][item] > 0) {
             totalAmount += itemInfo.price * cartItems[items][item];
           }
-        } catch (error) {}
+        } catch (error) {
+          console.error('Error calculating cart amount:', error);
+        }
       }
     }
     return totalAmount;
@@ -230,7 +258,8 @@ const fetchDynamicFilters = async (category = null) => {
 
   const getUserCart = async (token) => {
     try {
-      const response = await axios.post(backendUrl + '/api/cart/get', {}, { headers: { token } });
+      const userId = localStorage.getItem('userId');
+      const response = await axios.post(backendUrl + '/api/cart/get', { userId }, { headers: { token } });
       if (response.data.success) {
         setCartItems(response.data.cartData);
       }

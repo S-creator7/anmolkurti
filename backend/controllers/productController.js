@@ -7,25 +7,29 @@ const addProduct = async (req, res) => {
   try {
     const { name, description, price, gender, category, subCategory, occasion, type, filterTags, sizes, bestseller, stock, hasSize, filters } = req.body
 
-    const image1 = req.files.image1 && req.files.image1[0]
-    const image2 = req.files.image2 && req.files.image2[0]
-    const image3 = req.files.image3 && req.files.image3[0]
-    const image4 = req.files.image4 && req.files.image4[0]
+    // Safely handle file uploads
+    const image1 = req.files?.image1?.[0]
+    const image2 = req.files?.image2?.[0]
+    const image3 = req.files?.image3?.[0]
+    const image4 = req.files?.image4?.[0]
 
     const images = [image1, image2, image3, image4].filter((item) => item !== undefined)
 
-    let imagesUrl = await Promise.all(
-      images.map(async (item) => {
-        let result = await cloudinary.uploader.upload(item.path, {
-          resource_type: 'image',
-          transformation: [
-            { fetch_format: "auto", quality: "auto" },
-            { width: 1080, height: 1080, crop: "limit" }  // Optimize format and quality
-          ],
-        });
-        return result.secure_url
-      })
-    )
+    let imagesUrl = []
+    if (images.length > 0) {
+      imagesUrl = await Promise.all(
+        images.map(async (item) => {
+          let result = await cloudinary.uploader.upload(item.path, {
+            resource_type: 'image',
+            transformation: [
+              { fetch_format: "auto", quality: "auto" },
+              { width: 1080, height: 1080, crop: "limit" }  // Optimize format and quality
+            ],
+          });
+          return result.secure_url
+        })
+      )
+    }
     const stockObj = stock ? JSON.parse(stock) : {};
     const filtersObj = filters ? JSON.parse(filters) : {};
     const occasionArr = occasion ? JSON.parse(occasion) : [];

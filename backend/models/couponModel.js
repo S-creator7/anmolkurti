@@ -7,13 +7,17 @@ const couponSchema = new mongoose.Schema({
         unique: true, 
         uppercase: true 
     },
+    name: {
+        type: String,
+        required: true
+    },
     description: { 
         type: String, 
         required: true 
     },
     discountType: { 
         type: String, 
-        enum: ['percentage', 'fixed'], 
+        enum: ['percentage', 'fixed', 'free_shipping'], 
         required: true 
     },
     discountValue: { 
@@ -50,6 +54,47 @@ const couponSchema = new mongoose.Schema({
     },
     applicableCategories: [String],
     excludedCategories: [String],
+    couponType: {
+        type: String,
+        enum: ['public', 'first_time', 'loyalty', 'referral', 'seasonal', 'flash_sale'],
+        default: 'public'
+    },
+    firstTimeUserOnly: {
+        type: Boolean,
+        default: false
+    },
+    minimumPurchaseItems: {
+        type: Number,
+        default: 1
+    },
+    maximumUsagePerUser: {
+        type: Number,
+        default: 1
+    },
+    userUsage: [{
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        usedAt: {
+            type: Date,
+            default: Date.now
+        },
+        orderId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Order'
+        }
+    }],
+    stackable: {
+        type: Boolean,
+        default: false
+    },
+    priority: {
+        type: Number,
+        default: 1
+    },
+    bannerImage: String,
+    termsAndConditions: String,
     createdAt: { 
         type: Date, 
         default: Date.now 

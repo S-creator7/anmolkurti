@@ -1,0 +1,492 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+
+const Coupons = () => {
+  const [coupons, setCoupons] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState(null);
+  const [formData, setFormData] = useState({
+    code: '',
+    name: '',
+    description: '',
+    discountType: 'percentage',
+    discountValue: '',
+    minimumOrderAmount: '',
+    maximumDiscountAmount: '',
+    usageLimit: '',
+    validFrom: '',
+    validUntil: '',
+    applicableCategories: [],
+    excludedCategories: [],
+    couponType: 'public',
+    firstTimeUserOnly: false,
+    minimumPurchaseItems: 1,
+    maximumUsagePerUser: 1,
+    stackable: false,
+    priority: 1,
+    bannerImage: '',
+    termsAndConditions: '',
+    isActive: true
+  });
+
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+  const token = localStorage.getItem('token');
+
+  useEffect(() => {
+    loadCoupons();
+  }, []);
+
+  const loadCoupons = async () => {
+    setIsLoading(true);
+    try {
+      const response = await axios.get(`${backendUrl}/api/coupon/list`, {
+        headers: { token }
+      });
+      if (response.data.success) {
+        setCoupons(response.data.coupons);
+      }
+    } catch (error) {
+      console.error('Error loading coupons:', error);
+      toast.error('Failed to load coupons');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    try {
+      const url = editingCoupon 
+        ? `${backendUrl}/api/coupon/update/${editingCoupon._id}`
+        : `${backendUrl}/api/coupon/create`;
+      
+      const method = editingCoupon ? 'put' : 'post';
+      
+      const response = await axios[method](url, formData, {
+        headers: { token }
+      });
+
+      if (response.data.success) {
+        toast.success(editingCoupon ? 'Coupon updated successfully!' : 'Coupon created successfully!');
+        setShowForm(false);
+        setEditingCoupon(null);
+        resetForm();
+        loadCoupons();
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      console.error('Error saving coupon:', error);
+      toast.error('Failed to save coupon');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEdit = (coupon) => {
+    setEditingCoupon(coupon);
+    setFormData({
+      code: coupon.code,
+      name: coupon.name,
+      description: coupon.description,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+      minimumOrderAmount: coupon.minimumOrderAmount,
+      maximumDiscountAmount: coupon.maximumDiscountAmount,
+      usageLimit: coupon.usageLimit,
+      validFrom: new Date(coupon.validFrom).toISOString().split('T')[0],
+      validUntil: new Date(coupon.validUntil).toISOString().split('T')[0],
+      applicableCategories: coupon.applicableCategories || [],
+      excludedCategories: coupon.excludedCategories || [],
+      couponType: coupon.couponType,
+      firstTimeUserOnly: coupon.firstTimeUserOnly,
+      minimumPurchaseItems: coupon.minimumPurchaseItems,
+      maximumUsagePerUser: coupon.maximumUsagePerUser,
+      stackable: coupon.stackable,
+      priority: coupon.priority,
+      bannerImage: coupon.bannerImage || '',
+      termsAndConditions: coupon.termsAndConditions || '',
+      isActive: coupon.isActive
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (couponId) => {
+    if (!window.confirm('Are you sure you want to delete this coupon?')) {
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`${backendUrl}/api/coupon/delete/${couponId}`, {
+        headers: { token }
+      });
+
+      if (response.data.success) {
+        toast.success('Coupon deleted successfully!');
+        loadCoupons();
+      } else {
+        toast.error(response.data.message);
+      }
+    } catch (error) {
+      console.error('Error deleting coupon:', error);
+      toast.error('Failed to delete coupon');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      code: '',
+      name: '',
+      description: '',
+      discountType: 'percentage',
+      discountValue: '',
+      minimumOrderAmount: '',
+      maximumDiscountAmount: '',
+      usageLimit: '',
+      validFrom: '',
+      validUntil: '',
+      applicableCategories: [],
+      excludedCategories: [],
+      couponType: 'public',
+      firstTimeUserOnly: false,
+      minimumPurchaseItems: 1,
+      maximumUsagePerUser: 1,
+      stackable: false,
+      priority: 1,
+      bannerImage: '',
+      termsAndConditions: '',
+      isActive: true
+    });
+  };
+
+  const formatDate = (date) => {
+    return new Date(date).toLocaleDateString('en-IN');
+  };
+
+  const formatDiscount = (coupon) => {
+    if (coupon.discountType === 'percentage') {
+      return `${coupon.discountValue}% OFF`;
+    } else if (coupon.discountType === 'free_shipping') {
+      return 'FREE SHIPPING';
+    } else {
+      return `₹${coupon.discountValue} OFF`;
+    }
+  };
+
+  return (
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Coupon Management</h1>
+        <button
+          onClick={() => {
+            setShowForm(true);
+            setEditingCoupon(null);
+            resetForm();
+          }}
+          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Create New Coupon
+        </button>
+      </div>
+
+      {/* Coupon Form */}
+      {showForm && (
+        <div className="bg-white border rounded-lg p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">
+            {editingCoupon ? 'Edit Coupon' : 'Create New Coupon'}
+          </h2>
+          
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Coupon Code *</label>
+                <input
+                  type="text"
+                  name="code"
+                  value={formData.code}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Coupon Name *</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                />
+              </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium mb-1">Description *</label>
+                <textarea
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                  rows="3"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Discount Type *</label>
+                <select
+                  name="discountType"
+                  value={formData.discountType}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                >
+                  <option value="percentage">Percentage</option>
+                  <option value="fixed">Fixed Amount</option>
+                  <option value="free_shipping">Free Shipping</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Discount Value *</label>
+                <input
+                  type="number"
+                  name="discountValue"
+                  value={formData.discountValue}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Minimum Order Amount</label>
+                <input
+                  type="number"
+                  name="minimumOrderAmount"
+                  value={formData.minimumOrderAmount}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Maximum Discount Amount</label>
+                <input
+                  type="number"
+                  name="maximumDiscountAmount"
+                  value={formData.maximumDiscountAmount}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Usage Limit</label>
+                <input
+                  type="number"
+                  name="usageLimit"
+                  value={formData.usageLimit}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Valid From *</label>
+                <input
+                  type="date"
+                  name="validFrom"
+                  value={formData.validFrom}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Valid Until *</label>
+                <input
+                  type="date"
+                  name="validUntil"
+                  value={formData.validUntil}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Coupon Type</label>
+                <select
+                  name="couponType"
+                  value={formData.couponType}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                >
+                  <option value="public">Public</option>
+                  <option value="first_time">First Time User</option>
+                  <option value="loyalty">Loyalty</option>
+                  <option value="referral">Referral</option>
+                  <option value="seasonal">Seasonal</option>
+                  <option value="flash_sale">Flash Sale</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium mb-1">Priority</label>
+                <input
+                  type="number"
+                  name="priority"
+                  value={formData.priority}
+                  onChange={handleInputChange}
+                  className="w-full border rounded px-3 py-2"
+                  min="1"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="firstTimeUserOnly"
+                  checked={formData.firstTimeUserOnly}
+                  onChange={handleInputChange}
+                  className="mr-2"
+                />
+                First Time User Only
+              </label>
+              
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="stackable"
+                  checked={formData.stackable}
+                  onChange={handleInputChange}
+                  className="mr-2"
+                />
+                Stackable with other coupons
+              </label>
+              
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="isActive"
+                  checked={formData.isActive}
+                  onChange={handleInputChange}
+                  className="mr-2"
+                />
+                Active
+              </label>
+            </div>
+            
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600 disabled:bg-gray-300"
+              >
+                {isLoading ? 'Saving...' : (editingCoupon ? 'Update Coupon' : 'Create Coupon')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingCoupon(null);
+                  resetForm();
+                }}
+                className="bg-gray-500 text-white px-6 py-2 rounded hover:bg-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Coupons List */}
+      <div className="bg-white border rounded-lg overflow-hidden">
+        <div className="p-4 border-b">
+          <h2 className="text-lg font-semibold">All Coupons</h2>
+        </div>
+        
+        {isLoading ? (
+          <div className="p-4 text-center">Loading...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left">Code</th>
+                  <th className="px-4 py-3 text-left">Name</th>
+                  <th className="px-4 py-3 text-left">Discount</th>
+                  <th className="px-4 py-3 text-left">Usage</th>
+                  <th className="px-4 py-3 text-left">Valid Until</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coupons.map((coupon) => (
+                  <tr key={coupon._id} className="border-t">
+                    <td className="px-4 py-3 font-mono">{coupon.code}</td>
+                    <td className="px-4 py-3">{coupon.name}</td>
+                    <td className="px-4 py-3">
+                      <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded text-sm">
+                        {formatDiscount(coupon)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {coupon.usedCount}/{coupon.usageLimit || '∞'}
+                    </td>
+                    <td className="px-4 py-3">{formatDate(coupon.validUntil)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-sm ${
+                        coupon.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {coupon.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(coupon)}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(coupon._id)}
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Coupons; 
