@@ -1,0 +1,28 @@
+# MongoDB Configuration
+MONGODB_URI=mongodb://localhost:27017/skyroot-dev
+
+# JWT Secret (generate a random string)
+JWT_SECRET=anmol_kurtis_secret_key_2024
+
+# Admin Credentials
+ADMIN_EMAIL=admin@anmolkurtis.com
+ADMIN_PASSWORD=admin123
+
+# Server Configuration
+PORT=4000
+NODE_ENV=development
+
+# Payment Gateway Keys (add these later)
+STRIPE_SECRET_KEY=your_stripe_secret_key_here
+RAZORPAY_KEY_ID=your_razorpay_key_id_here
+RAZORPAY_SECRET_KEY=your_razorpay_secret_key_here
+
+# Cloudinary Configuration (add these later for image uploads)
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+
+# Email Configuration for Stock Alerts
+SENDGRID_API_KEY=your_sendgrid_api_key_here
+SENDGRID_FROM_EMAIL=noreply@yourstore.com
+FRONTEND_URL=http://localhost:3000 

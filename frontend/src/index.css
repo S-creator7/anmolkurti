@@ -5,162 +5,322 @@
 @tailwind utilities;
 
 :root {
-  --primary-color: #FF69B4;    /* Hot Pink */
-  --primary-dark: #FF1493;     /* Deep Pink */
-  --primary-light: #FFB6C1;    /* Light Pink */
-  --accent-color: #FF007F;     /* Bright Pink */
-  --background: #FFF0F5;       /* Lavender Blush */
-  --text-dark: #4A0025;        /* Dark Pink */
-  --text-light: #FFF;          /* White */
-  --hover-color: #FFE4E1;      /* Misty Rose */
+  --primary-color: #ff69b4;    /* Hot Pink */
+  --primary-dark: #ff1493;     /* Deep Pink */
+  --primary-light: #ffb6c1;    /* Light Pink */
+  --accent-color: #ff007f;     /* Bright Pink */
+  --background: #fdfcfe;       /* Very soft pink-white */
+  --surface: #ffffff;          /* Pure white for cards */
+  --text-dark: #2d1b35;        /* Deep purple-pink */
+  --text-medium: #64748b;      /* Slate gray */
+  --text-light: #ffffff;       /* White */
+  --border-light: #f1f5f9;     /* Very light border */
+  --shadow-soft: rgba(255, 105, 180, 0.08);
+  --shadow-medium: rgba(255, 105, 180, 0.12);
+  --shadow-strong: rgba(255, 105, 180, 0.16);
 }
 
-* {
-  font-family: Outfit;
-  transition: all 0.3s ease;
-}
-
-*:not(img) {
-  background-color: var(--background);
-}
-
-body {
+/* Global text selection styling - soft pink theme */
+::selection {
+  background-color: rgba(255, 182, 193, 0.3); /* Light pink with transparency */
   color: var(--text-dark);
 }
 
-/* Navigation Styles */
-nav {
-  background-color: var(--primary-color);
-  box-shadow: 0 2px 10px rgba(255, 105, 180, 0.3);
+::-moz-selection {
+  background-color: rgba(255, 182, 193, 0.3); /* Light pink with transparency */
+  color: var(--text-dark);
 }
 
-/* Card Styles */
+* {
+  font-family: 'Outfit', sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-dark);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Remove harsh borders globally */
+* {
+  border-color: var(--border-light);
+}
+
+/* Enhanced Card Styles */
 .card {
-  border: 1px solid var(--primary-light);
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(255, 105, 180, 0.1);
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 1rem;
+  box-shadow: 0 2px 15px var(--shadow-soft);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(255, 105, 180, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 35px var(--shadow-medium);
+  border-color: rgba(255, 105, 180, 0.2);
 }
 
-/* Button Styles */
+/* Modern Button Styles */
 .btn-primary {
-  background-color: var(--primary-color);
-  border-color: var(--primary-color);
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  border: none;
   color: var(--text-light);
-  padding: 0.6rem 1.2rem;
-  border-radius: 8px;
-  font-weight: 500;
-  transition: all 0.3s ease;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.025em;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(255, 105, 180, 0.3);
 }
 
 .btn-primary:hover {
-  background-color: var(--primary-dark);
-  border-color: var(--primary-dark);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(184, 156, 171, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 25px rgba(255, 105, 180, 0.4);
+  background: linear-gradient(135deg, var(--primary-dark) 0%, var(--accent-color) 100%);
 }
 
-/* Input Fields */
+.btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  color: var(--text-dark);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.75rem;
+  font-weight: 500;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px var(--shadow-soft);
+}
+
+.btn-secondary:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px var(--shadow-medium);
+}
+
+/* Enhanced Input Fields */
 input, select, textarea {
-  border: 2px solid var(--primary-light);
-  border-radius: 6px;
-  padding: 0.5rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border-light);
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px var(--shadow-soft);
 }
 
 input:focus, select:focus, textarea:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(255, 105, 180, 0.2);
+  box-shadow: 0 0 0 3px rgba(255, 105, 180, 0.1), 0 4px 15px var(--shadow-medium);
   outline: none;
+  transform: translateY(-1px);
 }
 
-/* Links */
+/* Modern Links */
 a {
-  color: var(--primary-dark);
+  color: var(--text-dark);
   text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 a:hover {
-  color: var(--accent-color);
+  color: var(--primary-color);
 }
 
-/* Active Navigation */
-a.active {
-  /* background-color: var(--primary-dark); */
-  color: #A1697F;
+/* Enhanced Navigation */
+.nav-link {
+  position: relative;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-a.active hr {
-  display: block;
-  border-color: var(--text-light);
+.nav-link:hover {
+  background: rgba(255, 105, 180, 0.05);
+  color: var(--primary-color);
 }
 
-/* Scrollbar Customization */
+.nav-link.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 2px;
+  background: var(--primary-color);
+  border-radius: 1px;
+}
+
+/* Product Grid */
+.product-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+}
+
+/* Modern Shadows */
+.shadow-card {
+  box-shadow: 0 2px 15px var(--shadow-soft);
+}
+
+.shadow-card-hover {
+  box-shadow: 0 8px 35px var(--shadow-medium);
+}
+
+.shadow-glow {
+  box-shadow: 0 0 20px rgba(255, 105, 180, 0.3);
+}
+
+/* Loading Animations */
+.animate-pulse-soft {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/* Smooth Fade In */
+.fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Filter Panel Enhancements */
+.filter-panel {
+  background: var(--surface);
+  border-radius: 1rem;
+  box-shadow: 0 4px 25px var(--shadow-soft);
+  border: 1px solid var(--border-light);
+}
+
+/* Modern Checkboxes and Radio buttons - Only for forms that don't use custom designs */
+input[type="checkbox"]:not(.sr-only), input[type="radio"]:not(.sr-only) {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--border-light);
+  border-radius: 0.375rem;
+  background: var(--surface);
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+input[type="radio"]:not(.sr-only) {
+  border-radius: 50%;
+}
+
+input[type="checkbox"]:not(.sr-only):checked, input[type="radio"]:not(.sr-only):checked {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(255, 105, 180, 0.1);
+}
+
+input[type="checkbox"]:not(.sr-only):checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: bold;
+}
+
+input[type="radio"]:not(.sr-only):checked::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 6px;
+  height: 6px;
+  background: white;
+  border-radius: 50%;
+}
+
+/* Modern Modal */
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--surface);
+  border-radius: 1.5rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--border-light);
+}
+
+/* Responsive Design Helpers */
+@media (max-width: 640px) {
+  .card {
+    border-radius: 0.75rem;
+  }
+  
+  .btn-primary, .btn-secondary {
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.625rem;
+  }
+}
+
+/* Utility Classes */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Remove scroll bar styling for cleaner look */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: var(--border-light);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--primary-light);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--primary-color);
-}
-
-/* Typography */
-.prata-regular {
-  font-family: "Prata", serif;
-  font-weight: 400;
-  font-style: normal;
-  color: var(--text-dark);
-}
-
-/* Mobile Responsive */
-@media (max-width: 640px) {
-  a.active {
-    background-color: var(--primary-dark);
-    color: var(--text-light);
-  }
-}
-
-/* Hover Effects */
-.hover-effect {
-  transition: all 0.3s ease;
-}
-
-.hover-effect:hover {
-  transform: scale(1.05);
-}
-
-/* Section Headers */
-.section-title {
-  color: var(--primary-dark);
-  font-family: "Prata", serif;
-  font-size: 2rem;
-  margin-bottom: 1.5rem;
-  text-align: center;
-}
-
-/* Product Cards */
-.product-card {
-  background: var(--text-light);
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: 0 4px 15px rgba(255, 105, 180, 0.1);
-}
-
-.product-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 25px rgba(255, 105, 180, 0.2);
 }
 
 /* Splash Screen Styles */
