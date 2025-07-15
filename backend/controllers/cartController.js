@@ -6,11 +6,14 @@ import productModel from "../models/productModel.js"
 const addToCart = async (req,res) => {
     try {
         console.log("Add to cart request body:", req.body);
-        const { userId, itemId, size } = req.body
+        console.log("Authenticated user:", req.user);
+        
+        const { itemId, size } = req.body
+        const userId = req.user.userId; // Get userId from JWT token via auth middleware
 
         if (!userId) {
-            console.log("User ID missing in add to cart request");
-            return res.json({ success: false, message: "User ID is required" });
+            console.log("User ID missing from token");
+            return res.json({ success: false, message: "Authentication required" });
         }
 
         const userData = await userModel.findById(userId)
@@ -48,25 +51,29 @@ const addToCart = async (req,res) => {
             }
         }
 
+        // ✅ Enhanced stock validation with better error messages
+        if (availableStock <= 0) {
+            return res.json({ success: false, message: "📦 Out of stock" });
+        }
+
         if (currentQuantity + 1 > availableStock) {
-            return res.json({ success: false, message: "Cannot add more than available stock" });
+            return res.json({ success: false, message: `Only ${availableStock} items available in stock` });
         }
 
         if (cartData[itemId]) {
             if (cartData[itemId][size]) {
-                cartData[itemId][size] += 1
-            }
-            else {
-                cartData[itemId][size] = 1
+                cartData[itemId][size] += 1;
+            } else {
+                cartData[itemId][size] = 1;
             }
         } else {
-            cartData[itemId] = {}
-            cartData[itemId][size] = 1
+            cartData[itemId] = {};
+            cartData[itemId][size] = 1;
         }
 
-        await userModel.findByIdAndUpdate(userId, {cartData})
+        await userModel.findByIdAndUpdate(userId, { cartData });
 
-        res.json({ success: true, message: "Added To Cart" })
+        res.json({ success: true, message: "Added to cart" })
 
     } catch (error) {
         console.log(error)
@@ -77,28 +84,83 @@ const addToCart = async (req,res) => {
 // update user cart
 const updateCart = async (req,res) => {
     try {
-        
-        const { userId ,itemId, size, quantity } = req.body
+        const { itemId, size, quantity } = req.body
+        const userId = req.user.userId; // Get userId from JWT token via auth middleware
 
         if (!userId) {
-            return res.json({ success: false, message: "User ID is required" });
+            return res.json({ success: false, message: "Authentication required" });
         }
 
         const userData = await userModel.findById(userId)
-        
         if (!userData) {
-            return res.json({ success: false, message: "User not found" });
+            return res.status(404).json({ success: false, message: "User not found" })
+        }
+
+        // Fetch product to check stock before updating
+        const product = await productModel.findById(itemId)
+        if (!product) {
+            return res.status(404).json({ success: false, message: "Product not found" })
         }
 
         let cartData = userData.cartData || {};
 
-        if (!cartData[itemId]) {
-            cartData[itemId] = {};
+        if (quantity === 0) {
+            // Remove item from cart
+            if (cartData[itemId]) {
+                if (size && cartData[itemId][size] !== undefined) {
+                    delete cartData[itemId][size];
+                    // If no sizes left for this item, remove the item entirely
+                    if (Object.keys(cartData[itemId]).length === 0) {
+                        delete cartData[itemId];
+                    }
+                } else if (!size) {
+                    delete cartData[itemId];
+                }
+            }
+        } else {
+            // Validate stock before updating quantity
+            let availableStock = 0;
+            if (product.hasSize) {
+                if (product.stock && product.stock[size] !== undefined) {
+                    availableStock = product.stock[size];
+                } else {
+                    availableStock = 0;
+                }
+            } else {
+                if (typeof product.stock === 'number') {
+                    availableStock = product.stock;
+                } else {
+                    availableStock = 0;
+                }
+            }
+
+            // ✅ Enhanced stock validation with better error messages
+            if (availableStock <= 0) {
+                return res.json({ success: false, message: "📦 Out of stock" });
+            }
+
+            if (quantity > availableStock) {
+                return res.json({ success: false, message: `Only ${availableStock} items available in stock` });
+            }
+
+            // Update quantity
+            if (cartData[itemId]) {
+                if (size) {
+                    cartData[itemId][size] = quantity;
+                } else {
+                    cartData[itemId] = { quantity };
+                }
+            } else {
+                cartData[itemId] = {};
+                if (size) {
+                    cartData[itemId][size] = quantity;
+                } else {
+                    cartData[itemId] = { quantity };
+                }
+            }
         }
 
-        cartData[itemId][size] = quantity
-
-        await userModel.findByIdAndUpdate(userId, {cartData})
+        await userModel.findByIdAndUpdate(userId, { cartData });
         res.json({ success: true, message: "Cart Updated" })
 
     } catch (error) {
@@ -107,31 +169,27 @@ const updateCart = async (req,res) => {
     }
 }
 
-
 // get user cart data
 const getUserCart = async (req,res) => {
-
     try {
-        
-        const { userId } = req.body
-        
+        const userId = req.user.userId; // Get userId from JWT token via auth middleware
+
         if (!userId) {
-            return res.json({ success: false, message: "User ID is required" });
+            return res.json({ success: false, message: "Authentication required" });
         }
-        
+
         const userData = await userModel.findById(userId)
         if (!userData) {
             return res.status(404).json({ success: false, message: "User not found" })
         }
-        let cartData = userData.cartData || {};
 
+        let cartData = userData.cartData || {}
         res.json({ success: true, cartData })
 
     } catch (error) {
         console.log(error)
         res.json({ success: false, message: error.message })
     }
-
 }
 
 export { addToCart, updateCart, getUserCart }

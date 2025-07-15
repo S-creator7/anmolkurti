@@ -7,6 +7,8 @@ import { assets } from '../assets/assets';
 import RelatedProducts from '../components/RelatedProducts';
 import ScrollToTop from "../components/scrollToTop";
 import { toast } from 'react-toastify';
+import CartModal from '../components/CartModal';
+import StockAlert from '../components/StockAlert';
 
 const Product = () => {
 
@@ -18,6 +20,8 @@ const Product = () => {
   const [image, setImage] = useState('')
   const [imageIndex, setImageIndex] = useState(0);
   const [size,setSize] = useState('')
+  const [showCartModal, setShowCartModal] = useState(false);
+  const [addedQuantity, setAddedQuantity] = useState(1);
 
   useEffect(() => {
     if (!productData.hasSize) {
@@ -134,6 +138,10 @@ const Product = () => {
     fetchProductData();
   }, [productId,products])
 
+  const handleStockAlert = async (email) => {
+    await subscribeStockAlert(productData._id, email);
+  };
+
   return productData ? (
     <div className='border-t-2 pt-10 transition-opacity ease-in duration-500 opacity-100'>
       <ScrollToTop />
@@ -150,8 +158,8 @@ const Product = () => {
                     src={item} 
                     key={index} 
                     className={`w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer border-2 ${
-                      index === imageIndex ? 'border-orange-500' : 'border-transparent'
-                    } hover:border-orange-300 transition-colors`}
+                      index === imageIndex ? 'border-hotpink-500' : 'border-transparent'
+                    } hover:border-hotpink-300 transition-colors`}
                     alt="" 
                     onError={(e) => {
                       e.target.src = '/placeholder-image.jpg'; // ✅ Fallback image
@@ -172,7 +180,7 @@ const Product = () => {
                       onClick={() => handleImageChange(productData.image[index], index)}
                       className={`w-3 h-3 rounded-full transition-all duration-200 ${
                         index === imageIndex 
-                          ? 'bg-orange-500 scale-125' 
+                          ? 'bg-hotpink-500 scale-125' 
                           : 'bg-white bg-opacity-60 hover:bg-opacity-80'
                       }`}
                     />
@@ -250,7 +258,7 @@ const Product = () => {
             </p>
             <button
               onClick={() => setShowFullDescription(!showFullDescription)}
-              className='text-orange-500 hover:text-orange-600 text-sm mt-2 font-medium'
+              className='text-hotpink-500 hover:text-hotpink-600 text-sm mt-2 font-medium'
             >
               {showFullDescription ? 'Show Less' : 'Read More'}
             </button>
@@ -266,7 +274,7 @@ const Product = () => {
                       return (
                         <button 
                           onClick={() => setSize(item)} 
-                          className={`border py-2 px-4 ${item === size ? 'border-orange-500' : ''} 
+                          className={`border py-2 px-4 ${item === size ? 'border-hotpink-500' : ''} 
                                      ${sizeStock === 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`} 
                           key={index}
                           disabled={sizeStock === 0}
@@ -284,12 +292,36 @@ const Product = () => {
                 </>
               ) : (
                 <>
-                  <p>Stock: {typeof productData.stock === 'number' ? productData.stock : 0}</p>
-                  {!isInStock() && (
-                    <div className="mt-4 text-red-600 font-semibold">
-                      Product is out of stock.
+                  <div className={`mt-4 p-3 rounded-lg ${
+                    (typeof productData.stock === 'number' ? productData.stock : 0) <= 0 ? 'bg-red-50 border border-red-200' : 
+                    (typeof productData.stock === 'number' ? productData.stock : 0) <= 5 ? 'bg-yellow-50 border border-yellow-200' : 
+                    'bg-green-50 border border-green-200'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-gray-700">Stock Status:</span>
+                      <span className={`text-sm font-medium ${
+                        (typeof productData.stock === 'number' ? productData.stock : 0) <= 0 ? 'text-red-600' : 
+                        (typeof productData.stock === 'number' ? productData.stock : 0) <= 5 ? 'text-yellow-600' : 
+                        'text-green-600'
+                      }`}>
+                        {(typeof productData.stock === 'number' ? productData.stock : 0) <= 0 ? '❌ Out of Stock' : 
+                         (typeof productData.stock === 'number' ? productData.stock : 0) <= 5 ? `⚠️ Low Stock (${productData.stock} left)` : 
+                         `✅ In Stock (${productData.stock} available)`
+                        }
+                      </span>
                     </div>
-                  )}
+                    {!isInStock() && (
+                      <div className="mt-3">
+                        <div className="text-red-600 font-semibold text-sm mb-2">
+                          🚫 This product is currently unavailable
+                        </div>
+                        <StockAlert 
+                          productId={productData._id} 
+                          onSubscribe={handleStockAlert}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </>
               )}
             </div>
@@ -300,15 +332,11 @@ const Product = () => {
           <div className='flex gap-4 mb-6'>
               <button 
               onClick={async () => {
-                console.log("Add to cart button clicked");
-                console.log("productData:", productData);
-                console.log("products state:", products);
                 try {
                   const success = await addToCart(productData, productData.hasSize ? size : null);
                   if (success) {
-                    toast.success("Product added to cart");
-                  } else {
-                    toast.error("Cannot add product to cart");
+                    setAddedQuantity(1);
+                    setShowCartModal(true);
                   }
                 } catch (error) {
                   console.error("Error adding to cart:", error);
@@ -322,54 +350,43 @@ const Product = () => {
               </button>
               <button 
                 onClick={() => {
-                  console.log("Buy now button clicked");
-                  console.log("productData:", productData);
-                  console.log("products state:", products);
                   if (!size && productData.hasSize) {
                     toast.error("Please select a size");
                     return;
                   }
                   if (!isInStock()) {
-                    toast.error("Product is out of stock");
-                    return;
-                  }
-                  // Check if product is already in cart
-                  if (cartQuantity > 0) {
-                    console.log("Product already in cart, navigating to place order without adding again");
-                    navigate('/place-order', { 
-                      state: { 
-                        directBuy: true, 
-                        productId: productData._id, 
-                        size 
-                      } 
+                    toast.error('📦 Out of stock', {
+                      style: {
+                        background: '#fee2e2',
+                        border: '1px solid #fecaca',
+                        color: '#dc2626'
+                      }
                     });
                     return;
                   }
-                  try {
-                    const success = await addToCart(productData, productData.hasSize ? size : null);
-                    if (success) {
-                      console.log("Product added to cart successfully, navigating to place order");
-                      navigate('/place-order', { 
-                        state: { 
-                          directBuy: true, 
-                          productId: productData._id, 
-                          size 
-                        } 
-                      });
-                    } else {
-                      toast.error("Failed to add product to cart");
-                    }
-                  } catch (error) {
-                    console.error("Error in buy now:", error);
-                    toast.error("Failed to process buy now");
-                  }
+                  navigate('/place-order', { 
+                    state: { 
+                      directBuy: true, 
+                      productId: productData._id, 
+                      size 
+                    } 
+                  });
                 }}
-                className='flex-1 bg-orange-500 text-white px-8 py-3 text-sm hover:bg-orange-600 transition-colors' 
+                className='flex-1 bg-hotpink-500 text-white px-8 py-3 text-sm hover:bg-hotpink-600 transition-colors' 
                 disabled={!isInStock() || (productData.hasSize && !size)}
               >
                 BUY NOW
               </button>
           </div>
+
+          <CartModal 
+            isOpen={showCartModal}
+            onClose={() => setShowCartModal(false)}
+            product={productData}
+            size={size}
+            quantity={addedQuantity}
+          />
+
           {/* //--- */}
           {/* <button 
             onClick={() => {

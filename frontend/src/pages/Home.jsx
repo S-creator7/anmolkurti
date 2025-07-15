@@ -17,9 +17,9 @@ const Home = () => {
       {/* <img className='w-full py-3 sm:w-full' src={assets.banner_women}/> */}
       <BestSeller/>
       <OurPolicy/>
-      <NewsletterBox/>
+      {/* <NewsletterBox/> */}
     </div>
   )
 }
 
-export default Home
+export default Home 

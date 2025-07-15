@@ -16,7 +16,7 @@ const About = () => {
           <img className='w-full md:max-w-[450px]' src={assets.about_img} alt="" />
           <div className='flex flex-col justify-center gap-6 md:w-2/4 text-gray-600'>
               <p>Welcome to Anmol Kurti, where tradition meets elegance! At Anmol Kurti, we are passionate about bringing the finest collection of Kurtis for women who love to embrace both modern and traditional fashion. Each piece in our collection is carefully curated, blending vibrant colors, intricate patterns, and premium fabrics to suit every occasion—whether it's a casual outing or a festive celebration.</p>
-              <p>We believe that every woman deserves to feel confident and comfortable in what she wears, and that’s why our designs are created to flatter all body types and cater to diverse fashion preferences. Our mission is to offer high-quality, stylish Kurtis at affordable prices, ensuring that every customer feels special with every purchase.</p>
+              <p>We believe that every woman deserves to feel confident and comfortable in what she wears, and that's why our designs are created to flatter all body types and cater to diverse fashion preferences. Our mission is to offer high-quality, stylish Kurtis at affordable prices, ensuring that every customer feels special with every purchase.</p>
               <b className='text-gray-800'>Our Mission</b>
               <p>Our mission at Anmol Kurti is committed to providing a seamless online shopping experience, with a focus on exceptional customer service, fast shipping, and easy returns. Whether you're exploring our latest collections or browsing for something timeless, we're here to help you find the perfect Kurti that reflects your unique style.</p>
           </div>
@@ -41,7 +41,7 @@ const About = () => {
           </div>
       </div>
 
-      <NewsletterBox/>
+      {/* <NewsletterBox/> */}
       
     </div>
   )

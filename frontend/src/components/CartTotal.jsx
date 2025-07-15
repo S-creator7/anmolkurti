@@ -3,9 +3,14 @@ import { ShopContext } from '../context/ShopContext'
 import Title from './Title';
 import CouponCode from './CouponCode';
 
-const CartTotal = () => {
+const CartTotal = ({ appliedCoupon: propAppliedCoupon, onCouponApplied: propOnCouponApplied, onRemoveCoupon: propOnRemoveCoupon }) => {
     const {currency, delivery_fee, getCartAmount} = useContext(ShopContext);
-    const [appliedCoupon, setAppliedCoupon] = useState(null);
+    const [localAppliedCoupon, setLocalAppliedCoupon] = useState(null);
+
+    // Use props if provided (for PlaceOrder), otherwise use local state (for Cart)
+    const appliedCoupon = propAppliedCoupon !== undefined ? propAppliedCoupon : localAppliedCoupon;
+    const onCouponApplied = propOnCouponApplied || setLocalAppliedCoupon;
+    const onRemoveCoupon = propOnRemoveCoupon || (() => setLocalAppliedCoupon(null));
 
     const subtotal = getCartAmount();
     const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
@@ -13,11 +18,11 @@ const CartTotal = () => {
     const total = Math.max(0, subtotal - discountAmount + shippingFee);
 
     const handleCouponApplied = (coupon) => {
-        setAppliedCoupon(coupon);
+        onCouponApplied(coupon);
     };
 
     const handleRemoveCoupon = () => {
-        setAppliedCoupon(null);
+        onRemoveCoupon();
     };
 
     return (

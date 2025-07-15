@@ -59,87 +59,85 @@ const Hero = () => {
   };
 
   return (
-    <div className='relative w-full h-[400px] sm:h-[500px] overflow-hidden border border-gray-400'>
-      {/* Slides Container */}
+    <div className='relative w-full h-[450px] sm:h-[550px] overflow-hidden rounded-3xl shadow-medium bg-gradient-to-br from-hotpink-50 to-white mx-2'>
+      {/* Slides Container with smooth scrolling */}
       <div 
-        className='flex transition-transform duration-500 ease-in-out h-full'
+        className='flex transition-transform duration-700 ease-out h-full'
         style={{ transform: `translateX(-${currentSlide * 100}%)` }}
       >
         {slides.map((slide) => (
-          <div key={slide.id} className='min-w-full flex flex-col sm:flex-row'>
-            {/* Content Side */}
-            <div className='w-full sm:w-1/2 flex items-center justify-center py-10 sm:py-0'>
-              <div className='text-[#414141] px-6 sm:px-10'>
-                <div className='flex items-center gap-2 mb-4'>
-                  <p className='w-8 md:w-11 h-[2px] bg-[#414141]'></p>
-                  <p className='font-medium text-sm md:text-base'>{slide.subtitle}</p>
+          <div key={slide.id} className='min-w-full flex flex-col sm:flex-row relative'>
+            {/* Content Side with animation */}
+            <div className='w-full sm:w-1/2 flex items-center justify-center py-10 sm:py-0 px-8 sm:px-12 bg-gradient-to-br from-white/80 to-hotpink-50/50 backdrop-blur-sm'>
+              <div className='text-gray-700 animate-slide-in'>
+                <div className='flex items-center gap-3 mb-6'>
+                  <div className='w-8 md:w-12 h-[3px] bg-gradient-to-r from-hotpink-400 to-hotpink-600 rounded-full'></div>
+                  <p className='font-semibold text-sm md:text-base tracking-wider text-hotpink-600 uppercase'>{slide.subtitle}</p>
                 </div>
-                <h1 className='prata-regular text-3xl sm:py-3 lg:text-5xl leading-relaxed mb-4'>
+                <h1 className='font-prata text-3xl sm:text-4xl lg:text-6xl leading-tight mb-6 text-gray-800'>
                   {slide.title}
                 </h1>
-                <p className='text-gray-600 mb-6 text-sm md:text-base'>
+                <p className='text-gray-600 mb-8 text-base md:text-lg leading-relaxed max-w-md'>
                   {slide.description}
                 </p>
-                <div className='flex items-center gap-2'>
-                  <button 
-                    onClick={() => handleShopNow(slide.link)}
-                    className='font-semibold text-sm md:text-base hover:text-orange-500 transition-colors duration-300'
-                  >
-                    {slide.buttonText}
-                  </button>
-                  <p className='w-8 md:w-11 h-[1px] bg-[#414141]'></p>
-                </div>
+                <button
+                  onClick={() => handleShopNow(slide.link)}
+                  className='group flex items-center gap-3 bg-gradient-to-r from-hotpink-500 to-hotpink-600 text-white px-8 py-4 rounded-2xl font-semibold text-sm tracking-wide transition-all duration-300 hover:from-hotpink-600 hover:to-hotpink-700 hover:shadow-strong transform hover:-translate-y-1 hover:scale-105'
+                >
+                  <span>{slide.buttonText}</span>
+                  <svg className='w-5 h-5 group-hover:translate-x-1 transition-transform duration-300' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M17 8l4 4m0 0l-4 4m4-4H3' />
+                  </svg>
+                </button>
               </div>
             </div>
             
             {/* Image Side */}
-            <div className='w-full sm:w-1/2'>
+            <div className='w-full sm:w-1/2 relative overflow-hidden'>
               <img 
-                className='w-full h-full object-cover hover:scale-105 transition-transform duration-700' 
+                className='w-full h-full object-cover transform scale-105 hover:scale-110 transition-transform duration-700' 
                 src={slide.image} 
-                alt={slide.title}
-                onError={(e) => {
-                  e.target.src = '/placeholder-image.jpg'; // Fallback image
-                }}
+                alt={slide.title} 
               />
+              <div className='absolute inset-0 bg-gradient-to-l from-transparent via-transparent to-white/20'></div>
             </div>
           </div>
         ))}
       </div>
-
-      {/* Navigation Dots */}
-      <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-3'>
+      
+      {/* Slide Indicators */}
+      <div className='absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-3'>
         {slides.map((_, index) => (
           <button
             key={index}
             onClick={() => handleSlideChange(index)}
             className={`w-3 h-3 rounded-full transition-all duration-300 ${
               currentSlide === index 
-                ? 'bg-orange-500 scale-125' 
-                : 'bg-white bg-opacity-50 hover:bg-opacity-75'
+                ? 'bg-hotpink-500 w-8 shadow-medium' 
+                : 'bg-white/60 hover:bg-white/80'
             }`}
             aria-label={`Go to slide ${index + 1}`}
           />
         ))}
       </div>
-
-      {/* Navigation Arrows */}
+      
+      {/* Navigation Buttons */}
       <button
         onClick={() => setCurrentSlide(currentSlide === 0 ? slides.length - 1 : currentSlide - 1)}
-        className='absolute left-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white p-2 rounded-full transition-all duration-300'
+        className='absolute left-6 top-1/2 transform -translate-y-1/2 bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700 hover:text-hotpink-600 p-3 rounded-full transition-all duration-300 shadow-medium hover:shadow-strong transform hover:scale-110'
         aria-label="Previous slide"
       >
-        <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
           <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M15 19l-7-7 7-7' />
         </svg>
       </button>
       
       <button
         onClick={() => setCurrentSlide((currentSlide + 1) % slides.length)}
-        className='absolute right-4 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-20 hover:bg-opacity-40 text-white p-2 rounded-full transition-all duration-300'
+        className='absolute right-6 top-1/2 transform -translate-y-1/2 bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700 hover:text-hotpink-600 p-3 rounded-full transition-all duration-300 shadow-medium hover:shadow-strong transform hover:scale-110'
         aria-label="Next slide"
       >
-        <svg className='w-6 h-6' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+        <svg className='w-5 h-5' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
           <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M9 5l7 7-7 7' />
         </svg>
       </button>

@@ -45,6 +45,107 @@ const ShopContextProvider = (props) => {
   const [token, setToken] = useState('');
   const navigate = useNavigate();
 
+  // Decode JWT token to get user ID
+  const getUserIdFromToken = (token) => {
+    if (!token) return null;
+    
+    try {
+      // Split the token into parts
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        console.error('Invalid JWT token format');
+        return null;
+      }
+      
+      // Decode the payload (second part of JWT)
+      const payload = parts[1];
+      
+      // Add padding if needed for base64 decode
+      const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4);
+      
+      // Decode and parse the payload
+      const decodedPayload = JSON.parse(atob(paddedPayload));
+      
+      // Extract userId from various possible field names
+      const userId = decodedPayload.userId || decodedPayload.id || decodedPayload._id || decodedPayload.sub;
+      
+      if (!userId) {
+        console.error('No userId found in token payload:', decodedPayload);
+        return null;
+      }
+      
+      return userId;
+    } catch (error) {
+      console.error('Error decoding JWT token:', error);
+      return null;
+    }
+  };
+
+  // Function to refresh stock data for all products
+  const refreshProductStock = async () => {
+    try {
+      const productIds = products.map(p => p._id);
+      if (productIds.length === 0) return;
+      
+      const response = await axios.post(`${backendUrl}/api/product/stock-levels`, {
+        productIds
+      });
+      
+      if (response.data.success) {
+        const stockLevels = response.data.stockLevels;
+        
+        // Update products array with fresh stock data
+        setProducts(prevProducts => 
+          prevProducts.map(product => ({
+            ...product,
+            stock: stockLevels[product._id]?.stock || product.stock
+          }))
+        );
+      }
+    } catch (error) {
+      console.error('Error refreshing product stock:', error);
+    }
+  };
+
+  // Auto-refresh stock every 30 seconds when cart has items
+  useEffect(() => {
+    if (Object.keys(cartItems).length > 0) {
+      const stockRefreshInterval = setInterval(refreshProductStock, 30000);
+      return () => clearInterval(stockRefreshInterval);
+    }
+  }, [cartItems, products.length]);
+
+  // Helper function to get real-time stock for a product and size
+  const getRealTimeStock = async (productId, size = null) => {
+    try {
+      const response = await axios.post(`${backendUrl}/api/product/stock-levels`, {
+        productIds: [productId]
+      });
+      
+      if (response.data.success && response.data.stockLevels[productId]) {
+        const stockData = response.data.stockLevels[productId];
+        
+        if (size) {
+          return stockData.stock?.[size] || 0;
+        } else {
+          return typeof stockData.stock === 'number' ? stockData.stock : 0;
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching real-time stock:', error);
+    }
+    
+    // Fallback to local product data
+    const product = products.find(p => p._id === productId);
+    if (!product) return 0;
+    
+    if (size) {
+      return product.stock?.[size] || 0;
+    } else {
+      return typeof product.stock === 'number' ? product.stock : 0;
+    }
+  };
+
   const addToCart = async (product, size) => {
     if (!product) {
       toast.error('Product not found');
@@ -52,32 +153,68 @@ const ShopContextProvider = (props) => {
     }
     const itemId = product._id;
 
+    // Get real-time stock information
+    let availableStock;
+    let currentCartQty;
+
     if (product.hasSize) {
       if (!size) {
         toast.error('Select Product Size');
         return false;
       }
-      const availableStock = product.stock?.[size] || 0;
-      const currentCartQty = cartItems[itemId]?.[size] ?? 0;
+      
+      // Get real-time stock for the specific size
+      availableStock = await getRealTimeStock(itemId, size);
+      currentCartQty = cartItems[itemId]?.[size] ?? 0;
       
       if (availableStock <= 0) {
-        toast.error('Selected size is out of stock');
+        toast.error('📦 Out of stock', {
+          style: {
+            background: '#fee2e2',
+            border: '1px solid #fecaca',
+            color: '#dc2626'
+          }
+        });
         return false;
       }
       if (currentCartQty >= availableStock) {
-        toast.error('Cannot add more than available stock for selected size');
+        toast.error(`Cannot add more. Only ${availableStock} available, ${currentCartQty} already in cart.`);
         return false;
       }
     } else {
-      const availableStock = typeof product.stock === 'number' ? product.stock : 0;
-      const currentCartQty = cartItems[itemId]?.quantity ?? 0;
+      // Get real-time stock for non-sized product
+      availableStock = await getRealTimeStock(itemId);
+      
+      // Fix cart quantity calculation for non-sized products
+      const cartItem = cartItems[itemId];
+      if (cartItem) {
+        // Handle different cart structures that might exist
+        if (typeof cartItem === 'object' && cartItem.quantity !== undefined) {
+          currentCartQty = cartItem.quantity;
+        } else if (typeof cartItem === 'number') {
+          currentCartQty = cartItem;
+        } else {
+          // If it's an object with size keys, sum them up
+          currentCartQty = Object.values(cartItem).reduce((sum, val) => {
+            return sum + (typeof val === 'number' ? val : 0);
+          }, 0);
+        }
+      } else {
+        currentCartQty = 0;
+      }
       
       if (availableStock <= 0) {
-        toast.error('Product is out of stock');
+        toast.error('📦 Out of stock', {
+          style: {
+            background: '#fee2e2',
+            border: '1px solid #fecaca',
+            color: '#dc2626'
+          }
+        });
         return false;
       }
       if (currentCartQty >= availableStock) {
-        toast.error('Cannot add more than available stock');
+        toast.error(`Cannot add more. Only ${availableStock} available, ${currentCartQty} already in cart.`);
         return false;
       }
     }
@@ -111,7 +248,7 @@ const ShopContextProvider = (props) => {
       try {
         await axios.post(backendUrl + '/api/cart/add', { itemId, size }, { headers: { token } });
         // Fetch updated cart from backend to sync state
-        const response = await axios.post(backendUrl + '/api/cart/get', { userId: token }, { headers: { token } });
+        const response = await axios.post(backendUrl + '/api/cart/get', {}, { headers: { token } });
         if (response.data.success) {
           setCartItems(response.data.cartData);
           console.log("ShopContext - cartItems synced after addToCart:", response.data.cartData);
@@ -194,9 +331,7 @@ const ShopContextProvider = (props) => {
 
     if (token) {
       try {
-        const userId = localStorage.getItem('userId');
         await axios.post(backendUrl + '/api/cart/update', { 
-          userId, 
           itemId, 
           size, 
           quantity 
@@ -267,21 +402,7 @@ const ShopContextProvider = (props) => {
   const getUserCart = async (token) => {
     console.log("getUserCart called with token:", token);
     try {
-      let userId = null;
-      try {
-        const jwtDecode = (await import('jwt-decode')).default;
-        const decoded = jwtDecode(token);
-        console.log("Decoded token in getUserCart:", decoded);
-        userId = decoded.userId || decoded.id || decoded._id || null;
-        console.log("Extracted userId:", userId);
-      } catch (e) {
-        console.log('Failed to decode token', e);
-      }
-      if (!userId) {
-        console.log("User ID is null or undefined, cannot fetch cart");
-        return;
-      }
-      const response = await axios.post(backendUrl + '/api/cart/get', { userId }, { headers: { token } });
+      const response = await axios.post(backendUrl + '/api/cart/get', {}, { headers: { token } });
       console.log("Response from /api/cart/get:", response.data);
       if (response.data.success) {
         setCartItems(response.data.cartData);
@@ -332,6 +453,8 @@ const value = {
   backendUrl,
   setToken,
   token,
+  refreshProductStock,
+  getRealTimeStock,
 };
 
 return <ShopContext.Provider value={value}>{props.children}</ShopContext.Provider>;

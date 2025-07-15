@@ -33,14 +33,14 @@ cron.schedule('0 * * * *', () => {
 });
 
 // api endpoints
-app.use('/api/user',userRouter)
-app.use('/api/product',productRouter)
-app.use('/api/cart',cartRouter)
-app.use('/api/order',orderRouter)
-app.use('/api/filter', filterRouter)
-app.use('/api/coupon',couponRouter)
-app.use('/api/wishlist',wishlistRouter)
-app.use('/api/contact',contactRouter)
+app.use('/api/user', userRouter);
+app.use('/api/product', productRouter);
+app.use('/api/cart', cartRouter);
+app.use('/api/order', orderRouter);
+app.use('/api/filter', filterRouter);
+app.use('/api/coupon', couponRouter);
+app.use('/api/wishlist', wishlistRouter);
+app.use('/api/contact', contactRouter);
 
 app.get('/',(req,res)=>{
     res.send("API Working")

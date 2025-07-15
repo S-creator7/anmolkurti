@@ -1,327 +1,264 @@
-import couponModel from "../models/couponModel.js";
-import userModel from "../models/userModel.js";
-import orderModel from "../models/orderModel.js";
+import { couponSchema } from '../validations/couponValidation.js';
+import couponModel from '../models/couponModel.js';
 
-// Create a new coupon
-const createCoupon = async (req, res) => {
+// Create new coupon
+export const createCoupon = async (req, res) => {
     try {
-        const {
-            code,
-            name,
-            description,
-            discountType,
-            discountValue,
-            minimumOrderAmount,
-            maximumDiscountAmount,
-            usageLimit,
-            validFrom,
-            validUntil,
-            applicableCategories,
-            excludedCategories,
-            couponType,
-            firstTimeUserOnly,
-            minimumPurchaseItems,
-            maximumUsagePerUser,
-            stackable,
-            priority,
-            bannerImage,
-            termsAndConditions
-        } = req.body;
+        // Validate request body
+        const { error } = couponSchema.validate(req.body);
+        if (error) {
+            return res.json({ success: false, message: error.details[0].message });
+        }
 
-        const existingCoupon = await couponModel.findOne({ code: code.toUpperCase() });
+        // Check if coupon code already exists
+        const existingCoupon = await couponModel.findOne({ code: req.body.code });
         if (existingCoupon) {
             return res.json({ success: false, message: "Coupon code already exists" });
         }
 
-        const coupon = new couponModel({
-            code: code.toUpperCase(),
-            name,
-            description,
-            discountType,
-            discountValue,
-            minimumOrderAmount,
-            maximumDiscountAmount,
-            usageLimit,
-            validFrom,
-            validUntil,
-            applicableCategories,
-            excludedCategories,
-            couponType,
-            firstTimeUserOnly,
-            minimumPurchaseItems,
-            maximumUsagePerUser,
-            stackable,
-            priority,
-            bannerImage,
-            termsAndConditions
-        });
-
+        // Create new coupon
+        const coupon = new couponModel(req.body);
         await coupon.save();
+
         res.json({ success: true, message: "Coupon created successfully", coupon });
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+        console.error("Create coupon error:", error);
+        res.json({ success: false, message: "Failed to create coupon" });
     }
 };
 
-// ✅ Enhanced coupon validation with user-specific checks
-const validateCoupon = async (req, res) => {
+// Update existing coupon
+export const updateCoupon = async (req, res) => {
     try {
-        const { code, orderAmount, products, userId } = req.body;
+        const { id } = req.params;
 
-        const coupon = await couponModel.findOne({ 
-            code: code.toUpperCase(),
-            isActive: true,
-            validFrom: { $lte: new Date() },
-            validUntil: { $gte: new Date() }
-        });
-
-        if (!coupon) {
-            return res.json({ success: false, message: "Invalid or expired coupon code" });
+        // Validate request body
+        const { error } = couponSchema.validate(req.body);
+        if (error) {
+            return res.json({ success: false, message: error.details[0].message });
         }
 
-        // ✅ Check usage limit
-        if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+        // Check if coupon exists
+        const existingCoupon = await couponModel.findById(id);
+        if (!existingCoupon) {
+            return res.json({ success: false, message: "Coupon not found" });
+        }
+
+        // Check if new code already exists (if code is being changed)
+        if (req.body.code !== existingCoupon.code) {
+            const codeExists = await couponModel.findOne({ code: req.body.code });
+            if (codeExists) {
+                return res.json({ success: false, message: "Coupon code already exists" });
+            }
+        }
+
+        // Update coupon
+        const updatedCoupon = await couponModel.findByIdAndUpdate(
+            id,
+            req.body,
+            { new: true }
+        );
+
+        res.json({ success: true, message: "Coupon updated successfully", coupon: updatedCoupon });
+    } catch (error) {
+        console.error("Update coupon error:", error);
+        res.json({ success: false, message: "Failed to update coupon" });
+    }
+};
+
+// Delete coupon
+export const deleteCoupon = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Check if coupon exists
+        const coupon = await couponModel.findById(id);
+        if (!coupon) {
+            return res.json({ success: false, message: "Coupon not found" });
+        }
+
+        // Delete coupon
+        await couponModel.findByIdAndDelete(id);
+
+        res.json({ success: true, message: "Coupon deleted successfully" });
+    } catch (error) {
+        console.error("Delete coupon error:", error);
+        res.json({ success: false, message: "Failed to delete coupon" });
+    }
+};
+
+// List all coupons
+export const listCoupons = async (req, res) => {
+    try {
+        const coupons = await couponModel.find({})
+            .sort({ createdAt: -1 });
+
+        res.json({ success: true, coupons });
+    } catch (error) {
+        console.error("List coupons error:", error);
+        res.json({ success: false, message: "Failed to fetch coupons" });
+    }
+};
+
+// Validate coupon
+export const validateCoupon = async (req, res) => {
+    try {
+        const { code, orderAmount, products, userId } = req.body;
+        const ip = req.ip;
+        const logSuspicious = (reason) => {
+            console.warn(`[COUPON-FAIL]`, {
+                time: new Date().toISOString(),
+                ip,
+                userId: userId || null,
+                code,
+                reason
+            });
+        };
+
+        // Find coupon
+        const coupon = await couponModel.findOne({ code });
+        if (!coupon) {
+            logSuspicious('Invalid coupon code');
+            return res.json({ success: false, message: "Invalid coupon code" });
+        }
+
+        // Check if coupon is active
+        const now = new Date();
+        if (now < new Date(coupon.validFrom) || now > new Date(coupon.validUntil)) {
+            logSuspicious('Coupon is not active');
+            return res.json({ success: false, message: "Coupon is not active" });
+        }
+
+        // Check usage limit
+        if (coupon.usedCount >= coupon.usageLimit) {
+            logSuspicious('Coupon usage limit exceeded');
             return res.json({ success: false, message: "Coupon usage limit exceeded" });
         }
 
-        // ✅ Check minimum order amount
+        // Check minimum order amount
         if (orderAmount < coupon.minimumOrderAmount) {
+            logSuspicious(`Order amount below minimum (${orderAmount} < ${coupon.minimumOrderAmount})`);
             return res.json({ 
                 success: false, 
-                message: `Minimum order amount of ₹${coupon.minimumOrderAmount} required` 
+                message: `Minimum order amount should be ${coupon.minimumOrderAmount}` 
             });
         }
 
-        // ✅ Check minimum purchase items
-        const totalItems = products.reduce((sum, product) => sum + product.quantity, 0);
-        if (totalItems < coupon.minimumPurchaseItems) {
-            return res.json({ 
-                success: false, 
-                message: `Minimum ${coupon.minimumPurchaseItems} item(s) required` 
-            });
-        }
-
-        // ✅ Check if user has already used this coupon
-        if (userId) {
-            const userUsageCount = coupon.userUsage.filter(usage => 
-                usage.userId.toString() === userId
-            ).length;
-            
-            if (userUsageCount >= coupon.maximumUsagePerUser) {
-                return res.json({ 
-                    success: false, 
-                    message: "You have already used this coupon maximum times" 
-                });
+        // Check per-user usage limit if userId is provided
+        if (userId && coupon.maximumUsagePerUser) {
+            const usage = coupon.userUsage.find(u => u.userId.toString() === userId.toString());
+            if (usage && usage.count >= coupon.maximumUsagePerUser) {
+                logSuspicious(`User exceeded per-user usage limit (${usage.count} >= ${coupon.maximumUsagePerUser})`);
+                return res.json({ success: false, message: `You have already used this coupon the maximum allowed times (${coupon.maximumUsagePerUser})` });
             }
         }
 
-        // ✅ Check first-time user restriction
-        if (coupon.firstTimeUserOnly && userId) {
-            const userOrders = await orderModel.countDocuments({ 
-                userId, 
-                payment: true 
-            });
-            if (userOrders > 0) {
-                return res.json({ 
-                    success: false, 
-                    message: "This coupon is only for first-time customers" 
-                });
-            }
-        }
-
-        // ✅ Check category restrictions
-        if (coupon.excludedCategories && coupon.excludedCategories.length > 0) {
-            const hasExcludedCategory = products.some(product => 
-                coupon.excludedCategories.includes(product.category)
-            );
-            if (hasExcludedCategory) {
-                return res.json({ 
-                    success: false, 
-                    message: "Coupon cannot be applied to items in excluded categories" 
-                });
-            }
-        }
-
-        // ✅ Calculate discount
+        // Calculate discount
         let discountAmount = 0;
         if (coupon.discountType === 'percentage') {
             discountAmount = (orderAmount * coupon.discountValue) / 100;
             if (coupon.maximumDiscountAmount && discountAmount > coupon.maximumDiscountAmount) {
                 discountAmount = coupon.maximumDiscountAmount;
             }
-        } else if (coupon.discountType === 'free_shipping') {
-            discountAmount = 10; // Assuming delivery fee is ₹10
-        } else {
+        } else if (coupon.discountType === 'fixed') {
             discountAmount = coupon.discountValue;
         }
 
-        const finalAmount = Math.max(0, orderAmount - discountAmount);
-
-        res.json({
-            success: true,
-            message: "Coupon applied successfully",
-            coupon: {
-                code: coupon.code,
-                name: coupon.name,
-                description: coupon.description,
-                discountType: coupon.discountType,
-                discountAmount,
-                finalAmount,
-                stackable: coupon.stackable,
-                priority: coupon.priority
+        // Increment per-user usage count on successful application
+        if (userId && coupon.maximumUsagePerUser) {
+            const usageIdx = coupon.userUsage.findIndex(u => u.userId.toString() === userId.toString());
+            if (usageIdx > -1) {
+                coupon.userUsage[usageIdx].count += 1;
+            } else {
+                coupon.userUsage.push({ userId, count: 1 });
             }
+            await coupon.save();
+        }
+
+        res.json({ 
+            success: true, 
+            discountAmount,
+            discountType: coupon.discountType,
+            message: "Coupon applied successfully" 
         });
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+        console.error("Validate coupon error:", error);
+        res.json({ success: false, message: "Failed to validate coupon" });
     }
 };
 
-// ✅ Get available coupons for user
-const getAvailableCoupons = async (req, res) => {
+// Suggest available coupons for a user and order amount
+export const availableCoupons = async (req, res) => {
     try {
         const { userId, orderAmount } = req.body;
+        const now = new Date();
         
+        // Find all active coupons
         const coupons = await couponModel.find({
-            isActive: true,
-            validFrom: { $lte: new Date() },
-            validUntil: { $gte: new Date() },
-            $or: [
-                { couponType: 'public' },
-                { couponType: 'seasonal' },
-                { couponType: 'flash_sale' }
-            ]
-        }).sort({ priority: -1, createdAt: -1 });
-
-        const availableCoupons = [];
-
-        for (const coupon of coupons) {
-            // Check usage limit
-            if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-                continue;
+            validFrom: { $lte: now },
+            validUntil: { $gte: now },
+            usageLimit: { $gt: 0 },
+        });
+        
+        const couponsWithEligibility = coupons.map(coupon => {
+            const eligibilityCheck = {
+                eligible: true,
+                reason: null,
+                amountNeeded: 0
+            };
+            
+            // Check global usage
+            if (coupon.usedCount >= coupon.usageLimit) {
+                eligibilityCheck.eligible = false;
+                eligibilityCheck.reason = 'Usage limit exceeded';
             }
-
+            
             // Check minimum order amount
-            if (orderAmount < coupon.minimumOrderAmount) {
-                continue;
+            else if (orderAmount < coupon.minimumOrderAmount) {
+                eligibilityCheck.eligible = false;
+                eligibilityCheck.reason = `Add ₹${coupon.minimumOrderAmount - orderAmount} more to unlock`;
+                eligibilityCheck.amountNeeded = coupon.minimumOrderAmount - orderAmount;
             }
-
-            // Check user usage
-            if (userId) {
-                const userUsageCount = coupon.userUsage.filter(usage => 
-                    usage.userId.toString() === userId
-                ).length;
-                
-                if (userUsageCount >= coupon.maximumUsagePerUser) {
-                    continue;
+            
+            // Filter by coupon type
+            else if (coupon.couponType === 'private') {
+                eligibilityCheck.eligible = false;
+                eligibilityCheck.reason = 'Private coupon - not available';
+            }
+            
+            else if (coupon.couponType === 'first_order' && coupon.firstTimeUserOnly) {
+                // First-time user coupons require a logged-in user
+                if (!userId) {
+                    eligibilityCheck.eligible = false;
+                    eligibilityCheck.reason = 'Login required for first-time user discount';
+                }
+                // TODO: Check if user is actually a first-time user by checking order history
+                // For now, allow if user is logged in
+            }
+            
+            // Check per-user usage (only if userId is provided)
+            else if (userId && coupon.maximumUsagePerUser) {
+                const usage = coupon.userUsage.find(u => u.userId.toString() === userId.toString());
+                if (usage && usage.count >= coupon.maximumUsagePerUser) {
+                    eligibilityCheck.eligible = false;
+                    eligibilityCheck.reason = `You've already used this coupon ${coupon.maximumUsagePerUser} time(s)`;
                 }
             }
-
-            // Check first-time user restriction
-            if (coupon.firstTimeUserOnly && userId) {
-                const userOrders = await orderModel.countDocuments({ 
-                    userId, 
-                    payment: true 
-                });
-                if (userOrders > 0) {
-                    continue;
-                }
-            }
-
-            availableCoupons.push({
-                code: coupon.code,
-                name: coupon.name,
-                description: coupon.description,
-                discountType: coupon.discountType,
-                discountValue: coupon.discountValue,
-                minimumOrderAmount: coupon.minimumOrderAmount,
-                validUntil: coupon.validUntil,
-                bannerImage: coupon.bannerImage,
-                termsAndConditions: coupon.termsAndConditions
-            });
-        }
-
-        res.json({ success: true, coupons: availableCoupons });
+            
+            return {
+                ...coupon.toObject(),
+                eligible: eligibilityCheck.eligible,
+                reason: eligibilityCheck.reason,
+                amountNeeded: eligibilityCheck.amountNeeded
+            };
+        });
+        
+        // Filter out private coupons completely (don't show them at all)
+        const publicCoupons = couponsWithEligibility.filter(c => c.couponType !== 'private');
+        
+        res.json({ success: true, coupons: publicCoupons });
     } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
+        console.error('Error loading available coupons:', error);
+        res.json({ success: false, message: 'Failed to load available coupons' });
     }
-};
-
-// Get all coupons (admin)
-const getAllCoupons = async (req, res) => {
-    try {
-        const coupons = await couponModel.find({}).sort({ createdAt: -1 });
-        res.json({ success: true, coupons });
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
-    }
-};
-
-// Update coupon
-const updateCoupon = async (req, res) => {
-    try {
-        const { id } = req.params;
-        const updateData = req.body;
-
-        const coupon = await couponModel.findByIdAndUpdate(id, updateData, { new: true });
-        if (!coupon) {
-            return res.json({ success: false, message: "Coupon not found" });
-        }
-
-        res.json({ success: true, message: "Coupon updated successfully", coupon });
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
-    }
-};
-
-// Delete coupon
-const deleteCoupon = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        const coupon = await couponModel.findByIdAndDelete(id);
-        if (!coupon) {
-            return res.json({ success: false, message: "Coupon not found" });
-        }
-
-        res.json({ success: true, message: "Coupon deleted successfully" });
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
-    }
-};
-
-// ✅ Enhanced coupon usage tracking
-const incrementCouponUsage = async (couponCode, userId, orderId) => {
-    try {
-        await couponModel.findOneAndUpdate(
-            { code: couponCode },
-            { 
-                $inc: { usedCount: 1 },
-                $push: { 
-                    userUsage: {
-                        userId,
-                        orderId,
-                        usedAt: new Date()
-                    }
-                }
-            }
-        );
-    } catch (error) {
-        console.log("Error incrementing coupon usage:", error);
-    }
-};
-
-export { 
-    createCoupon, 
-    validateCoupon, 
-    getAvailableCoupons,
-    getAllCoupons, 
-    updateCoupon, 
-    deleteCoupon, 
-    incrementCouponUsage 
 };

@@ -27,11 +27,24 @@ const razorpayInstance = new razorpay({
 // Placing orders using COD Method
 export const placeOrder = async (req, res) => {
     try {
-        const { items, address, paymentMethod, couponCode } = req.body;
-        const userId = req.userId;
+        const { items, address, amount, couponCode, isGuest, guestInfo } = req.body;
+        
+        // Handle both guest and authenticated users
+        let userId = null;
+        if (!isGuest && req.user) {
+            userId = req.user.userId;
+        }
 
         if (!items || items.length === 0) {
             return res.status(400).json({ success: false, message: 'No items in cart' });
+        }
+
+        // Validate guest checkout requirements
+        if (isGuest && (!guestInfo || !guestInfo.email || !guestInfo.phone || !guestInfo.name)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Guest information (name, email, phone) is required for guest checkout" 
+            });
         }
 
         // ✅ Add stock validation before placing order
@@ -40,7 +53,7 @@ export const placeOrder = async (req, res) => {
             return res.status(400).json({ success: false, message: stockValidation.message });
         }
 
-        // Calculate total amount
+        // Calculate total amount (recalculate for security)
         let totalAmount = 0;
         for (const item of items) {
             const product = await productModel.findById(item._id);
@@ -48,6 +61,9 @@ export const placeOrder = async (req, res) => {
                 totalAmount += product.price * item.quantity;
             }
         }
+
+        // Add delivery charge
+        totalAmount += deliveryCharge;
 
         // Apply coupon if provided
         let discountAmount = 0;
@@ -101,21 +117,44 @@ export const placeOrder = async (req, res) => {
             }
         }
 
-        // Create order
-        const order = new orderModel({
-            userId,
+        // Create order data
+        const orderData = {
             items,
             address,
-            totalAmount,
+            amount: totalAmount,
             discountAmount,
-            paymentMethod,
-            couponCode: couponCode || null
-        });
+            paymentMethod: 'COD',
+            payment: false,
+            date: Date.now(),
+            couponCode: couponCode || null,
+            isGuest: isGuest || false
+        };
 
+        // Add user or guest info
+        if (isGuest) {
+            orderData.guestInfo = guestInfo;
+            orderData.orderType = 'guest';
+        } else {
+            orderData.userId = userId;
+            orderData.orderType = 'regular';
+        }
+
+        // Create order
+        const order = new orderModel(orderData);
         await order.save();
 
         // Update stock
         await updateStock(items);
+
+        // Update user stats if not guest
+        if (!isGuest && userId) {
+            await userModel.findByIdAndUpdate(userId, {
+                $inc: {
+                    'stats.totalOrders': 1,
+                    'stats.totalSpent': totalAmount
+                }
+            });
+        }
 
         res.status(201).json({ success: true, message: 'Order placed successfully', order });
     } catch (error) {
@@ -138,6 +177,12 @@ const placeOrderStripe = async (req, res) => {
 
         if (isGuest && (!guestInfo || !guestInfo.email || !guestInfo.phone || !guestInfo.name)) {
             return res.status(400).json({ success: false, message: "Guest information (name, email, phone) is required for guest checkout" });
+        }
+
+        // ✅ Add stock validation before creating Stripe order
+        const stockValidation = await validateStockAvailability(items);
+        if (!stockValidation.success) {
+            return res.status(400).json({ success: false, message: stockValidation.message });
         }
 
         // Create order data based on user type
@@ -185,9 +230,9 @@ const placeOrderStripe = async (req, res) => {
         })
 
         const session = await stripe.checkout.sessions.create({
-            success_url: origin + '/verify?success=true&orderId=' + newOrder._id.toString(),
-            cancel_url: origin + '/verify?success=false&orderId=' + newOrder._id.toString(),
-            line_items,
+            success_url: `${origin}/verify?success=true&orderId=${newOrder._id}`,
+            cancel_url: `${origin}/verify?success=false&orderId=${newOrder._id}`,
+            line_items: line_items,
             mode: 'payment',
         })
 
@@ -197,6 +242,7 @@ const placeOrderStripe = async (req, res) => {
         console.log(error)
         res.json({ success: false, message: error.message })
     }
+
 }
 
 // Verify Stripe 
@@ -209,6 +255,12 @@ const verifyStripe = async (req, res) => {
             const order = await orderModel.findById(orderId);
             if (!order) {
                 return res.json({ success: false, message: "Order not found" });
+            }
+
+            // ✅ Re-validate stock at payment verification time
+            const stockValidation = await validateStockAvailability(order.items);
+            if (!stockValidation.success) {
+                return res.status(400).json({ success: false, message: `Payment successful but order cannot be completed: ${stockValidation.message}` });
             }
 
             await orderModel.findByIdAndUpdate(orderId, { payment: true });
@@ -286,6 +338,12 @@ const placeOrderRazorpay = async (req, res) => {
             return res.status(400).json({ success: false, message: "Guest information (name, email, phone) is required for guest checkout" });
         }
 
+        // ✅ Add stock validation before creating Razorpay order
+        const stockValidation = await validateStockAvailability(items);
+        if (!stockValidation.success) {
+            return res.status(400).json({ success: false, message: stockValidation.message });
+        }
+
         const options = {
             amount: amount * 100,
             currency: "INR",
@@ -335,7 +393,7 @@ const placeOrderRazorpay = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Razorpay Error:", error);
+        console.error("Razorpay order creation error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -370,6 +428,12 @@ const verifyRazorpay = async (req, res) => {
 
         const { userId, items, address, amount, isGuest, guestInfo } = orderMeta;
 
+        // ✅ Re-validate stock at payment verification time
+        const stockValidation = await validateStockAvailability(items);
+        if (!stockValidation.success) {
+            return res.status(400).json({ success: false, message: `Payment successful but order cannot be completed: ${stockValidation.message}` });
+        }
+
         // Create order data based on user type
         const orderData = {
             items,
@@ -398,10 +462,13 @@ const verifyRazorpay = async (req, res) => {
         
         await updateStock(orderMeta.items); // Deduct stock
 
+        // Clean up temp order
+        await tempOrderModel.deleteOne({ razorpayOrderId: razorpay_order_id });
+
         res.json({ success: true, message: "Payment Successful" });
 
     } catch (error) {
-        console.log(error);
+        console.error("Razorpay verification error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -481,7 +548,7 @@ const listOrdersPaginated = async (req, res) => {
 const userOrders = async (req, res) => {
     try {
 
-        const { userId } = req.body
+        const userId = req.user.userId // Get userId from authenticated token
 
         const orders = await orderModel.find({ userId, isGuest: false })
         res.json({ success: true, orders })
@@ -551,8 +618,12 @@ async function updateStock(items) {
         if (product.hasSize) {
             const size = item.size;
             const quantity = item.quantity || 0;
-            const currentStock = product.stock.get(size) || 0;
-            product.stock.set(size, Math.max(0, currentStock - quantity));
+            const currentStock = product.stock?.[size] || 0;
+            
+            // ✅ More robust stock update with proper object handling
+            if (!product.stock) product.stock = {};
+            product.stock[size] = Math.max(0, currentStock - quantity);
+            product.markModified('stock'); // Ensure Mongoose saves the change
         } else {
             const quantity = item.quantity || 0;
             const currentStock = typeof product.stock === 'number' ? product.stock : 0;
@@ -560,6 +631,7 @@ async function updateStock(items) {
         }
 
         await product.save();
+        console.log(`Stock updated for product ${product.name}: ${item.quantity} units deducted`);
     }
 }
 
@@ -574,15 +646,27 @@ async function validateStockAvailability(items) {
         if (product.hasSize) {
             const size = item.size;
             const quantity = item.quantity || 0;
-            const currentStock = product.stock.get(size) || 0;
-            if (quantity > currentStock) {
-                return { success: false, message: `Insufficient stock for size ${size} of product ${product.name}` };
+            const currentStock = product.stock?.[size] || 0;
+            
+            // Industry standard: Allow slight overselling but block major issues
+            if (currentStock <= 0) {
+                return { success: false, message: `${product.name} (Size: ${size}) is out of stock` };
+            }
+            // Only block if trying to order more than 2x available stock (protects against massive overselling)
+            if (quantity > currentStock * 2) {
+                return { success: false, message: `Cannot fulfill order: requesting ${quantity} of ${product.name} (Size: ${size}), but only ${currentStock} available` };
             }
         } else {
             const quantity = item.quantity || 0;
             const currentStock = typeof product.stock === 'number' ? product.stock : 0;
-            if (quantity > currentStock) {
-                return { success: false, message: "Insufficient stock for product " + product.name };
+            
+            // Industry standard: Allow slight overselling but block major issues  
+            if (currentStock <= 0) {
+                return { success: false, message: `${product.name} is out of stock` };
+            }
+            // Only block if trying to order more than 2x available stock (protects against massive overselling)
+            if (quantity > currentStock * 2) {
+                return { success: false, message: `Cannot fulfill order: requesting ${quantity} of ${product.name}, but only ${currentStock} available` };
             }
         }
     }
@@ -621,7 +705,7 @@ const getBestsellers = async (req, res) => {
           productName: "$product.name",
           category: "$product.category",
           price: "$product.price",
-          image: { $arrayElemAt: ["$product.image", 0] }
+          image: "$product.image"  // Return the full image array
         }
       }
     ]);
@@ -632,28 +716,298 @@ const getBestsellers = async (req, res) => {
   }
 };
 
-const getDashboardMetrics = async (req, res) => {
-  try {
-    const totalOrders = await orderModel.countDocuments();
-    const totalSalesAgg = await orderModel.aggregate([
-      {
-        $group: {
-          _id: null,
-          totalSales: { $sum: "$amount" }
-        }
-      }
-    ]);
-    const totalSales = totalSalesAgg.length > 0 ? totalSalesAgg[0].totalSales : 0;
+// Get dashboard metrics
+export const getDashboardMetrics = async (req, res) => {
+    try {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-    res.json({
-      success: true,
-      totalOrders,
-      totalSales
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
-  }
+        const yesterday = new Date(today);
+        yesterday.setDate(today.getDate() - 1);
+
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - 7);
+
+        const lastWeekStart = new Date(weekStart);
+        lastWeekStart.setDate(weekStart.getDate() - 7);
+
+        const monthStart = new Date(today);
+        monthStart.setDate(1);
+
+        const lastMonthStart = new Date(monthStart);
+        lastMonthStart.setMonth(monthStart.getMonth() - 1);
+
+        // Enhanced revenue metrics with growth calculations
+        const [
+            totalRevenue, 
+            todayRevenue, 
+            yesterdayRevenue,
+            weeklyRevenue, 
+            lastWeekRevenue,
+            monthlyRevenue,
+            lastMonthRevenue,
+            dailyRevenueLast7Days,
+            monthlyRevenueLast6Months
+        ] = await Promise.all([
+            // Total revenue
+            orderModel.aggregate([
+                { $match: { status: { $ne: 'cancelled' } } },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]),
+            // Today's revenue
+            orderModel.aggregate([
+                { $match: { 
+                    date: { $gte: today.getTime() },
+                    status: { $ne: 'cancelled' }
+                } },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]),
+            // Yesterday's revenue
+            orderModel.aggregate([
+                { $match: { 
+                    date: { $gte: yesterday.getTime(), $lt: today.getTime() },
+                    status: { $ne: 'cancelled' }
+                } },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]),
+            // This week's revenue
+            orderModel.aggregate([
+                { $match: { 
+                    date: { $gte: weekStart.getTime() },
+                    status: { $ne: 'cancelled' }
+                } },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]),
+            // Last week's revenue
+            orderModel.aggregate([
+                { $match: { 
+                    date: { $gte: lastWeekStart.getTime(), $lt: weekStart.getTime() },
+                    status: { $ne: 'cancelled' }
+                } },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]),
+            // This month's revenue
+            orderModel.aggregate([
+                { $match: { 
+                    date: { $gte: monthStart.getTime() },
+                    status: { $ne: 'cancelled' }
+                } },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]),
+            // Last month's revenue
+            orderModel.aggregate([
+                { $match: { 
+                    date: { $gte: lastMonthStart.getTime(), $lt: monthStart.getTime() },
+                    status: { $ne: 'cancelled' }
+                } },
+                { $group: { _id: null, total: { $sum: '$amount' } } }
+            ]),
+            // Daily revenue for last 7 days
+            orderModel.aggregate([
+                { $match: { 
+                    date: { $gte: weekStart.getTime() },
+                    status: { $ne: 'cancelled' }
+                } },
+                { $group: {
+                    _id: { $dateToString: { format: "%Y-%m-%d", date: { $toDate: "$date" } } },
+                    revenue: { $sum: '$amount' },
+                    orders: { $sum: 1 }
+                }},
+                { $sort: { _id: 1 } }
+            ]),
+            // Monthly revenue for last 6 months
+            orderModel.aggregate([
+                { $match: { 
+                    date: { $gte: new Date(today.getFullYear(), today.getMonth() - 6, 1).getTime() },
+                    status: { $ne: 'cancelled' }
+                } },
+                { $group: {
+                    _id: { $dateToString: { format: "%Y-%m", date: { $toDate: "$date" } } },
+                    revenue: { $sum: '$amount' },
+                    orders: { $sum: 1 }
+                }},
+                { $sort: { _id: 1 } }
+            ])
+        ]);
+
+        // Calculate growth rates
+        const todayRev = todayRevenue[0]?.total || 0;
+        const yesterdayRev = yesterdayRevenue[0]?.total || 0;
+        const weekRev = weeklyRevenue[0]?.total || 0;
+        const lastWeekRev = lastWeekRevenue[0]?.total || 0;
+        const monthRev = monthlyRevenue[0]?.total || 0;
+        const lastMonthRev = lastMonthRevenue[0]?.total || 0;
+
+        const dailyGrowth = yesterdayRev > 0 ? ((todayRev - yesterdayRev) / yesterdayRev) * 100 : 0;
+        const weeklyGrowth = lastWeekRev > 0 ? ((weekRev - lastWeekRev) / lastWeekRev) * 100 : 0;
+        const monthlyGrowth = lastMonthRev > 0 ? ((monthRev - lastMonthRev) / lastMonthRev) * 100 : 0;
+
+        // Get order metrics with revenue breakdown
+        const orderMetrics = await orderModel.aggregate([
+            {
+                $group: {
+                    _id: '$status',
+                    count: { $sum: 1 },
+                    revenue: { $sum: '$amount' }
+                }
+            }
+        ]);
+
+        // Get customer metrics
+        const [totalCustomers, newCustomers, lastWeekCustomers] = await Promise.all([
+            userModel.countDocuments({}),
+            userModel.countDocuments({
+                createdAt: { $gte: weekStart }
+            }),
+            userModel.countDocuments({
+                createdAt: { $gte: lastWeekStart, $lt: weekStart }
+            })
+        ]);
+
+        const returningCustomers = await orderModel.aggregate([
+            { $match: { date: { $gte: monthStart.getTime() } } },
+            { $group: { _id: '$userId' } },
+            { $group: { _id: null, count: { $sum: 1 } } }
+        ]);
+
+        // Get product metrics
+        const [totalProducts, outOfStock, lowStock] = await Promise.all([
+            productModel.countDocuments({}),
+            productModel.countDocuments({ 
+                $or: [
+                    { hasSize: false, stock: 0 },
+                    { hasSize: true, stock: { $size: 0 } }
+                ]
+            }),
+            productModel.countDocuments({
+                $or: [
+                    { hasSize: false, stock: { $gt: 0, $lte: 5 } },
+                    { hasSize: true, stock: { $elemMatch: { $gt: 0, $lte: 5 } } }
+                ]
+            })
+        ]);
+
+        // Get recent orders
+        const recentOrders = await orderModel.find({})
+            .sort({ date: -1 })
+            .limit(5)
+            .populate('userId', 'name email');
+
+        // Get top performing categories
+        const topCategories = await orderModel.aggregate([
+            { $unwind: "$items" },
+            { $lookup: {
+                from: "products",
+                localField: "items._id",
+                foreignField: "_id",
+                as: "product"
+            }},
+            { $unwind: "$product" },
+            { $match: { status: { $ne: 'cancelled' } } },
+            { $group: {
+                _id: "$product.category",
+                revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+                orders: { $sum: 1 }
+            }},
+            { $sort: { revenue: -1 } },
+            { $limit: 5 }
+        ]);
+
+        // Format metrics
+        const metrics = {
+            revenue: {
+                total: totalRevenue[0]?.total || 0,
+                today: todayRev,
+                yesterday: yesterdayRev,
+                weekly: weekRev,
+                lastWeek: lastWeekRev,
+                monthly: monthRev,
+                lastMonth: lastMonthRev,
+                growth: {
+                    daily: dailyGrowth,
+                    weekly: weeklyGrowth,
+                    monthly: monthlyGrowth
+                },
+                trends: {
+                    daily: dailyRevenueLast7Days,
+                    monthly: monthlyRevenueLast6Months
+                }
+            },
+            orders: {
+                total: orderMetrics.reduce((acc, curr) => acc + curr.count, 0),
+                pending: orderMetrics.find(o => o._id === 'pending')?.count || 0,
+                processing: orderMetrics.find(o => o._id === 'processing')?.count || 0,
+                delivered: orderMetrics.find(o => o._id === 'delivered')?.count || 0,
+                cancelled: orderMetrics.find(o => o._id === 'cancelled')?.count || 0,
+                revenueByStatus: orderMetrics.reduce((acc, curr) => {
+                    acc[curr._id] = curr.revenue;
+                    return acc;
+                }, {})
+            },
+            customers: {
+                total: totalCustomers,
+                new: newCustomers,
+                lastWeek: lastWeekCustomers,
+                returning: returningCustomers[0]?.count || 0,
+                growth: lastWeekCustomers > 0 ? ((newCustomers - lastWeekCustomers) / lastWeekCustomers) * 100 : 0
+            },
+            products: {
+                total: totalProducts,
+                outOfStock,
+                lowStock
+            },
+            analytics: {
+                topCategories,
+                averageOrderValue: orderMetrics.reduce((acc, curr) => acc + curr.revenue, 0) / 
+                    orderMetrics.reduce((acc, curr) => acc + curr.count, 0) || 0
+            }
+        };
+
+        res.json({
+            success: true,
+            metrics,
+            recentOrders
+        });
+
+    } catch (error) {
+        console.error('Get dashboard metrics error:', error);
+        res.json({ success: false, message: 'Failed to fetch dashboard metrics' });
+    }
 };
 
-export { verifyRazorpay, verifyStripe, placeOrder, placeOrderStripe, placeOrderRazorpay, listOrdersPaginated, userOrders, updateStatus, getBestsellers, getDashboardMetrics }
+// Get recent orders
+export const getRecentOrders = async (req, res) => {
+    try {
+        const orders = await orderModel.find({})
+            .sort({ date: -1 })
+            .limit(5)
+            .populate('userId', 'name email');
+
+        // Transform the orders to match frontend expectations
+        const transformedOrders = orders.map(order => ({
+            _id: order._id,
+            orderNumber: order._id.toString().slice(-8).toUpperCase(), // Generate order number from ID
+            totalAmount: order.amount, // Use 'amount' field from order
+            createdAt: order.date, // Use 'date' field for createdAt
+            status: order.status || 'Order Placed',
+            items: order.items || [],
+            customer: order.userId ? {
+                name: order.userId.name,
+                email: order.userId.email
+            } : order.guestInfo ? {
+                name: order.guestInfo.name,
+                email: order.guestInfo.email
+            } : null
+        }));
+
+        res.json({
+            success: true,
+            orders: transformedOrders
+        });
+    } catch (error) {
+        console.error('Get recent orders error:', error);
+        res.json({ success: false, message: 'Failed to fetch recent orders' });
+    }
+};
+
+export { verifyRazorpay, verifyStripe, placeOrderStripe, placeOrderRazorpay, listOrdersPaginated, userOrders, updateStatus, getBestsellers }

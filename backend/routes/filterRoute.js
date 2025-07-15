@@ -1,14 +1,36 @@
 import express from 'express';
-import { addFilter, getFiltersByCategory, getAllFilters, getDynamicFilters, updateFilter, deleteFilter } from '../controllers/filterController.js';
+import { 
+  addFilter, 
+  getAllFilters, 
+  getFiltersForCategory, 
+  updateFilter, 
+  deleteFilter, 
+  getDynamicFilters,
+  initializeDefaultFilters 
+} from '../controllers/filterController.js';
 import adminAuth from '../middleware/adminAuth.js';
 
 const filterRouter = express.Router();
 
+// Initialize default filters (admin only)
+filterRouter.post('/initialize', adminAuth, initializeDefaultFilters);
+
+// Add new filter (admin only)
 filterRouter.post('/', adminAuth, addFilter);
-filterRouter.get('/dynamic', getDynamicFilters);
+
+// Get all filters
 filterRouter.get('/', getAllFilters);
-filterRouter.get('/:category', getFiltersByCategory);
+
+// Get filters for specific category
+filterRouter.get('/category/:category', getFiltersForCategory);
+
+// Get dynamic filters from products
+filterRouter.get('/dynamic', getDynamicFilters);
+
+// Update filter (admin only)
 filterRouter.put('/:id', adminAuth, updateFilter);
+
+// Delete filter (admin only)
 filterRouter.delete('/:id', adminAuth, deleteFilter);
 
 export default filterRouter;

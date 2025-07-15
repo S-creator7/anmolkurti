@@ -56,6 +56,7 @@ import p_img52 from './p_img52.png'
 
 
 import logo from './logo.png'
+import newLogo from './ChatGPT Image Jul 15, 2025, 08_15_04 PM.png'
 import hero_img from './hero_img.png'
 import cart_icon from './cart_icon.png'
 import bin_icon from './bin_icon.png'
@@ -78,7 +79,7 @@ import banner_kids from './banner_kids.png'
 import banner_mens from './banner_mens.png'
 
 export const assets = {
-    logo,
+    logo: newLogo,
     hero_img,
     cart_icon,
     dropdown_icon,

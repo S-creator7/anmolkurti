@@ -13,7 +13,7 @@ const Collection = () => {
       </div>
       <BestSeller />
       <OurPolicy />
-      <NewsletterBox />
+      {/* <NewsletterBox /> */}
     </div>
   );
 };

@@ -5,13 +5,13 @@ import {
     getWishlist,
     clearWishlist
 } from "../controllers/wishlistController.js";
-import authUser from "../middleware/auth.js";
+import { auth } from "../middleware/auth.js";
 
 const wishlistRouter = express.Router();
 
-wishlistRouter.post('/add', authUser, addToWishlist);
-wishlistRouter.post('/remove', authUser, removeFromWishlist);
-wishlistRouter.get('/:userId', authUser, getWishlist);
-wishlistRouter.post('/clear', authUser, clearWishlist);
+wishlistRouter.post('/add', auth, addToWishlist);
+wishlistRouter.delete('/remove', auth, removeFromWishlist);
+wishlistRouter.get('/', auth, getWishlist); // Changed to GET and simplified path
+wishlistRouter.post('/clear', auth, clearWishlist);
 
 export default wishlistRouter; 

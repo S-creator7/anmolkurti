@@ -27,9 +27,8 @@ const AccountManagement = () => {
         }
 
         // Fetch user orders (paginated or full list)
-        const ordersResponse = await axios.post(
-          backendUrl + '/api/order/userorders',
-          {},
+        const ordersResponse = await axios.get(
+          backendUrl + '/api/order/user-orders',
           { headers: { token } }
         );
         if (ordersResponse.data.success) {

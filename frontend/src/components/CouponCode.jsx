@@ -10,23 +10,53 @@ const CouponCode = ({ onCouponApplied, appliedCoupon, onRemoveCoupon }) => {
   const [showAvailableCoupons, setShowAvailableCoupons] = useState(false);
   const { backendUrl, getCartAmount, products, cartItems, token } = useContext(ShopContext);
 
+  // Decode JWT token to get user ID
+  const getUserIdFromToken = (token) => {
+    if (!token) return null;
+    
+    try {
+      // Split the token into parts
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        console.error('Invalid JWT token format');
+        return null;
+      }
+      
+      // Decode the payload (second part of JWT)
+      const payload = parts[1];
+      
+      // Add padding if needed for base64 decode
+      const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4);
+      
+      // Decode and parse the payload
+      const decodedPayload = JSON.parse(atob(paddedPayload));
+      
+      // Extract userId from various possible field names
+      const userId = decodedPayload.userId || decodedPayload.id || decodedPayload._id || decodedPayload.sub;
+      
+      if (!userId) {
+        console.error('No userId found in token payload:', decodedPayload);
+        return null;
+      }
+      
+      return userId;
+    } catch (error) {
+      console.error('Error decoding JWT token:', error);
+      return null;
+    }
+  };
+
   // Get cart products for validation
   const getCartProducts = () => {
     const cartProducts = [];
     for (const itemId in cartItems) {
-      for (const size in cartItems[itemId]) {
-        if (cartItems[itemId][size] > 0) {
-          const product = products.find(p => p._id === itemId);
-          if (product) {
-            cartProducts.push({
-              _id: product._id,
-              name: product.name,
-              category: product.category,
-              quantity: cartItems[itemId][size],
-              price: product.price
-            });
-          }
-        }
+      const product = products.find(p => p._id === itemId);
+      if (product) {
+        cartProducts.push({
+          productId: itemId,
+          name: product.name,
+          price: product.price
+        });
       }
     }
     return cartProducts;
@@ -36,24 +66,29 @@ const CouponCode = ({ onCouponApplied, appliedCoupon, onRemoveCoupon }) => {
   const loadAvailableCoupons = async () => {
     try {
       const orderAmount = getCartAmount();
-      const userId = localStorage.getItem('userId');
+      const userId = getUserIdFromToken(token);
       
+      // Call API even for guest users (userId will be null)
       const response = await axios.post(`${backendUrl}/api/coupon/available`, {
-        userId,
+        userId: userId || null, // Send null for guest users
         orderAmount
       });
 
       if (response.data.success) {
         setAvailableCoupons(response.data.coupons);
+      } else {
+        setAvailableCoupons([]);
       }
     } catch (error) {
       console.error('Error loading coupons:', error);
+      setAvailableCoupons([]);
     }
   };
 
   useEffect(() => {
+    // Load available coupons for both logged-in and guest users
     loadAvailableCoupons();
-  }, [cartItems]);
+  }, [cartItems, token]);
 
   const handleApplyCoupon = async () => {
     if (!couponCode.trim()) {
@@ -65,7 +100,7 @@ const CouponCode = ({ onCouponApplied, appliedCoupon, onRemoveCoupon }) => {
     try {
       const orderAmount = getCartAmount();
       const cartProducts = getCartProducts();
-      const userId = localStorage.getItem('userId');
+      const userId = getUserIdFromToken(token);
 
       const response = await axios.post(`${backendUrl}/api/coupon/validate`, {
         code: couponCode.trim(),
@@ -140,79 +175,127 @@ const CouponCode = ({ onCouponApplied, appliedCoupon, onRemoveCoupon }) => {
         <input
           type="text"
           value={couponCode}
-          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+          onChange={(e) => setCouponCode(e.target.value)}
           placeholder="Enter coupon code"
-          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500"
-          disabled={isLoading}
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-hotpink-500"
         />
         <button
+          type="button"
           onClick={handleApplyCoupon}
-          disabled={isLoading || !couponCode.trim()}
-          className="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+          disabled={isLoading}
+          className="bg-hotpink-500 text-white px-6 py-2 rounded-lg hover:bg-hotpink-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
           {isLoading ? 'Applying...' : 'Apply'}
         </button>
       </div>
 
-      {/* Available Coupons */}
-      {availableCoupons.length > 0 && (
-        <div className="mt-4">
-          <button
-            onClick={() => setShowAvailableCoupons(!showAvailableCoupons)}
-            className="text-orange-500 hover:text-orange-600 text-sm font-medium flex items-center gap-1"
+      {/* Available Coupons - Always show this section */}
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => setShowAvailableCoupons(!showAvailableCoupons)}
+          className="text-hotpink-500 hover:text-hotpink-600 text-sm font-medium flex items-center gap-1"
+        >
+          {showAvailableCoupons ? 'Hide' : 'Show'} Available Coupons ({availableCoupons.length})
+          <svg 
+            className={`w-4 h-4 transition-transform ${showAvailableCoupons ? 'rotate-180' : ''}`} 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
           >
-            {showAvailableCoupons ? 'Hide' : 'Show'} Available Coupons ({availableCoupons.length})
-            <svg 
-              className={`w-4 h-4 transition-transform ${showAvailableCoupons ? 'rotate-180' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
 
-          {showAvailableCoupons && (
-            <div className="mt-3 space-y-3">
-              {availableCoupons.map((coupon, index) => (
+        {showAvailableCoupons && (
+          <div className="mt-3 space-y-3">
+            {availableCoupons.length === 0 ? (
+              <div className="text-center py-4 text-gray-500">
+                <p>No coupons available at the moment</p>
+              </div>
+            ) : (
+              availableCoupons.map((coupon, index) => (
                 <div 
                   key={index}
-                  className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-orange-300 transition-colors"
+                  className={`border rounded-lg p-3 transition-colors ${
+                    coupon.eligible 
+                      ? 'border-gray-200 cursor-pointer hover:border-hotpink-300 bg-white' 
+                      : 'border-gray-300 bg-gray-50 cursor-not-allowed'
+                  }`}
                   onClick={() => {
-                    setCouponCode(coupon.code);
-                    setShowAvailableCoupons(false);
+                    if (coupon.eligible) {
+                      setCouponCode(coupon.code);
+                      setShowAvailableCoupons(false);
+                    }
                   }}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-bold text-orange-600">{coupon.code}</span>
-                        <span className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">
+                        <span className={`font-bold ${coupon.eligible ? 'text-hotpink-600' : 'text-gray-500'}`}>
+                          {coupon.code}
+                        </span>
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          coupon.eligible 
+                            ? 'bg-hotpink-100 text-hotpink-800' 
+                            : 'bg-gray-200 text-gray-600'
+                        }`}>
                           {formatDiscount(coupon)}
                         </span>
+                        {!coupon.eligible && (
+                          <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
+                            Not Available
+                          </span>
+                        )}
                       </div>
-                      <p className="text-sm text-gray-600 mb-1">{coupon.description}</p>
-                      {coupon.minimumOrderAmount > 0 && (
-                        <p className="text-xs text-gray-500">
+                      <p className={`text-sm mb-1 ${coupon.eligible ? 'text-gray-600' : 'text-gray-500'}`}>
+                        {coupon.description}
+                      </p>
+                      
+                      {/* Minimum order amount - always show */}
+                      <div className="flex items-center gap-4 text-xs">
+                        <p className="text-gray-500">
                           Min. order: ₹{coupon.minimumOrderAmount}
                         </p>
+                        <p className="text-gray-500">
+                          Valid until: {formatValidUntil(coupon.validUntil)}
+                        </p>
+                      </div>
+                      
+                      {/* Show reason if not eligible */}
+                      {!coupon.eligible && coupon.reason && (
+                        <div className="mt-2">
+                          <p className={`text-sm font-medium ${
+                            coupon.amountNeeded > 0 ? 'text-orange-600' : 'text-red-600'
+                          }`}>
+                            {coupon.reason}
+                          </p>
+                          {coupon.amountNeeded > 0 && (
+                            <p className="text-xs text-orange-500 mt-1">
+                              💡 Add ₹{coupon.amountNeeded} more items to unlock this coupon!
+                            </p>
+                          )}
+                        </div>
                       )}
-                      <p className="text-xs text-gray-500">
-                        Valid until: {formatValidUntil(coupon.validUntil)}
-                      </p>
                     </div>
-                    <div className="text-orange-500">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                      </svg>
+                    <div className={`${coupon.eligible ? 'text-hotpink-500' : 'text-gray-400'}`}>
+                      {coupon.eligible ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                      )}
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+              ))
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Help Text */}
       <div className="mt-4 text-sm text-gray-500">

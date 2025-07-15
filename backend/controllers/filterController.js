@@ -1,19 +1,44 @@
 import filterModel from "../models/filterModel.js";
+import productModel from "../models/productModel.js";
 
 // Add a new filter
 const addFilter = async (req, res) => {
   try {
-    const { category, filterName, filterValues } = req.body;
-    if (!category || !filterName || !filterValues || !Array.isArray(filterValues)) {
-      return res.status(400).json({ success: false, message: "Invalid input" });
+    const { name, displayName, description, type, filterType, values, applicableCategories, sortOrder } = req.body;
+    
+    if (!name || !displayName || !values || !Array.isArray(values) || values.length === 0) {
+      return res.status(400).json({ success: false, message: "Invalid input. Name, displayName, and values are required." });
     }
 
-    const existingFilter = await filterModel.findOne({ category, filterName });
+    // Check if filter already exists
+    const existingFilter = await filterModel.findOne({ name });
     if (existingFilter) {
-      return res.status(400).json({ success: false, message: "Filter already exists for this category" });
+      return res.status(400).json({ success: false, message: "Filter with this name already exists" });
     }
 
-    const newFilter = new filterModel({ category, filterName, filterValues });
+    // Validate filter values format
+    const formattedValues = values.map(val => {
+      if (typeof val === 'string') {
+        return { value: val, displayName: val, isActive: true };
+      } else if (typeof val === 'object' && val.value && val.displayName) {
+        return { ...val, isActive: val.isActive !== false };
+      } else {
+        throw new Error('Invalid value format');
+      }
+    });
+
+    const newFilter = new filterModel({ 
+      name,
+      displayName,
+      description,
+      type: type || 'global',
+      filterType: filterType || 'multi-select',
+      values: formattedValues,
+      applicableCategories: applicableCategories || [],
+      sortOrder: sortOrder || 0,
+      updatedAt: new Date()
+    });
+    
     await newFilter.save();
 
     res.json({ success: true, message: "Filter added successfully", filter: newFilter });
@@ -23,15 +48,10 @@ const addFilter = async (req, res) => {
   }
 };
 
-// Get filters by category
-const getFiltersByCategory = async (req, res) => {
+// Get all filters
+const getAllFilters = async (req, res) => {
   try {
-    const { category } = req.params;
-    if (!category) {
-      return res.status(400).json({ success: false, message: "Category is required" });
-    }
-
-    const filters = await filterModel.find({ category });
+    const filters = await filterModel.find({ isActive: true }).sort({ sortOrder: 1, name: 1 });
     res.json({ success: true, filters });
   } catch (error) {
     console.error(error);
@@ -39,10 +59,20 @@ const getFiltersByCategory = async (req, res) => {
   }
 };
 
-// Get all filters
-const getAllFilters = async (req, res) => {
+// Get filters for a specific category
+const getFiltersForCategory = async (req, res) => {
   try {
-    const filters = await filterModel.find({});
+    const { category } = req.params;
+    
+    // Get global filters and category-specific filters
+    const filters = await filterModel.find({
+      isActive: true,
+      $or: [
+        { type: 'global' },
+        { type: 'category-specific', applicableCategories: category }
+      ]
+    }).sort({ sortOrder: 1, name: 1 });
+
     res.json({ success: true, filters });
   } catch (error) {
     console.error(error);
@@ -54,17 +84,33 @@ const getAllFilters = async (req, res) => {
 const updateFilter = async (req, res) => {
   try {
     const { id } = req.params;
-    const { filterValues } = req.body;
-    if (!filterValues || !Array.isArray(filterValues)) {
-      return res.status(400).json({ success: false, message: "Invalid filter values" });
-    }
-
+    const { displayName, description, values, applicableCategories, sortOrder, isActive } = req.body;
+    
     const filter = await filterModel.findById(id);
     if (!filter) {
       return res.status(404).json({ success: false, message: "Filter not found" });
     }
 
-    filter.filterValues = filterValues;
+    if (displayName) filter.displayName = displayName;
+    if (description !== undefined) filter.description = description;
+    if (applicableCategories) filter.applicableCategories = applicableCategories;
+    if (sortOrder !== undefined) filter.sortOrder = sortOrder;
+    if (isActive !== undefined) filter.isActive = isActive;
+    
+    if (values && Array.isArray(values)) {
+      const formattedValues = values.map(val => {
+        if (typeof val === 'string') {
+          return { value: val, displayName: val, isActive: true };
+        } else if (typeof val === 'object' && val.value && val.displayName) {
+          return { ...val, isActive: val.isActive !== false };
+        } else {
+          throw new Error('Invalid value format');
+        }
+      });
+      filter.values = formattedValues;
+    }
+
+    filter.updatedAt = new Date();
     await filter.save();
 
     res.json({ success: true, message: "Filter updated successfully", filter });
@@ -78,10 +124,12 @@ const updateFilter = async (req, res) => {
 const deleteFilter = async (req, res) => {
   try {
     const { id } = req.params;
+    
     const filter = await filterModel.findByIdAndDelete(id);
     if (!filter) {
       return res.status(404).json({ success: false, message: "Filter not found" });
     }
+
     res.json({ success: true, message: "Filter deleted successfully" });
   } catch (error) {
     console.error(error);
@@ -89,78 +137,72 @@ const deleteFilter = async (req, res) => {
   }
 };
 
-import productModel from "../models/productModel.js";
+// Get dynamic filters from actual product data
 const getDynamicFilters = async (req, res) => {
   try {
-    // Extract all filter query params
-    const { gender, category, subCategory, occasion, type, filterTags } = req.query;
+    const { gender, category, subCategory } = req.query;
 
-    // Build match object based on provided filters
+    // Build match object for filtering products
     const match = {};
-
     if (gender) match.gender = { $in: gender.split(',') };
     if (category) match.category = { $in: category.split(',') };
     if (subCategory) match.subCategory = { $in: subCategory.split(',') };
-    if (occasion) match.occasion = { $in: occasion.split(',') };
-    if (type) match.type = { $in: type.split(',') };
-    if (filterTags) match.filterTags = { $in: filterTags.split(',') };
 
-    console.log("Match filter:", match);
-
-    // If no filters provided, fetch without match filter
-    const filterForDistinct = Object.keys(match).length > 0 ? match : {};
-
+    // Get distinct values from products
     const [
       genders,
-      categoriesRaw,
+      categories,
+      subCategories,
       occasions,
       types,
-      filterTagsArr,
+      filterTags,
     ] = await Promise.all([
-      productModel.distinct("gender", filterForDistinct),
-      productModel.distinct("category", filterForDistinct),
-      productModel.distinct("occasion", filterForDistinct),
-      productModel.distinct("type", filterForDistinct),
-      productModel.distinct("filterTags", filterForDistinct),
+      productModel.distinct("gender", match),
+      productModel.distinct("category", match),
+      productModel.distinct("subCategory", match),
+      productModel.distinct("occasion", match),
+      productModel.distinct("type", match),
+      productModel.distinct("filterTags", match),
     ]);
 
-    // Exclude gender values from categories
-    const genderValues = ['men', 'women', 'children'];
-    const categories = categoriesRaw.filter(cat => !genderValues.includes(cat.toLowerCase().trim()));
+    // Get size information by aggregating all products
+    const sizesResult = await productModel.aggregate([
+      { $match: match },
+      { $unwind: "$sizes" },
+      { $group: { _id: null, sizes: { $addToSet: "$sizes" } } }
+    ]);
+    const sizes = sizesResult.length > 0 ? sizesResult[0].sizes : [];
 
-    // For each category, get distinct subCategories
-    const subCategoryMap = {};
+    // Get price ranges
+    const priceResult = await productModel.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          minPrice: { $min: "$price" },
+          maxPrice: { $max: "$price" }
+        }
+      }
+    ]);
 
-    // Build category match filter based on gender filter if present
-    let categoryMatch = {};
-    if (match.gender) {
-      categoryMatch.gender = match.gender;
-    }
+    const priceRange = priceResult.length > 0 ? priceResult[0] : { minPrice: 0, maxPrice: 10000 };
 
-    for (const cat of categories) {
-      // Apply category and gender filter when fetching subCategories
-      const subCats = await productModel.distinct("subCategory", { category: cat, ...categoryMatch });
-      subCategoryMap[cat.toLowerCase().trim()] = subCats.map(subCat => subCat.toLowerCase().trim());
-    }
-
-    // Flatten and normalize arrays
-    const flattenAndNormalize = (arr) => {
-      return [...new Set(
-        arr.flat().filter(v => v && v.trim() !== '').map(v => v.toLowerCase().trim())
-      )];
+    // Clean and format the data
+    const cleanArray = (arr) => {
+      return [...new Set(arr.filter(item => item && item.toString().trim() !== ''))];
     };
 
     res.json({
       success: true,
       filters: {
-        gender: genders.map(g => g.toLowerCase().trim()),
-        category: categories.map(c => c.toLowerCase().trim()),
-        subCategoryMap: Object.fromEntries(
-          Object.entries(subCategoryMap).map(([k, v]) => [k, v.map(s => s.toLowerCase().trim())])
-        ),
-        occasion: flattenAndNormalize(occasions),
-        type: flattenAndNormalize(types),
-        filterTags: flattenAndNormalize(filterTagsArr),
+        gender: cleanArray(genders),
+        category: cleanArray(categories),
+        subCategory: cleanArray(subCategories),
+        occasion: cleanArray(occasions.flat()),
+        type: cleanArray(types.flat()),
+        filterTags: cleanArray(filterTags.flat()),
+        sizes: cleanArray(sizes),
+        priceRange
       },
     });
   } catch (error) {
@@ -168,53 +210,135 @@ const getDynamicFilters = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-// const getDynamicFilters = async (req, res) => {
-//   try {
-//     const [
-//       genders,
-//       categories,
-//       occasions,
-//       types,
-//       filterTags,
-//     ] = await Promise.all([
-//       productModel.distinct("gender"),
-//       productModel.distinct("category"),
-//       productModel.distinct("occasion"),
-//       productModel.distinct("type"),
-//       productModel.distinct("filterTags"),
-//     ]);
 
-//     // For each category, get distinct subCategories
-//     const subCategoryMap = {};
-//     for (const category of categories) {
-//       const subCats = await productModel.distinct("subCategory", { category });
-//       subCategoryMap[category] = subCats;
-//     }
+// Initialize default filters
+const initializeDefaultFilters = async (req, res) => {
+  try {
+    const defaultFilters = [
+      {
+        name: 'gender',
+        displayName: 'Gender',
+        description: 'Product gender classification',
+        type: 'global',
+        filterType: 'single-select',
+        values: [
+          { value: 'Women', displayName: 'Women' },
+          { value: 'Men', displayName: 'Men' },
+          { value: 'Children', displayName: 'Children' }
+        ],
+        sortOrder: 1
+      },
+      {
+        name: 'color',
+        displayName: 'Color',
+        description: 'Product colors',
+        type: 'global',
+        filterType: 'multi-select',
+        values: [
+          { value: 'Red', displayName: 'Red', colorCode: '#FF0000' },
+          { value: 'Blue', displayName: 'Blue', colorCode: '#0000FF' },
+          { value: 'Green', displayName: 'Green', colorCode: '#008000' },
+          { value: 'Yellow', displayName: 'Yellow', colorCode: '#FFFF00' },
+          { value: 'Pink', displayName: 'Pink', colorCode: '#FFC0CB' },
+          { value: 'Purple', displayName: 'Purple', colorCode: '#800080' },
+          { value: 'Black', displayName: 'Black', colorCode: '#000000' },
+          { value: 'White', displayName: 'White', colorCode: '#FFFFFF' },
+          { value: 'Orange', displayName: 'Orange', colorCode: '#FFA500' },
+          { value: 'Brown', displayName: 'Brown', colorCode: '#A52A2A' }
+        ],
+        sortOrder: 2
+      },
+      {
+        name: 'size',
+        displayName: 'Size',
+        description: 'Product sizes',
+        type: 'global',
+        filterType: 'multi-select',
+        values: [
+          { value: 'XS', displayName: 'Extra Small' },
+          { value: 'S', displayName: 'Small' },
+          { value: 'M', displayName: 'Medium' },
+          { value: 'L', displayName: 'Large' },
+          { value: 'XL', displayName: 'Extra Large' },
+          { value: 'XXL', displayName: '2XL' },
+          { value: '3XL', displayName: '3XL' },
+          { value: 'Free Size', displayName: 'Free Size' }
+        ],
+        sortOrder: 3
+      },
+      {
+        name: 'occasion',
+        displayName: 'Occasion',
+        description: 'Suitable occasions for the product',
+        type: 'global',
+        filterType: 'multi-select',
+        values: [
+          { value: 'Casual', displayName: 'Casual' },
+          { value: 'Party', displayName: 'Party' },
+          { value: 'Wedding', displayName: 'Wedding' },
+          { value: 'Office', displayName: 'Office' },
+          { value: 'Festival', displayName: 'Festival' },
+          { value: 'Beach', displayName: 'Beach' },
+          { value: 'Travel', displayName: 'Travel' }
+        ],
+        sortOrder: 4
+      },
+      {
+        name: 'type',
+        displayName: 'Type',
+        description: 'Product type/style',
+        type: 'global',
+        filterType: 'multi-select',
+        values: [
+          { value: 'Plain', displayName: 'Plain' },
+          { value: 'Printed', displayName: 'Printed' },
+          { value: 'Embroidered', displayName: 'Embroidered' },
+          { value: 'Designer', displayName: 'Designer' },
+          { value: 'Embellished', displayName: 'Embellished' }
+        ],
+        sortOrder: 5
+      },
+      {
+        name: 'material',
+        displayName: 'Material',
+        description: 'Product material/fabric',
+        type: 'global',
+        filterType: 'multi-select',
+        values: [
+          { value: 'Cotton', displayName: 'Cotton' },
+          { value: 'Silk', displayName: 'Silk' },
+          { value: 'Polyester', displayName: 'Polyester' },
+          { value: 'Georgette', displayName: 'Georgette' },
+          { value: 'Chiffon', displayName: 'Chiffon' },
+          { value: 'Rayon', displayName: 'Rayon' },
+          { value: 'Linen', displayName: 'Linen' },
+          { value: 'Denim', displayName: 'Denim' }
+        ],
+        sortOrder: 6
+      }
+    ];
 
-//     // Flatten arrays for occasion, type, filterTags since they are arrays in products
-//     const flattenArray = (arr) => {
-//       return arr.reduce((acc, val) => acc.concat(val), []);
-//     };
+    for (const filterData of defaultFilters) {
+      const existingFilter = await filterModel.findOne({ name: filterData.name });
+      if (!existingFilter) {
+        await filterModel.create(filterData);
+        console.log(`✅ Filter ${filterData.displayName} created`);
+      }
+    }
 
-//     const uniqueOccasions = [...new Set(flattenArray(occasions))].filter(Boolean);
-//     const uniqueTypes = [...new Set(flattenArray(types))].filter(Boolean);
-//     const uniqueFilterTags = [...new Set(flattenArray(filterTags))].filter(Boolean);
+    res.json({ success: true, message: "Default filters initialized successfully" });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-//     res.json({
-//       success: true,
-//       filters: {
-//         gender: genders,
-//         category: categories,
-//         subCategoryMap: subCategoryMap,
-//         occasion: uniqueOccasions,
-//         type: uniqueTypes,
-//         filterTags: uniqueFilterTags,
-//       },
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
-export { addFilter, getFiltersByCategory, getAllFilters, getDynamicFilters, updateFilter, deleteFilter };
+export { 
+  addFilter, 
+  getAllFilters, 
+  getFiltersForCategory, 
+  updateFilter, 
+  deleteFilter, 
+  getDynamicFilters,
+  initializeDefaultFilters 
+};

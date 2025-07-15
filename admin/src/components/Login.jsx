@@ -7,6 +7,9 @@ const Login = ({setToken}) => {
 
     const [email,setEmail] = useState('')
     const [password,setPassword] = useState('')
+    const [showForgotPassword, setShowForgotPassword] = useState(false)
+    const [forgotEmail, setForgotEmail] = useState('')
+    const [isLoading, setIsLoading] = useState(false)
 
     const onSubmitHandler = async (e) => {
         try {
@@ -24,6 +27,99 @@ const Login = ({setToken}) => {
         }
     }
 
+    const handleForgotPassword = async (e) => {
+        e.preventDefault();
+        
+        if (!forgotEmail) {
+            toast.error('Please enter your email address');
+            return;
+        }
+
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(forgotEmail)) {
+            toast.error('Please enter a valid email address');
+            return;
+        }
+
+        setIsLoading(true);
+
+        try {
+            const response = await axios.post(backendUrl + '/api/user/admin-request-reset', { 
+                email: forgotEmail 
+            });
+
+            if (response.data.success) {
+                toast.success('Password reset instructions sent to your email address');
+                setShowForgotPassword(false);
+                setForgotEmail('');
+            } else {
+                toast.error(response.data.message);
+            }
+        } catch (error) {
+            console.error('Password reset request error:', error);
+            toast.error(error.response?.data?.message || 'Failed to send password reset email');
+        } finally {
+            setIsLoading(false);
+        }
+    }
+
+    if (showForgotPassword) {
+        return (
+            <div className='min-h-screen flex items-center justify-center w-full bg-gray-100'>
+                <div className='bg-white shadow-md rounded-lg px-8 py-6 max-w-md w-full'>
+                    <h1 className='text-2xl font-bold mb-2 text-center'>Admin Password Reset</h1>
+                    <p className='text-gray-600 text-sm mb-6 text-center'>
+                        Enter your admin email address and we'll send you instructions to reset your password.
+                    </p>
+                    
+                    <div className='bg-red-50 border border-red-200 rounded p-3 mb-4'>
+                        <div className='flex items-center text-red-700 text-sm'>
+                            <span className='mr-2'>🔐</span>
+                            <span>This is for admin panel access only. All reset attempts are logged for security.</span>
+                        </div>
+                    </div>
+
+                    <form onSubmit={handleForgotPassword}>
+                        <div className='mb-4 min-w-72'>
+                            <p className='text-sm font-medium text-gray-700 mb-2'>Admin Email Address</p>
+                            <input 
+                                onChange={(e)=>setForgotEmail(e.target.value)} 
+                                value={forgotEmail} 
+                                className='rounded-md w-full px-3 py-2 border border-gray-300 outline-none focus:border-red-500' 
+                                type="email" 
+                                placeholder='admin@email.com' 
+                                required 
+                                disabled={isLoading}
+                            />
+                        </div>
+                        
+                        <div className='flex gap-3'>
+                            <button 
+                                className={`flex-1 py-2 px-4 rounded-md text-white transition-colors ${
+                                    isLoading 
+                                        ? 'bg-gray-400 cursor-not-allowed' 
+                                        : 'bg-red-600 hover:bg-red-700'
+                                }`}
+                                type="submit" 
+                                disabled={isLoading}
+                            > 
+                                {isLoading ? 'Sending...' : 'Send Reset Instructions'}
+                            </button>
+                            <button 
+                                type="button"
+                                onClick={() => setShowForgotPassword(false)}
+                                className='flex-1 py-2 px-4 rounded-md text-gray-700 bg-gray-200 hover:bg-gray-300 transition-colors'
+                                disabled={isLoading}
+                            > 
+                                Back to Login 
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        )
+    }
+
   return (
     <div className='min-h-screen flex items-center justify-center w-full'>
         <div className='bg-white shadow-md rounded-lg px-8 py-6 max-w-md'>
@@ -37,6 +133,17 @@ const Login = ({setToken}) => {
                     <p className='text-sm font-medium text-gray-700 mb-2'>Password</p>
                     <input onChange={(e)=>setPassword(e.target.value)} value={password} className='rounded-md w-full px-3 py-2 border border-gray-300 outline-none' type="password" placeholder='Enter your password' required />
                 </div>
+                
+                <div className='flex justify-between items-center mb-3'>
+                    <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(true)}
+                        className='text-sm text-gray-600 hover:text-red-600 transition-colors'
+                    >
+                        Forgot Password?
+                    </button>
+                </div>
+
                 <button className='mt-2 w-full py-2 px-4 rounded-md text-white bg-black' type="submit"> Login </button>
             </form>
         </div>

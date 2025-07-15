@@ -3,7 +3,8 @@ import wishlistModel from "../models/wishlistModel.js";
 // Add product to wishlist
 const addToWishlist = async (req, res) => {
     try {
-        const { userId, productId } = req.body;
+        const { productId } = req.body;
+        const userId = req.user.userId; // Get userId from JWT token via auth middleware
 
         if (!userId || !productId) {
             return res.json({ success: false, message: "User ID and Product ID are required" });
@@ -40,7 +41,8 @@ const addToWishlist = async (req, res) => {
 // Remove product from wishlist
 const removeFromWishlist = async (req, res) => {
     try {
-        const { userId, productId } = req.body;
+        const { productId } = req.body;
+        const userId = req.user.userId; // Get userId from JWT token via auth middleware
 
         const wishlist = await wishlistModel.findOne({ userId });
         if (!wishlist) {
@@ -62,10 +64,10 @@ const removeFromWishlist = async (req, res) => {
 // Get user's wishlist
 const getWishlist = async (req, res) => {
     try {
-        const { userId } = req.params;
+        const userId = req.user.userId; // Get userId from JWT token via auth middleware
 
         const wishlist = await wishlistModel.findOne({ userId })
-            .populate('products.productId', 'name price image category subCategory');
+            .populate('products.productId', 'name price image category subCategory stock hasSize sizes');
 
         if (!wishlist) {
             return res.json({ 
@@ -74,7 +76,16 @@ const getWishlist = async (req, res) => {
             });
         }
 
-        res.json({ success: true, wishlist });
+        // Filter out any null/undefined populated products
+        const validProducts = wishlist.products.filter(item => item.productId);
+
+        res.json({ 
+            success: true, 
+            wishlist: {
+                ...wishlist.toObject(),
+                products: validProducts
+            }
+        });
     } catch (error) {
         console.log(error);
         res.json({ success: false, message: error.message });
@@ -84,7 +95,7 @@ const getWishlist = async (req, res) => {
 // Clear entire wishlist
 const clearWishlist = async (req, res) => {
     try {
-        const { userId } = req.body;
+        const userId = req.user.userId; // Get userId from JWT token via auth middleware
 
         await wishlistModel.findOneAndUpdate(
             { userId },
@@ -99,9 +110,4 @@ const clearWishlist = async (req, res) => {
     }
 };
 
-export { 
-    addToWishlist, 
-    removeFromWishlist, 
-    getWishlist, 
-    clearWishlist 
-}; 
+export { addToWishlist, removeFromWishlist, getWishlist, clearWishlist }; 

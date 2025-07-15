@@ -42,7 +42,7 @@ const CouponInput = ({ orderAmount, onCouponApplied }) => {
             onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
             onKeyPress={handleKeyPress}
             placeholder="Enter coupon code"
-            className='flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:border-orange-500'
+            className='flex-1 p-2 border border-gray-300 rounded focus:outline-none focus:border-hotpink-500'
             disabled={isValidating}
           />
           <button
@@ -51,7 +51,7 @@ const CouponInput = ({ orderAmount, onCouponApplied }) => {
             className={`px-4 py-2 rounded text-white font-medium ${
               isValidating || !couponCode.trim()
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-orange-500 hover:bg-orange-600 active:bg-orange-700'
+                : 'bg-hotpink-500 hover:bg-hotpink-600 active:bg-hotpink-700'
             } transition-colors duration-200`}
           >
             {isValidating ? 'Validating...' : 'Apply'}

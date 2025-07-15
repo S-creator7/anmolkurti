@@ -73,7 +73,7 @@ const GuestOrderTracking = () => {
             case 'shipped':
                 return 'bg-purple-100 text-purple-800';
             case 'out for delivery':
-                return 'bg-orange-100 text-orange-800';
+                return 'bg-hotpink-100 text-hotpink-800';
             case 'delivered':
                 return 'bg-green-100 text-green-800';
             default:
@@ -101,7 +101,7 @@ const GuestOrderTracking = () => {
                                 name="email"
                                 value={trackingData.email}
                                 onChange={handleInputChange}
-                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500'
+                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-hotpink-500'
                                 placeholder='Enter your email address'
                             />
                         </div>
@@ -117,7 +117,7 @@ const GuestOrderTracking = () => {
                                 name="phone"
                                 value={trackingData.phone}
                                 onChange={handleInputChange}
-                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-orange-500'
+                                className='w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:border-hotpink-500'
                                 placeholder='Enter your phone number'
                             />
                         </div>
@@ -128,7 +128,7 @@ const GuestOrderTracking = () => {
                             className={`w-full py-3 px-6 rounded-lg text-white font-medium transition-colors ${
                                 loading
                                     ? 'bg-gray-400 cursor-not-allowed'
-                                    : 'bg-orange-500 hover:bg-orange-600'
+                                    : 'bg-hotpink-500 hover:bg-hotpink-600'
                             }`}
                         >
                             {loading ? 'Searching...' : 'Track Orders'}
@@ -189,7 +189,7 @@ const GuestOrderTracking = () => {
                                     {/* Payment Info */}
                                     <div className='border-t pt-4 mt-4 flex justify-between items-center text-sm'>
                                         <span>Payment Method: {order.paymentMethod}</span>
-                                        <span className={`font-medium ${order.payment ? 'text-green-600' : 'text-orange-600'}`}>
+                                        <span className={`font-medium ${order.payment ? 'text-green-600' : 'text-hotpink-600'}`}>
                                             {order.payment ? 'Paid' : 'Pending'}
                                         </span>
                                     </div>

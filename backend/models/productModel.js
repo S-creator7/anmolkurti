@@ -7,7 +7,7 @@ const productSchema = new mongoose.Schema({
     image: { type: Array, required: true },
     gender: { type: String, required: true, index: true },
     category: { type: String, required: true, index: true },
-    subCategory: { type: String, required: true, index: true },
+    subCategory: { type: String, required: false, index: true, default: '' }, // Made optional - not integrated with filter system
     occasion: { type: [String], default: [], index: true },
     type: { type: [String], default: [], index: true },
     filterTags: { type: [String], default: [], index: true },

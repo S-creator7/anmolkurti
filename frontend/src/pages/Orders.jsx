@@ -13,11 +13,19 @@ const Orders = () => {
   const loadOrderData = async () => {
     try {
       if (!token) {
+        console.log('Orders.jsx: No token available')
         return null
       }
 
-      const response = await axios.post(backendUrl + '/api/order/userorders', {}, { headers: { token } })
+      console.log('Orders.jsx: Making API call to:', backendUrl + '/api/order/user-orders')
+      console.log('Orders.jsx: Using token:', token ? 'Token exists' : 'No token')
+      
+      const response = await axios.get(backendUrl + '/api/order/user-orders', { headers: { token } })
+      
+      console.log('Orders.jsx: API response:', response.data)
+      
       if (response.data.success) {
+        console.log('Orders.jsx: Orders received:', response.data.orders.length)
         let allOrdersItem = []
         response.data.orders.map((order) => {
           order.items.map((item) => {
@@ -28,11 +36,15 @@ const Orders = () => {
             allOrdersItem.push(item)
           })
         })
+        console.log('Orders.jsx: Processed items:', allOrdersItem.length)
         setorderData(allOrdersItem.reverse())
+      } else {
+        console.log('Orders.jsx: API call failed:', response.data.message)
       }
 
     } catch (error) {
-
+      console.error('Orders.jsx: Error loading orders:', error)
+      console.error('Orders.jsx: Error response:', error.response?.data)
     }
   }
 
