@@ -59,7 +59,7 @@ const ResetPassword = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${backendUrl}/api/user/reset-password`, {
+      const response = await axios.post(`${backendUrl}/user/reset-password`, {
         token,
         newPassword: formData.newPassword
       });

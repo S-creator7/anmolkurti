@@ -56,7 +56,7 @@ const AccountManagement = ({ token }) => {
   const fetchOrders = async (page = pagination.orders.page) => {
     setLoadingOrders(true);
     try {
-      const response = await axios.post(`${backendUrl}/api/order/list`, {}, {
+      const response = await axios.post(`${backendUrl}/order/list`, {}, {
         headers: { token },
         params: {
           page,
@@ -89,7 +89,7 @@ const AccountManagement = ({ token }) => {
   const fetchProducts = async (page = pagination.products.page) => {
     setLoadingProducts(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/product/list`, {
+      const response = await axios.get(`${backendUrl}/product/list`, {
         headers: { token },
         params: {
           page,
@@ -136,7 +136,7 @@ const AccountManagement = ({ token }) => {
   const fetchBestsellers = async (page = 1) => {
     setLoadingBestsellers(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/order/bestsellers`, {
+      const response = await axios.get(`${backendUrl}/order/bestsellers`, {
         headers: { token },
         params: {
           page,
@@ -147,7 +147,7 @@ const AccountManagement = ({ token }) => {
         setBestsellers(response.data.bestsellers);
       } else {
         // Fallback: fetch products flagged as bestseller
-        const fallbackResponse = await axios.get(`${backendUrl}/api/product/bestsellers`, {
+        const fallbackResponse = await axios.get(`${backendUrl}/product/bestsellers`, {
           headers: { token }
         });
         if (fallbackResponse.data.success) {
@@ -166,7 +166,7 @@ const AccountManagement = ({ token }) => {
   const fetchCustomers = async (page = pagination.customers.page) => {
     setLoadingCustomers(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/user/list`, {
+      const response = await axios.get(`${backendUrl}/user/list`, {
         headers: { token },
         params: {
           page,
@@ -198,7 +198,7 @@ const AccountManagement = ({ token }) => {
 
   const fetchDashboardMetrics = async () => {
     try {
-      const response = await axios.get(`${backendUrl}/api/order/dashboard-metrics`, {
+      const response = await axios.get(`${backendUrl}/order/dashboard-metrics`, {
         headers: { token }
       });
       if (response.data.success) {
@@ -513,9 +513,9 @@ const AccountManagement = ({ token }) => {
     try {
       setLoadingDashboard(true);
       const [metricsResponse, ordersResponse, productsResponse] = await Promise.all([
-        axios.get(`${backendUrl}/api/order/dashboard-metrics`, { headers: { token } }),
-        axios.get(`${backendUrl}/api/order/recent`, { headers: { token } }),
-        axios.get(`${backendUrl}/api/product/bestsellers`, { headers: { token } })
+        axios.get(`${backendUrl}/order/dashboard-metrics`, { headers: { token } }),
+        axios.get(`${backendUrl}/order/recent`, { headers: { token } }),
+        axios.get(`${backendUrl}/product/bestsellers`, { headers: { token } })
       ]);
 
       if (metricsResponse.data.success) {
@@ -973,7 +973,7 @@ const AccountManagement = ({ token }) => {
 
   const deleteCustomer = async (id) => {
     try {
-      const response = await axios.delete(`${backendUrl}/api/user/${id}`, {
+      const response = await axios.delete(`${backendUrl}/user/${id}`, {
         headers: { token }
       });
 
@@ -995,7 +995,7 @@ const AccountManagement = ({ token }) => {
   const viewCustomerDetails = async (id) => {
     try {
       setLoadingCustomers(true); // Add loading state while fetching details
-      const response = await axios.get(`${backendUrl}/api/user/${id}`, {
+      const response = await axios.get(`${backendUrl}/user/${id}`, {
         headers: { token }
       });
 
@@ -1508,7 +1508,7 @@ const AccountManagement = ({ token }) => {
   // Add removeProduct function
   const removeProduct = async (id) => {
     try {
-      const response = await axios.post(`${backendUrl}/api/product/remove`, 
+      const response = await axios.post(`${backendUrl}/product/remove`, 
         { id }, 
         { headers: { token } }
       );

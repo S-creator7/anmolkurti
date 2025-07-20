@@ -87,7 +87,7 @@ const ShopContextProvider = (props) => {
       const productIds = products.map(p => p._id);
       if (productIds.length === 0) return;
       
-      const response = await axios.post(`${backendUrl}/api/product/stock-levels`, {
+      const response = await axios.post(`${backendUrl}/product/stock-levels`, {
         productIds
       });
       
@@ -118,7 +118,7 @@ const ShopContextProvider = (props) => {
   // Helper function to get real-time stock for a product and size
   const getRealTimeStock = async (productId, size = null) => {
     try {
-      const response = await axios.post(`${backendUrl}/api/product/stock-levels`, {
+      const response = await axios.post(`${backendUrl}/product/stock-levels`, {
         productIds: [productId]
       });
       
@@ -246,9 +246,9 @@ const ShopContextProvider = (props) => {
 
     if (token) {
       try {
-        await axios.post(backendUrl + '/api/cart/add', { itemId, size }, { headers: { token } });
+        await axios.post(backendUrl + '/cart/add', { itemId, size }, { headers: { token } });
         // Fetch updated cart from backend to sync state
-        const response = await axios.post(backendUrl + '/api/cart/get', {}, { headers: { token } });
+        const response = await axios.post(backendUrl + '/cart/get', {}, { headers: { token } });
         if (response.data.success) {
           setCartItems(response.data.cartData);
           console.log("ShopContext - cartItems synced after addToCart:", response.data.cartData);
@@ -266,7 +266,7 @@ const ShopContextProvider = (props) => {
   const subscribeStockAlert = async (productId, email) => {
     try {
       await axios.post(
-        backendUrl + '/api/product/stock-alert',
+        backendUrl + '/product/stock-alert',
         { productId, email },
         { headers: { token } }
       );
@@ -296,7 +296,7 @@ const ShopContextProvider = (props) => {
   const fetchDynamicFilters = async (category = null) => {
     try {
       const params = category ? { category } : {};
-      const response = await axios.get(`${backendUrl}/api/filter/dynamic`, { params });
+      const response = await axios.get(`${backendUrl}/filter/dynamic`, { params });
       
       if (response.data.success) {
         return response.data.filters;
@@ -331,7 +331,7 @@ const ShopContextProvider = (props) => {
 
     if (token) {
       try {
-        await axios.post(backendUrl + '/api/cart/update', { 
+        await axios.post(backendUrl + '/cart/update', { 
           itemId, 
           size, 
           quantity 
@@ -367,7 +367,7 @@ const ShopContextProvider = (props) => {
 
   const getProductsData = async () => {
     try {
-      const response = await axios.get(backendUrl + '/api/product/list');
+      const response = await axios.get(backendUrl + '/product/list');
       if (response.data.success) {
         // Normalize product fields for filtering
         // const normalizedProducts = response.data.products.map(product => ({
@@ -402,8 +402,8 @@ const ShopContextProvider = (props) => {
   const getUserCart = async (token) => {
     console.log("getUserCart called with token:", token);
     try {
-      const response = await axios.post(backendUrl + '/api/cart/get', {}, { headers: { token } });
-      console.log("Response from /api/cart/get:", response.data);
+      const response = await axios.post(backendUrl + '/cart/get', {}, { headers: { token } });
+      console.log("Response from  /cart/get:", response.data);
       if (response.data.success) {
         setCartItems(response.data.cartData);
         console.log("ShopContext - cartItems after setCartItems:", response.data.cartData);

@@ -41,7 +41,7 @@ const Coupons = () => {
   const loadCoupons = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/coupon/list`, {
+      const response = await axios.get(`${backendUrl}/coupon/list`, {
         headers: { token }
       });
       if (response.data.success) {
@@ -69,8 +69,8 @@ const Coupons = () => {
 
     try {
       const url = editingCoupon 
-        ? `${backendUrl}/api/coupon/update/${editingCoupon._id}`
-        : `${backendUrl}/api/coupon/create`;
+        ? `${backendUrl}/coupon/update/${editingCoupon._id}`
+        : `${backendUrl}/coupon/create`;
       
       const method = editingCoupon ? 'put' : 'post';
       
@@ -129,7 +129,7 @@ const Coupons = () => {
     }
 
     try {
-      const response = await axios.delete(`${backendUrl}/api/coupon/delete/${couponId}`, {
+      const response = await axios.delete(`${backendUrl}/coupon/delete/${couponId}`, {
         headers: { token }
       });
 

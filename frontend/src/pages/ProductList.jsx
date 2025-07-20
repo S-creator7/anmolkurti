@@ -66,7 +66,7 @@ const ProductList = () => {
         params.sort = sort;
       }
 
-      const response = await axios.get(`${backendUrl}/api/product/list`, { params });
+      const response = await axios.get(`${backendUrl}/product/list`, { params });
       if (response.data.success) {
         setProducts(response.data.products);
         setTotalPages(response.data.totalPages);

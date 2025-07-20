@@ -27,6 +27,9 @@ connectCloudinary()
 app.use(express.json())
 app.use(cors())
 
+// Serve static assets
+app.use('/assets', express.static('assets'))
+
 // Run every hour
 cron.schedule('0 * * * *', () => {
     checkStockAlerts();

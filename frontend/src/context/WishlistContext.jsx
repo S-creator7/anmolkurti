@@ -72,7 +72,7 @@ export const WishlistProvider = ({ children }) => {
 
     setIsLoading(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/wishlist`, {
+      const response = await axios.get(`${backendUrl}/wishlist`, {
         headers: { token }
       });
 
@@ -105,7 +105,7 @@ export const WishlistProvider = ({ children }) => {
     }
 
     try {
-      const response = await axios.post(`${backendUrl}/api/wishlist/add`, {
+      const response = await axios.post(`${backendUrl}/wishlist/add`, {
         productId
       }, {
         headers: { token }
@@ -143,7 +143,7 @@ export const WishlistProvider = ({ children }) => {
     }
 
     try {
-      const response = await axios.delete(`${backendUrl}/api/wishlist/remove`, {
+      const response = await axios.delete(`${backendUrl}/wishlist/remove`, {
         data: { productId },
         headers: { token }
       });

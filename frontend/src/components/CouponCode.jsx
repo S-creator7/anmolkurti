@@ -69,7 +69,7 @@ const CouponCode = ({ onCouponApplied, appliedCoupon, onRemoveCoupon }) => {
       const userId = getUserIdFromToken(token);
       
       // Call API even for guest users (userId will be null)
-      const response = await axios.post(`${backendUrl}/api/coupon/available`, {
+      const response = await axios.post(`${backendUrl}/coupon/available`, {
         userId: userId || null, // Send null for guest users
         orderAmount
       });
@@ -102,7 +102,7 @@ const CouponCode = ({ onCouponApplied, appliedCoupon, onRemoveCoupon }) => {
       const cartProducts = getCartProducts();
       const userId = getUserIdFromToken(token);
 
-      const response = await axios.post(`${backendUrl}/api/coupon/validate`, {
+      const response = await axios.post(`${backendUrl}/coupon/validate`, {
         code: couponCode.trim(),
         orderAmount,
         products: cartProducts,

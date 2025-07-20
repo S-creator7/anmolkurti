@@ -17,10 +17,10 @@ const Orders = () => {
         return null
       }
 
-      console.log('Orders.jsx: Making API call to:', backendUrl + '/api/order/user-orders')
+      console.log('Orders.jsx: Making API call to:', backendUrl + '/order/user-orders')
       console.log('Orders.jsx: Using token:', token ? 'Token exists' : 'No token')
       
-      const response = await axios.get(backendUrl + '/api/order/user-orders', { headers: { token } })
+      const response = await axios.get(backendUrl + '/order/user-orders', { headers: { token } })
       
       console.log('Orders.jsx: API response:', response.data)
       

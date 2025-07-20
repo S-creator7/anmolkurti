@@ -7,7 +7,10 @@
     "start": "node server.js",
     "server": "nodemon server.js",
     "dev": "nodemon server.js",
-    "seed-admin": "node scripts/seedAdmin.js"
+    "seed-admin": "node scripts/seedAdmin.js",
+    "seed-products": "node seedProducts.js",
+    "verify-products": "node verifyProducts.js",
+    "update-images": "node updateImageUrls.js"
   },
   "author": "",
   "license": "ISC",

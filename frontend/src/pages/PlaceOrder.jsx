@@ -47,7 +47,7 @@ const PlaceOrder = () => {
         
         setUserProfileLoading(true);
         try {
-            const response = await axios.get(`${backendUrl}/api/user/profile`, {
+            const response = await axios.get(`${backendUrl}/user/profile`, {
                 headers: { token }
             });
             
@@ -190,7 +190,7 @@ const PlaceOrder = () => {
                 try {
                     // For guests, don't send token
                     const headers = checkoutMode === 'guest' ? {} : { token };
-                    const razorPayVerified = await axios.post(backendUrl + '/api/order/verify-razorpay', response, { headers });
+                    const razorPayVerified = await axios.post(backendUrl + '/order/verify-razorpay', response, { headers });
                     
                     if (razorPayVerified.data.success) {
                         if (checkoutMode === 'guest') {
@@ -448,7 +448,7 @@ const PlaceOrder = () => {
 
                 // API Calls for COD
                 case 'cod':
-                    const response = await axios.post(backendUrl + '/api/order/place-order', orderData, { headers })
+                    const response = await axios.post(backendUrl + '/order/place-order', orderData, { headers })
                     if (response.data.success) {
                         setCartItems({})
                         if (checkoutMode === 'guest') {
@@ -467,7 +467,7 @@ const PlaceOrder = () => {
                     toast.error('Stripe payment is temporarily disabled');
                     break;
                     
-                    /* const responseStripe = await axios.post(backendUrl + '/api/order/stripe', orderData, { headers })
+                    /* const responseStripe = await axios.post(backendUrl + ' /order/stripe', orderData, { headers })
                     if (responseStripe.data.success) {
                         const { session_url } = responseStripe.data
                         window.location.replace(session_url)
@@ -477,7 +477,7 @@ const PlaceOrder = () => {
 
                 case 'razorpay':
 
-                    const responseRazorpay = await axios.post(backendUrl + '/api/order/place-order-razorpay', orderData, { headers })
+                    const responseRazorpay = await axios.post(backendUrl + '/order/place-order-razorpay', orderData, { headers })
                     console.log("RAZORPAY Response:", responseRazorpay.data);
 
                     if (responseRazorpay.data.success && responseRazorpay.data.order) {

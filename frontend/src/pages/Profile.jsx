@@ -50,7 +50,7 @@ const Profile = () => {
 
   const fetchUserData = async () => {
     try {
-      const response = await axios.get(`${backendUrl}/api/user/profile`, {
+      const response = await axios.get(`${backendUrl}/user/profile`, {
         headers: { token },
       })
       if (response.data.success) {
@@ -98,7 +98,7 @@ const Profile = () => {
     e.preventDefault()
     setSaving(true)
     try {
-      const response = await axios.put(`${backendUrl}/api/user/profile`, userData, { headers: { token } })
+      const response = await axios.put(`${backendUrl}/user/profile`, userData, { headers: { token } })
       if (response.data.success) {
         toast.success("Profile updated successfully")
         setIsEditing(false)

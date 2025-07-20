@@ -32,7 +32,7 @@ const ForgotPassword = () => {
 
     try {
       // Only use customer endpoint - no admin functionality on frontend
-      const response = await axios.post(`${backendUrl}/api/user/request-reset`, { email });
+      const response = await axios.post(`${backendUrl}/user/request-reset`, { email });
 
       if (response.data.success) {
         setEmailSent(true);

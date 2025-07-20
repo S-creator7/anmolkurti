@@ -32,7 +32,7 @@ export const CouponProvider = ({ children }) => {
     setIsValidating(true);
     
     try {
-      const response = await axios.post(`${backendUrl}/api/coupon/validate`, {
+      const response = await axios.post(`${backendUrl}/coupon/validate`, {
         code: code.trim().toUpperCase(),
         orderAmount,
         products

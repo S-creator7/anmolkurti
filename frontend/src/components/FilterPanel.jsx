@@ -12,7 +12,7 @@ const FilterPanel = ({ backendUrl, onFilterChange, selectedCategory, selectedFil
   const fetchManagedFilters = async () => {
     try {
       // Get filters from Filter Management system
-      const response = await axios.get(`${backendUrl}/api/filter`);
+      const response = await axios.get(`${backendUrl}/filter`);
       if (response.data.success) {
         setManagedFilters(response.data.filters);
       }

@@ -11,7 +11,7 @@ const CustomerInfo = ({ token }) => {
   const fetchCustomers = async () => {
     setLoadingCustomers(true);
     try {
-      const response = await axios.get(backendUrl + '/api/user/list', {
+      const response = await axios.get(backendUrl + '/user/list', {
         headers: { token }
       });
       if (response.data.success) {

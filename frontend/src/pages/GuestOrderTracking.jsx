@@ -34,7 +34,7 @@ const GuestOrderTracking = () => {
         setSearched(true);
         
         try {
-            const response = await axios.post(`${backendUrl}/api/order/guest-tracking`, trackingData);
+            const response = await axios.post(`${backendUrl}/order/guest-tracking`, trackingData);
             
             if (response.data.success) {
                 setOrders(response.data.orders);

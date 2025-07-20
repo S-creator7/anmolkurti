@@ -18,7 +18,7 @@ const AccountManagement = () => {
       try {
         // Fetch aggregated dashboard metrics
         const metricsResponse = await axios.get(
-          backendUrl + '/api/order/dashboard-metrics',
+          backendUrl + '/order/dashboard-metrics',
           { headers: { token } }
         );
         if (metricsResponse.data.success) {
@@ -28,7 +28,7 @@ const AccountManagement = () => {
 
         // Fetch user orders (paginated or full list)
         const ordersResponse = await axios.get(
-          backendUrl + '/api/order/user-orders',
+          backendUrl + '/order/user-orders',
           { headers: { token } }
         );
         if (ordersResponse.data.success) {

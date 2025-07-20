@@ -4,7 +4,7 @@ import { useState } from 'react'
 import axios from 'axios'
 import { backendUrl, currency } from '../App'
 import { toast } from 'react-toastify'
-import { FaSearch, FaFilter, FaShoppingBag, FaCalendarAlt, FaCreditCard, FaWarning } from 'react-icons/fa'
+import { FaSearch, FaFilter, FaShoppingBag, FaCalendarAlt, FaCreditCard, FaExclamationTriangle } from 'react-icons/fa'
 
 const Orders = ({ token }) => {
 
@@ -35,11 +35,11 @@ const Orders = ({ token }) => {
 
     setLoading(true)
     try {
-      console.log('Orders.jsx: Making API call to:', backendUrl + '/api/order/list')
+      console.log('Orders.jsx: Making API call to:', backendUrl + '/order/list')
       console.log('Orders.jsx: Using token:', token ? 'Token exists' : 'No token')
       console.log('Orders.jsx: Request body:', { page, limit })
 
-      const response = await axios.post(backendUrl + '/api/order/list', { page, limit }, { headers: { token } })
+      const response = await axios.post(backendUrl + '/order/list', { page, limit }, { headers: { token } })
       
       console.log('Orders.jsx: API response:', response.data)
       
@@ -78,7 +78,7 @@ const Orders = ({ token }) => {
 
       if (productIds.size === 0) return
 
-      const response = await axios.post(backendUrl + '/api/product/stock-levels', 
+      const response = await axios.post(backendUrl + '/product/stock-levels', 
         { productIds: Array.from(productIds) }, 
         { headers: { token } }
       )
@@ -117,7 +117,7 @@ const Orders = ({ token }) => {
 
   const statusHandler = async (event, orderId) => {
     try {
-      const response = await axios.post(backendUrl + '/api/order/update-status', 
+      const response = await axios.post(backendUrl + '/order/update-status', 
         { orderId, status: event.target.value }, 
         { headers: { token } }
       )
@@ -509,7 +509,7 @@ const Orders = ({ token }) => {
                         <div className="font-medium text-gray-900 flex items-center gap-2">
                           #{order._id.slice(-8).toUpperCase()}
                           {orderHasStockIssues && (
-                            <FaWarning className="text-orange-500 text-sm" title="Stock issues detected" />
+                            <FaExclamationTriangle className="text-orange-500 text-sm" title="Stock issues detected" />
                           )}
                         </div>
                         <div className="text-sm text-gray-500 flex items-center gap-1">

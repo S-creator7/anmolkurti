@@ -114,7 +114,7 @@ const Product = () => {
     });
     if (!found) {
       try {
-        const response = await fetch('/api/product/single', {
+        const response = await fetch(' /product/single', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ productId }),

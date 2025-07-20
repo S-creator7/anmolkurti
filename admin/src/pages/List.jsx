@@ -13,7 +13,7 @@ const List = ({ token }) => {
   const fetchList = async (page = 1) => {
     try {
 
-      const response = await axios.get(backendUrl + '/api/product/list', { params: { page, limit } })
+      const response = await axios.get(backendUrl + '/product/list', { params: { page, limit } })
       if (response.data.success) {
         setList(response.data.products.reverse());
         setCurrentPage(response.data.currentPage)
@@ -32,7 +32,7 @@ const List = ({ token }) => {
   const removeProduct = async (id) => {
     try {
 
-      const response = await axios.post(backendUrl + '/api/product/remove', { id }, { headers: { token } })
+      const response = await axios.post(backendUrl + '/product/remove', { id }, { headers: { token } })
 
       if (response.data.success) {
         toast.success(response.data.message)
