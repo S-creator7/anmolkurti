@@ -1,10 +1,13 @@
 import mongoose from 'mongoose';
 import productModel from '../models/productModel.js';
 
+import dotenv from 'dotenv';
+dotenv.config();
+
 // Connect to MongoDB
 const connectDB = async () => {
   try {
-    await mongoose.connect('mongodb://localhost:27017/skyroot');
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('MongoDB connected');
   } catch (error) {
     console.error('MongoDB connection error:', error);
@@ -27,7 +30,8 @@ const sampleProducts = [
     bestseller: true,
     hasSize: false,
     stock: { value: 15 },
-    image: ["sample-saree-1.jpg"]
+    image: ["sample-saree-1.jpg"],
+    date: Date.now()
   },
   {
     name: "Casual Cotton Kurti",
@@ -43,7 +47,8 @@ const sampleProducts = [
     hasSize: true,
     sizes: ["S", "M", "L", "XL"],
     stock: { S: 5, M: 8, L: 6, XL: 4 },
-    image: ["sample-kurti-1.jpg"]
+    image: ["sample-kurti-1.jpg"],
+    date: Date.now()
   },
   {
     name: "Designer Anarkali Dress",
@@ -59,7 +64,8 @@ const sampleProducts = [
     hasSize: true,
     sizes: ["S", "M", "L", "XL"],
     stock: { S: 3, M: 5, L: 4, XL: 2 },
-    image: ["sample-dress-1.jpg"]
+    image: ["sample-dress-1.jpg"],
+    date: Date.now()
   },
   {
     name: "Formal Cotton Shirt",
@@ -75,7 +81,8 @@ const sampleProducts = [
     hasSize: true,
     sizes: ["S", "M", "L", "XL", "XXL"],
     stock: { S: 3, M: 7, L: 9, XL: 5, XXL: 2 },
-    image: ["sample-shirt-1.jpg"]
+    image: ["sample-shirt-1.jpg"],
+    date: Date.now()
   },
   {
     name: "Casual Denim Pants",
@@ -91,7 +98,8 @@ const sampleProducts = [
     hasSize: true,
     sizes: ["S", "M", "L", "XL", "XXL"],
     stock: { S: 4, M: 8, L: 10, XL: 6, XXL: 3 },
-    image: ["sample-pants-1.jpg"]
+    image: ["sample-pants-1.jpg"],
+    date: Date.now()
   },
   {
     name: "Designer Kids Suit",
@@ -107,7 +115,8 @@ const sampleProducts = [
     hasSize: true,
     sizes: ["S", "M", "L"],
     stock: { S: 4, M: 6, L: 3 },
-    image: ["sample-suit-1.jpg"]
+    image: ["sample-suit-1.jpg"],
+    date: Date.now()
   },
   {
     name: "Party Wear Salwar",
@@ -123,7 +132,8 @@ const sampleProducts = [
     hasSize: true,
     sizes: ["S", "M", "L", "XL"],
     stock: { S: 2, M: 4, L: 3, XL: 1 },
-    image: ["sample-salwar-1.jpg"]
+    image: ["sample-salwar-1.jpg"],
+    date: Date.now()
   }
 ];
 

@@ -8,7 +8,23 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FilterProvider } from './context/FilterContext';
 
-export const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000/api';
+
+// Utility to safely join base URL and path without duplicate slashes
+function joinUrl(base, path) {
+  if (base.endsWith('/')) {
+    base = base.slice(0, -1);
+  }
+  if (!path.startsWith('/')) {
+    path = '/' + path;
+  }
+  return base + path;
+}
+
+export const backendUrl = {
+  base: rawBackendUrl.replace(/\/$/, ''), // remove trailing slash if any
+  join: (path) => joinUrl(rawBackendUrl.replace(/\/$/, ''), path)
+};
 export const currency = '$'
 
 const App = () => {

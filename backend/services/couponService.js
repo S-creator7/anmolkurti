@@ -30,7 +30,6 @@ class CouponService {
     try {
       const coupon = await couponModel.findOne({
         code: code.toUpperCase(),
-        isActive: true,
         validFrom: { $lte: new Date() },
         validUntil: { $gte: new Date() }
       });

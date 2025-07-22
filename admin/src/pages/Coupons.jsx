@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 
@@ -27,7 +27,7 @@ const Coupons = () => {
     stackable: false,
     priority: 1,
     bannerImage: '',
-    termsAndConditions: '',
+    termsAndConditions: [],
     isActive: true
   });
 
@@ -57,24 +57,95 @@ const Coupons = () => {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
+
+    // Fix for usageLimit and discountValue fields to prevent scroll changing values
+    if ((name === 'usageLimit' || name === 'discountValue' || name === 'maximumDiscountAmount') && value !== '') {
+      // Allow only numbers and prevent scroll changing value
+      const numericValue = value.replace(/[^0-9]/g, '');
+      setFormData(prev => ({
+        ...prev,
+        [name]: numericValue
+      }));
+      return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
+    // Improved date validation for validFrom and validUntil
+    const now = new Date();
+    const validFromDate = new Date(formData.validFrom);
+    const validUntilDate = new Date(formData.validUntil);
+
+    if (isNaN(validFromDate.getTime()) || isNaN(validUntilDate.getTime())) {
+      toast.error('Please provide valid dates for Valid From and Valid Until.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (validFromDate > validUntilDate) {
+      toast.error('Valid From date must be less than or equal to Valid Until date.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (validFromDate < now) {
+      toast.error('Valid From date must be greater than or equal to the current date and time.');
+      setIsLoading(false);
+      return;
+    }
+
+    if (validUntilDate < validFromDate) {
+      toast.error('Valid Until date must be greater than or equal to Valid From date.');
+      setIsLoading(false);
+      return;
+    }
+
+    // Validate discountValue presence based on discountType
+    if ((formData.discountType === 'percentage' || formData.discountType === 'fixed') && (!formData.discountValue || formData.discountValue === '')) {
+      toast.error('Discount Value is required for percentage and fixed discount types.');
+      setIsLoading(false);
+      return;
+    }
+
     try {
+      // Sanitize and validate coupon code
+      const sanitizedCode = formData.code.trim().toUpperCase();
+      const codePattern = /^[A-Z0-9_-]+$/;
+      if (!codePattern.test(sanitizedCode)) {
+        toast.error('Coupon code must contain only uppercase letters, numbers, underscores, and hyphens');
+        setIsLoading(false);
+        return;
+      }
+
       const url = editingCoupon 
         ? `${backendUrl}/coupon/update/${editingCoupon._id}`
         : `${backendUrl}/coupon/create`;
       
       const method = editingCoupon ? 'put' : 'post';
+
+      // Ensure termsAndConditions is an array before sending
+      const { isActive, discountValue, discountType, bannerImage, ...restFormData } = formData;
+      const dataToSend = {
+        ...restFormData,
+        code: sanitizedCode,
+        discountType,
+discountValue: (discountType === 'percentage' || discountType === 'fixed') && discountValue !== '' && discountValue !== undefined ? Number(discountValue) : undefined,
+        maximumDiscountAmount: discountType === 'percentage' && formData.maximumDiscountAmount ? Number(formData.maximumDiscountAmount) : undefined,
+        bannerImage: bannerImage || undefined,
+        termsAndConditions: Array.isArray(formData.termsAndConditions)
+          ? (formData.termsAndConditions.length > 0 ? formData.termsAndConditions : ['N/A'])
+          : (typeof formData.termsAndConditions === 'string' ? formData.termsAndConditions.split('\n').filter(line => line.trim() !== '') : ['N/A'])
+      };
       
-      const response = await axios[method](url, formData, {
+      const response = await axios[method](url, dataToSend, {
         headers: { token }
       });
 
@@ -106,8 +177,8 @@ const Coupons = () => {
       minimumOrderAmount: coupon.minimumOrderAmount,
       maximumDiscountAmount: coupon.maximumDiscountAmount,
       usageLimit: coupon.usageLimit,
-      validFrom: new Date(coupon.validFrom).toISOString().split('T')[0],
-      validUntil: new Date(coupon.validUntil).toISOString().split('T')[0],
+      validFrom: new Date(new Date(coupon.validFrom).toDateString() + ' 00:00:00').toISOString().slice(0,16),
+      validUntil: new Date(new Date(coupon.validUntil).toDateString() + ' 23:59:59').toISOString().slice(0,16),
       applicableCategories: coupon.applicableCategories || [],
       excludedCategories: coupon.excludedCategories || [],
       couponType: coupon.couponType,
@@ -117,7 +188,7 @@ const Coupons = () => {
       stackable: coupon.stackable,
       priority: coupon.priority,
       bannerImage: coupon.bannerImage || '',
-      termsAndConditions: coupon.termsAndConditions || '',
+      // termsAndConditions: [],
       isActive: coupon.isActive
     });
     setShowForm(true);
@@ -166,7 +237,7 @@ const Coupons = () => {
       stackable: false,
       priority: 1,
       bannerImage: '',
-      termsAndConditions: '',
+      // termsAndConditions: '',
       isActive: true
     });
   };
@@ -216,7 +287,13 @@ const Coupons = () => {
                   type="text"
                   name="code"
                   value={formData.code}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    // Allow only uppercase letters, numbers, underscores, and hyphens
+                    if (/^[A-Z0-9_-]*$/.test(value)) {
+                      setFormData(prev => ({ ...prev, code: value }));
+                    }
+                  }}
                   className="w-full border rounded px-3 py-2"
                   required
                 />
@@ -261,17 +338,19 @@ const Coupons = () => {
                 </select>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium mb-1">Discount Value *</label>
-                <input
-                  type="number"
-                  name="discountValue"
-                  value={formData.discountValue}
-                  onChange={handleInputChange}
-                  className="w-full border rounded px-3 py-2"
-                  required
-                />
-              </div>
+              {(formData.discountType === 'percentage' || formData.discountType === 'fixed') && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Discount Value *</label>
+                  <input
+                    type="number"
+                    name="discountValue"
+                    value={formData.discountValue}
+                    onChange={handleInputChange}
+                    className="w-full border rounded px-3 py-2"
+                    required
+                  />
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium mb-1">Minimum Order Amount</label>
@@ -284,16 +363,18 @@ const Coupons = () => {
                 />
               </div>
               
-              <div>
-                <label className="block text-sm font-medium mb-1">Maximum Discount Amount</label>
-                <input
-                  type="number"
-                  name="maximumDiscountAmount"
-                  value={formData.maximumDiscountAmount}
-                  onChange={handleInputChange}
-                  className="w-full border rounded px-3 py-2"
-                />
-              </div>
+              {formData.discountType === 'percentage' && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Maximum Discount Amount</label>
+                  <input
+                    type="number"
+                    name="maximumDiscountAmount"
+                    value={formData.maximumDiscountAmount}
+                    onChange={handleInputChange}
+                    className="w-full border rounded px-3 py-2"
+                  />
+                </div>
+              )}
               
               <div>
                 <label className="block text-sm font-medium mb-1">Usage Limit</label>
@@ -309,7 +390,7 @@ const Coupons = () => {
               <div>
                 <label className="block text-sm font-medium mb-1">Valid From *</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   name="validFrom"
                   value={formData.validFrom}
                   onChange={handleInputChange}
@@ -321,7 +402,7 @@ const Coupons = () => {
               <div>
                 <label className="block text-sm font-medium mb-1">Valid Until *</label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   name="validUntil"
                   value={formData.validUntil}
                   onChange={handleInputChange}
@@ -338,12 +419,11 @@ const Coupons = () => {
                   onChange={handleInputChange}
                   className="w-full border rounded px-3 py-2"
                 >
-                  <option value="public">Public</option>
-                  <option value="first_time">First Time User</option>
-                  <option value="loyalty">Loyalty</option>
-                  <option value="referral">Referral</option>
-                  <option value="seasonal">Seasonal</option>
-                  <option value="flash_sale">Flash Sale</option>
+                    <option value="public">Public</option>
+  <option value="private">Private</option>
+  <option value="first_order">First Time User</option>
+  <option value="seasonal">Seasonal</option>
+  <option value="flash_sale">Flash Sale</option>
                 </select>
               </div>
               
@@ -361,6 +441,27 @@ const Coupons = () => {
             </div>
             
             <div className="space-y-2">
+              <label className="block text-sm font-medium mb-1">Banner Image</label>
+              <input
+                type="file"
+                name="bannerImage"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+
+                  // Placeholder: Implement actual upload logic here
+                  // For now, simulate upload and set formData.bannerImage to file name or URL
+                  // You can replace this with actual upload to backend or cloud storage
+                  const uploadedImageUrl = URL.createObjectURL(file);
+
+                  setFormData(prev => ({
+                    ...prev,
+                    bannerImage: uploadedImageUrl
+                  }));
+                }}
+                className="w-full border rounded px-3 py-2 mb-4"
+              />
               <label className="flex items-center">
                 <input
                   type="checkbox"
@@ -383,16 +484,6 @@ const Coupons = () => {
                 Stackable with other coupons
               </label>
               
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="isActive"
-                  checked={formData.isActive}
-                  onChange={handleInputChange}
-                  className="mr-2"
-                />
-                Active
-              </label>
             </div>
             
             <div className="flex gap-2">
@@ -456,11 +547,21 @@ const Coupons = () => {
                     </td>
                     <td className="px-4 py-3">{formatDate(coupon.validUntil)}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 rounded text-sm ${
-                        coupon.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {coupon.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      {(() => {
+                        const now = new Date();
+                        const validFrom = new Date(coupon.validFrom);
+                        const validUntil = new Date(coupon.validUntil);
+                        const isWithinDateRange =  now >=validFrom && now <= validUntil;
+                        const hasUsageLeft = coupon.usedCount < (coupon.usageLimit || Infinity);
+                        const isActive = isWithinDateRange && hasUsageLeft;
+                        return (
+                          <span className={`px-2 py-1 rounded text-sm ${
+                            isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex gap-2">

@@ -56,7 +56,7 @@ const AccountManagement = ({ token }) => {
   const fetchOrders = async (page = pagination.orders.page) => {
     setLoadingOrders(true);
     try {
-      const response = await axios.post(`${backendUrl}/order/list`, {}, {
+      const response = await axios.post(backendUrl.join('/order/list'), {}, {
         headers: { token },
         params: {
           page,
@@ -76,7 +76,13 @@ const AccountManagement = ({ token }) => {
           }
         }));
       } else {
-        toast.error('Failed to fetch orders');
+        if (response.data.message === 'User not found' || response.data.message === 'Invalid token') {
+          // Logout user on auth error
+          localStorage.removeItem('token');
+          window.location.reload();
+        } else {
+          toast.error('Failed to fetch orders');
+        }
       }
     } catch (error) {
       toast.error(error.message);
@@ -89,7 +95,7 @@ const AccountManagement = ({ token }) => {
   const fetchProducts = async (page = pagination.products.page) => {
     setLoadingProducts(true);
     try {
-      const response = await axios.get(`${backendUrl}/product/list`, {
+      const response = await axios.get(backendUrl.join('/product/list'), {
         headers: { token },
         params: {
           page,
@@ -100,7 +106,10 @@ const AccountManagement = ({ token }) => {
           sortOrder: filters.products.sortOrder
         }
       });
+              console.log("in fetchProduct",response.data.products)
+
       if (response.data.success) {
+              console.log("in fetchProduct",response.data.products)
         setProducts(response.data.products);
         // Ensure we have a valid total count
         const totalCount = parseInt(response.data.totalProducts || response.data.total || 0);
@@ -113,7 +122,12 @@ const AccountManagement = ({ token }) => {
           }
         }));
       } else {
-        toast.error('Failed to fetch products');
+        if (response.data.message === 'User not found' || response.data.message === 'Invalid token') {
+          localStorage.removeItem('token');
+          window.location.reload();
+        } else {
+          toast.error('Failed to fetch products');
+        }
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -136,7 +150,7 @@ const AccountManagement = ({ token }) => {
   const fetchBestsellers = async (page = 1) => {
     setLoadingBestsellers(true);
     try {
-      const response = await axios.get(`${backendUrl}/order/bestsellers`, {
+      const response = await axios.get(backendUrl.join('/order/bestsellers'), {
         headers: { token },
         params: {
           page,
@@ -147,7 +161,7 @@ const AccountManagement = ({ token }) => {
         setBestsellers(response.data.bestsellers);
       } else {
         // Fallback: fetch products flagged as bestseller
-        const fallbackResponse = await axios.get(`${backendUrl}/product/bestsellers`, {
+        const fallbackResponse = await axios.get(backendUrl.join('/product/bestsellers'), {
           headers: { token }
         });
         if (fallbackResponse.data.success) {
@@ -166,7 +180,7 @@ const AccountManagement = ({ token }) => {
   const fetchCustomers = async (page = pagination.customers.page) => {
     setLoadingCustomers(true);
     try {
-      const response = await axios.get(`${backendUrl}/user/list`, {
+      const response = await axios.get(backendUrl.join('/user/list'), {
         headers: { token },
         params: {
           page,
@@ -198,14 +212,19 @@ const AccountManagement = ({ token }) => {
 
   const fetchDashboardMetrics = async () => {
     try {
-      const response = await axios.get(`${backendUrl}/order/dashboard-metrics`, {
+      const response = await axios.get(backendUrl.join('/order/dashboard-metrics'), {
         headers: { token }
       });
       if (response.data.success) {
         setTotalSales(response.data.totalSales);
         setTotalOrders(response.data.totalOrders);
       } else {
-        toast.error('Failed to fetch dashboard metrics');
+        if (response.data.message === 'User not found' || response.data.message === 'Invalid token') {
+          localStorage.removeItem('token');
+          window.location.reload();
+        } else {
+          toast.error('Failed to fetch dashboard metrics');
+        }
       }
     } catch (error) {
       toast.error(error.message);
@@ -513,17 +532,37 @@ const AccountManagement = ({ token }) => {
     try {
       setLoadingDashboard(true);
       const [metricsResponse, ordersResponse, productsResponse] = await Promise.all([
-        axios.get(`${backendUrl}/order/dashboard-metrics`, { headers: { token } }),
-        axios.get(`${backendUrl}/order/recent`, { headers: { token } }),
-        axios.get(`${backendUrl}/product/bestsellers`, { headers: { token } })
+        axios.get(backendUrl.join('/order/dashboard-metrics'), { headers: { token } }),
+        axios.get(backendUrl.join('/order/recent'), { headers: { token } }),
+        axios.get(backendUrl.join('/product/bestsellers'), { headers: { token } })
       ]);
+
+      console.log('Dashboard metrics response:', metricsResponse.data);
 
       if (metricsResponse.data.success) {
         setDashboardMetrics(metricsResponse.data.metrics || {
-          revenue: { total: 0, today: 0, weekly: 0, monthly: 0 },
-          orders: { total: 0, pending: 0, processing: 0, delivered: 0, cancelled: 0 },
-          customers: { total: 0, new: 0, returning: 0 },
-          products: { total: 0, outOfStock: 0, lowStock: 0 }
+          revenue: { 
+            total: 0, 
+            today: 0, 
+            yesterday: 0,
+            weekly: 0, 
+            lastWeek: 0,
+            monthly: 0,
+            lastMonth: 0,
+            growth: {
+              daily: 0,
+              weekly: 0,
+              monthly: 0
+            },
+            trends: {
+              daily: [],
+              monthly: []
+            }
+          },
+          orders: { total: 0, pending: 0, processing: 0, delivered: 0, cancelled: 0, revenueByStatus: {} },
+          customers: { total: 0, new: 0, lastWeek: 0, returning: 0, growth: 0 },
+          products: { total: 0, outOfStock: 0, lowStock: 0 },
+          analytics: { topCategories: [], averageOrderValue: 0 }
         });
       }
 
@@ -626,10 +665,10 @@ const AccountManagement = ({ token }) => {
               <div>
                   <p className="text-blue-100">Total Revenue</p>
                   <h3 className="text-3xl font-bold mt-1">{formatCurrency(dashboardMetrics.revenue.total)}</h3>
-                  <p className="text-blue-200 text-sm mt-1">
-                    {dashboardMetrics.revenue.growth.monthly > 0 ? '+' : ''}
-                    {dashboardMetrics.revenue.growth.monthly.toFixed(1)}% vs last month
-                  </p>
+          <p className="text-blue-200 text-sm mt-1">
+            {typeof dashboardMetrics.revenue.growth?.monthly === 'number' && dashboardMetrics.revenue.growth.monthly > 0 ? '+' : ''}
+            {typeof dashboardMetrics.revenue.growth?.monthly === 'number' ? dashboardMetrics.revenue.growth.monthly.toFixed(1) : '0.0'}% vs last month
+          </p>
               </div>
                 <FaRupeeSign className="text-4xl text-blue-200" />
               </div>
@@ -639,9 +678,9 @@ const AccountManagement = ({ token }) => {
               <div>
                   <p className="text-green-100">Monthly Revenue</p>
                   <h3 className="text-3xl font-bold mt-1">{formatCurrency(dashboardMetrics.revenue.monthly)}</h3>
-                  <p className="text-green-200 text-sm mt-1">
-                    {dashboardMetrics.revenue.growth.monthly > 0 ? '+' : ''}
-                    {dashboardMetrics.revenue.growth.monthly.toFixed(1)}% vs last month
+          <p className="text-green-200 text-sm mt-1">
+                    {typeof dashboardMetrics.revenue.growth?.monthly === 'number' && dashboardMetrics.revenue.growth.monthly > 0 ? '+' : ''}
+                    {typeof dashboardMetrics.revenue.growth?.monthly === 'number' ? dashboardMetrics.revenue.growth.monthly.toFixed(1) : '0.0'}% vs last month
                   </p>
                 </div>
                 <FaCalendarAlt className="text-4xl text-green-200" />
@@ -653,8 +692,8 @@ const AccountManagement = ({ token }) => {
                   <p className="text-purple-100">Weekly Revenue</p>
                   <h3 className="text-3xl font-bold mt-1">{formatCurrency(dashboardMetrics.revenue.weekly)}</h3>
                   <p className="text-purple-200 text-sm mt-1">
-                    {dashboardMetrics.revenue.growth.weekly > 0 ? '+' : ''}
-                    {dashboardMetrics.revenue.growth.weekly.toFixed(1)}% vs last week
+                    {dashboardMetrics.revenue.growth?.weekly > 0 ? '+' : ''}
+                    {dashboardMetrics.revenue.growth?.weekly?.toFixed(1) ?? '0.0'}% vs last week
                   </p>
                 </div>
                 <FaChartLine className="text-4xl text-purple-200" />
@@ -973,7 +1012,7 @@ const AccountManagement = ({ token }) => {
 
   const deleteCustomer = async (id) => {
     try {
-      const response = await axios.delete(`${backendUrl}/user/${id}`, {
+      const response = await axios.delete(`${backendUrl}/api/user/${id}`, {
         headers: { token }
       });
 
@@ -995,7 +1034,7 @@ const AccountManagement = ({ token }) => {
   const viewCustomerDetails = async (id) => {
     try {
       setLoadingCustomers(true); // Add loading state while fetching details
-      const response = await axios.get(`${backendUrl}/user/${id}`, {
+      const response = await axios.get(`${backendUrl}/api/user/${id}`, {
         headers: { token }
       });
 
@@ -1428,10 +1467,18 @@ const AccountManagement = ({ token }) => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
-                      <h4 className="text-lg font-medium text-gray-900">{product.name}</h4>
-                      <p className="text-sm text-gray-500">{product.category}</p>
+                      {/* Defensive rendering: render product properties explicitly */}
+                      {console.log('Rendering product:', product)}
+                      <h4 className="text-lg font-medium text-gray-900">
+                        {typeof product.name === 'string' ? product.name : JSON.stringify(product.name)}
+                      </h4>
+                      <p className="text-sm text-gray-500">
+                        {typeof product.category === 'string' ? product.category : JSON.stringify(product.category)}
+                      </p>
                       <div className="mt-2 flex items-center gap-3">
-                        <span className="text-lg font-semibold text-gray-900">{currency} {product.price}</span>
+                        <span className="text-lg font-semibold text-gray-900">
+                          {currency} {typeof product.price === 'number' ? product.price : JSON.stringify(product.price)}
+                        </span>
                         {product.bestseller && (
                           <span className="px-2 py-1 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-full">
                             Bestseller
@@ -1459,15 +1506,21 @@ const AccountManagement = ({ token }) => {
                         ))}
                       </div>
                     ) : (
-                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                        product.stock < lowStockThreshold 
-                          ? 'bg-red-100 text-red-800'
-                          : product.stock < lowStockThreshold * 2
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-green-100 text-green-800'
-                      }`}>
-                        {product.stock} in stock
-                      </div>
+                      typeof product.stock === 'number' ? (
+                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                          product.stock < lowStockThreshold 
+                            ? 'bg-red-100 text-red-800'
+                            : product.stock < lowStockThreshold * 2
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {product.stock} in stock
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">
+                          {JSON.stringify(product.stock)}
+                        </div>
+                      )
                     )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -1508,7 +1561,7 @@ const AccountManagement = ({ token }) => {
   // Add removeProduct function
   const removeProduct = async (id) => {
     try {
-      const response = await axios.post(`${backendUrl}/product/remove`, 
+      const response = await axios.post(`${backendUrl}/api/product/remove`, 
         { id }, 
         { headers: { token } }
       );

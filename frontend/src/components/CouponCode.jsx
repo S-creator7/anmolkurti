@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { toast } from 'react-toastify';
 import axios from 'axios';
@@ -23,7 +23,10 @@ const CouponCode = ({ onCouponApplied, appliedCoupon, onRemoveCoupon }) => {
       }
       
       // Decode the payload (second part of JWT)
-      const payload = parts[1];
+      let payload = parts[1];
+      
+      // Replace URL-safe characters for base64 decoding
+      payload = payload.replace(/-/g, '+').replace(/_/g, '/');
       
       // Add padding if needed for base64 decode
       const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4);
@@ -67,11 +70,13 @@ const CouponCode = ({ onCouponApplied, appliedCoupon, onRemoveCoupon }) => {
     try {
       const orderAmount = getCartAmount();
       const userId = getUserIdFromToken(token);
-      
+      const cartProducts = getCartProducts();
+
       // Call API even for guest users (userId will be null)
       const response = await axios.post(`${backendUrl}/coupon/available`, {
         userId: userId || null, // Send null for guest users
-        orderAmount
+        orderAmount,
+        products: cartProducts
       });
 
       if (response.data.success) {
@@ -110,7 +115,12 @@ const CouponCode = ({ onCouponApplied, appliedCoupon, onRemoveCoupon }) => {
       });
 
       if (response.data.success) {
-        onCouponApplied(response.data.coupon);
+        const couponWithDiscount = {
+          ...response.data.coupon,
+          discountAmount: response.data.discountAmount || 0,
+          shippingDiscount: response.data.shippingDiscount || 0
+        };
+        onCouponApplied(couponWithDiscount);
         setCouponCode('');
         toast.success('Coupon applied successfully!');
         loadAvailableCoupons(); // Refresh available coupons

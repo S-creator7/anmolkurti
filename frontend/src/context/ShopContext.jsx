@@ -58,7 +58,10 @@ const ShopContextProvider = (props) => {
       }
       
       // Decode the payload (second part of JWT)
-      const payload = parts[1];
+      let payload = parts[1];
+      
+      // Replace URL-safe characters for base64 decoding
+      payload = payload.replace(/-/g, '+').replace(/_/g, '/');
       
       // Add padding if needed for base64 decode
       const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4);

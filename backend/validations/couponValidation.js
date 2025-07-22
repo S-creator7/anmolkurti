@@ -28,11 +28,13 @@ export const couponSchema = Joi.object({
     .valid(...discountTypes),
   
   discountValue: Joi.number()
-    .required()
-    .min(0)
     .when('discountType', {
-      is: 'percentage',
-      then: Joi.number().max(100)
+      is: Joi.valid('percentage', 'fixed'),
+      then: Joi.number().required().min(0).when('discountType', {
+        is: 'percentage',
+        then: Joi.number().max(100)
+      }),
+      otherwise: Joi.forbidden()
     }),
   
   minimumOrderAmount: Joi.number()
@@ -40,8 +42,11 @@ export const couponSchema = Joi.object({
     .min(0),
   
   maximumDiscountAmount: Joi.number()
-    .min(0)
-    .optional(),
+    .when('discountType', {
+      is: 'percentage',
+      then: Joi.number().min(0).optional(),
+      otherwise: Joi.forbidden()
+    }),
   
   usageLimit: Joi.number()
     .required()
@@ -133,4 +138,4 @@ export const validateCouponSchema = Joi.object({
       'array.base': 'Products must be an array',
       'array.empty': 'At least one product is required'
     })
-}); 
+});

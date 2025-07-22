@@ -39,7 +39,7 @@ const Orders = ({ token }) => {
       console.log('Orders.jsx: Using token:', token ? 'Token exists' : 'No token')
       console.log('Orders.jsx: Request body:', { page, limit })
 
-      const response = await axios.post(backendUrl + '/order/list', { page, limit }, { headers: { token } })
+      const response = await axios.post(backendUrl.join('/order/list'), { page, limit }, { headers: { token } })
       
       console.log('Orders.jsx: API response:', response.data)
       
