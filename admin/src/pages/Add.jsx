@@ -304,7 +304,7 @@ const Add = ({ token }) => {
       }
 
     } catch (error) {
-      console.log(error);
+      console.error(error);
       toast.error(error.response?.data?.message || error.message || "Failed to add product");
     } finally {
       setUploading(false);

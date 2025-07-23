@@ -1,26 +1,10 @@
-import dotenv from 'dotenv';
-dotenv.config();
-
-import mongoose from 'mongoose';
 import productModel from '../models/productModel.js';
-
-const connectDB = async (mongoUri) => {
-  mongoose.connection.on('connected', () => {
-    console.log("DB Connected");
-  });
-
-  await mongoose.connect(mongoUri);
-};
+import connectDB from '../config/mongodb.js';
 
 const cleanProductData = async () => {
   try {
-    const mongoUri = process.argv[2] || process.env.MONGODB_URI;
-    if (!mongoUri) {
-      throw new Error("MongoDB connection string must be provided as argument or in MONGODB_URI env variable");
-    }
-    console.log("Using MongoDB URI:", mongoUri);
-    await connectDB(mongoUri);
 
+    connectDB()
     const products = await productModel.find({});
 
     for (const product of products) {

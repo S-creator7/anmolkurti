@@ -1,16 +1,6 @@
 import mongoose from 'mongoose';
 import filterModel from '../models/filterModel.js';
-
-// Connect to MongoDB
-const connectDB = async () => {
-  try {
-    await mongoose.connect('mongodb://localhost:27017/skyroot');
-    console.log('MongoDB connected');
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    process.exit(1);
-  }
-};
+import connectDB from '../config/mongodb.js';
 
 // Test the new filter system
 const testFilters = async () => {

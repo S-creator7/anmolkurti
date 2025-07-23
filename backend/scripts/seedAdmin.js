@@ -1,17 +1,12 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import userModel from "../models/userModel.js";
-import dotenv from "dotenv";
-
-// Load environment variables
-dotenv.config();
+import connectDB from '../config/mongodb.js';
 
 const seedAdmin = async () => {
     try {
-        // Connect to MongoDB
-        console.log("🔌 Connecting to MongoDB...");
-        await mongoose.connect(process.env.MONGODB_URI);
-        console.log("✅ Connected to MongoDB");
+        
+        connectDB()
 
         // Check if any admin user already exists
         const existingAdmin = await userModel.findOne({ isAdmin: true });
