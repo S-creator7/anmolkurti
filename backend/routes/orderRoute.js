@@ -1,5 +1,5 @@
 import express from 'express'
-import {placeOrder, placeOrderStripe, placeOrderRazorpay, listOrdersPaginated, userOrders, updateStatus, verifyStripe, verifyRazorpay, getBestsellers, getDashboardMetrics, getRecentOrders} from '../controllers/orderController.js'
+import {placeOrder, placeOrderStripe, listOrdersPaginated, userOrders, updateStatus, verifyStripe, getBestsellers, getDashboardMetrics, getRecentOrders, placeOrderPaytm, verifyPaytm} from '../controllers/orderController.js'
 import { adminAuth } from '../middleware/auth.js'
 import { auth } from '../middleware/auth.js'
 
@@ -53,12 +53,18 @@ orderRouter.get('/recent', adminAuth, getRecentOrders)
 
 // User Features - All use optionalAuth for guest support
 orderRouter.post('/place-order', optionalAuth, placeOrder)
-orderRouter.post('/place-order-stripe', optionalAuth, placeOrderStripe)
-orderRouter.post('/place-order-razorpay', optionalAuth, placeOrderRazorpay)
+// orderRouter.post('/place-order-stripe', optionalAuth, placeOrderStripe)
+// orderRouter.post('/place-order-razorpay', optionalAuth, (req, res) => {
+//     res.status(501).json({ success: false, message: "Razorpay integration not implemented" });
+// })
+orderRouter.post('/place-order-paytm', optionalAuth, placeOrderPaytm)
 orderRouter.get('/user-orders', auth, userOrders)
 
 // Payment Verification - Updated to support guest checkout
-orderRouter.post('/verify-stripe', optionalAuth, verifyStripe)
-orderRouter.post('/verify-razorpay', optionalAuth, verifyRazorpay)
+// orderRouter.post('/verify-stripe', optionalAuth, verifyStripe)
+// orderRouter.post('/verify-razorpay', optionalAuth, (req, res) => {
+//     res.status(501).json({ success: false, message: "Razorpay verification not implemented" });
+// })
+orderRouter.post('/verify-paytm', optionalAuth, verifyPaytm)
 
 export default orderRouter
