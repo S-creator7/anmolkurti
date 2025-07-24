@@ -3,26 +3,34 @@ dotenv.config();
 
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
+/*
 import Stripe from 'stripe'
 import razorpay from 'razorpay'
+*/
 import crypto from 'crypto';
 import shortid from "shortid";
 import tempOrderModel from "../models/tempOrderModel.js"
 import productModel from "../models/productModel.js";
 import couponModel from "../models/couponModel.js";
 
+import https from 'https';
+import querystring from 'querystring';
 
 // global variables
-const currency = 'inr'
-const deliveryCharge = 10
+const currency = 'inr';
+const deliveryCharge = 10;
 
+/*
 // gateway initialize
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const razorpayInstance = new razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || '',
     key_secret: process.env.RAZORPAY_SECRET_KEY || '',
-})
+});
+*/
+
+
 
 // Placing orders using COD Method
 export const placeOrder = async (req, res) => {
@@ -284,49 +292,9 @@ const verifyStripe = async (req, res) => {
 
 }
 
-// Placing orders using Razorpay Method
-// const placeOrderRazorpay = async (req,res) => {
-//     try {
-
-//         const { userId, items, amount, address} = req.body
-
-//         const orderData = {
-//             userId,
-//             items,
-//             address,
-//             amount,
-//             paymentMethod:"Razorpay",
-//             payment:false,
-//             date: Date.now()
-//         }
-
-//         const newOrder = new orderModel(orderData)
-//         await newOrder.save()
-
-//         const options = {
-//             amount: amount * 100,
-//             currency: currency.toUpperCase(),
-//             receipt : newOrder._id.toString()
-//         }
-
-//         await razorpayInstance.orders.create(options, (error,order)=>{
-//             if (error) {
-//                 console.log(error)
-//                 return res.json({success:false, message: error})
-//             }
-//             res.json({success:true,order})
-//         })
-
-//     } catch (error) {
-//         console.log(error)
-//         res.json({success:false,message:error.message})
-//     }
-// }
-
-
-const placeOrderRazorpay = async (req, res) => {
+// Placing orders using Paytm Method
+export const placeOrderPaytm = async (req, res) => {
     try {
-        const payment_capture = 1;
         const { userId, items, amount, address, isGuest, guestInfo } = req.body;
 
         // Validate required fields based on user type
@@ -338,109 +306,19 @@ const placeOrderRazorpay = async (req, res) => {
             return res.status(400).json({ success: false, message: "Guest information (name, email, phone) is required for guest checkout" });
         }
 
-        // ✅ Add stock validation before creating Razorpay order
+        // Validate stock availability
         const stockValidation = await validateStockAvailability(items);
         if (!stockValidation.success) {
             return res.status(400).json({ success: false, message: stockValidation.message });
         }
 
-        const options = {
-            amount: amount * 100,
-            currency: "INR",
-            receipt: shortid.generate(),
-            payment_capture,
-            notes: {
-                userId: userId || 'guest',
-                isGuest: isGuest || false,
-                guestEmail: isGuest ? guestInfo.email : null,
-                address: JSON.stringify(address), // Keep notes simple
-            },
-        };
-
-        // Wrap Razorpay order creation in a promise
-        const order = await new Promise((resolve, reject) => {
-            razorpayInstance.orders.create(options, (error, order) => {
-                if (error) return reject(error);
-                resolve(order);
-            });
-        });
-
-        // Store temporary order details in DB
-        const tempOrderData = {
-            razorpayOrderId: order.id,
-            items,
-            address,
-            amount,
-            isGuest: isGuest || false
-        };
-
-        if (isGuest) {
-            tempOrderData.guestInfo = guestInfo;
-        } else {
-            tempOrderData.userId = userId;
-        }
-
-        await tempOrderModel.create(tempOrderData);
-
-        res.json({
-            success: true,
-            order: {
-                id: order.id,
-                amount: order.amount,
-                currency: order.currency,
-                receipt: order.receipt,
-            },
-        });
-
-    } catch (error) {
-        console.error("Razorpay order creation error:", error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-
-
-const verifyRazorpay = async (req, res) => {
-    try {
-
-        const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-
-        const secretKey = razorpayInstance.key_secret
-
-        if (!secretKey) {
-            return res.status(500).json({ success: false, message: "Server configuration error" });
-        }
-
-        const hmac = crypto.createHmac("sha256", razorpayInstance.key_secret);
-        hmac.update(razorpay_order_id + "|" + razorpay_payment_id);
-        const generatedSignature = hmac.digest("hex");
-
-        if (generatedSignature !== razorpay_signature) {
-            return res.status(400).json({ success: false, message: "Signature verification failed" });
-        }
-
-        // ✅ Fetch original order data from tempOrderModel
-        const orderMeta = await tempOrderModel.findOne({ razorpayOrderId: razorpay_order_id });
-
-        if (!orderMeta) {
-            return res.status(404).json({ success: false, message: "Order metadata not found" });
-        }
-
-        const { userId, items, address, amount, isGuest, guestInfo } = orderMeta;
-
-        // ✅ Re-validate stock at payment verification time
-        const stockValidation = await validateStockAvailability(items);
-        if (!stockValidation.success) {
-            return res.status(400).json({ success: false, message: `Payment successful but order cannot be completed: ${stockValidation.message}` });
-        }
-
-        // Create order data based on user type
+        // Create order data with paymentMethod Paytm and payment false
         const orderData = {
             items,
             address,
             amount,
-            paymentMethod: "Razorpay",
-            payment: true,
+            paymentMethod: "Paytm",
+            payment: false,
             date: Date.now(),
             isGuest: isGuest || false
         };
@@ -453,22 +331,83 @@ const verifyRazorpay = async (req, res) => {
             orderData.orderType = 'regular';
         }
 
-        await orderModel.create(orderData);
+        const newOrder = new orderModel(orderData);
+        await newOrder.save();
 
-        // Clear cart only for registered users (guests don't have persistent carts)
-        if (!isGuest && userId) {
-            await userModel.findByIdAndUpdate(userId, { cartData: {} });
+        // Prepare Paytm payment parameters
+        const paytmParams = {
+            MID: process.env.PAYTM_MERCHANT_ID,
+            WEBSITE: process.env.PAYTM_WEBSITE,
+            INDUSTRY_TYPE_ID: process.env.PAYTM_INDUSTRY_TYPE_ID,
+            CHANNEL_ID: process.env.PAYTM_CHANNEL_ID,
+            ORDER_ID: newOrder._id.toString(),
+            CUST_ID: isGuest ? guestInfo.email : userId,
+            TXN_AMOUNT: amount.toString(),
+            CALLBACK_URL: process.env.PAYTM_CALLBACK_URL,
+        };
+
+        // Generate checksum hash for Paytm request
+        const checksumLib = await import('paytmchecksum');
+        const checksum = await checksumLib.generateSignature(paytmParams, process.env.PAYTM_MERCHANT_KEY);
+
+        paytmParams.CHECKSUMHASH = checksum;
+
+        res.json({ success: true, paytmParams });
+
+    } catch (error) {
+        console.error("Paytm order creation error:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+// Verify Paytm payment
+export const verifyPaytm = async (req, res) => {
+    try {
+        const paytmChecksum = req.body.CHECKSUMHASH;
+        const paytmParams = { ...req.body };
+        delete paytmParams.CHECKSUMHASH;
+
+        const checksumLib = await import('paytmchecksum');
+        const isValidChecksum = await checksumLib.verifySignature(paytmParams, process.env.PAYTM_MERCHANT_KEY, paytmChecksum);
+
+        if (!isValidChecksum) {
+            return res.status(400).json({ success: false, message: "Checksum verification failed" });
         }
-        
-        await updateStock(orderMeta.items); // Deduct stock
 
-        // Clean up temp order
-        await tempOrderModel.deleteOne({ razorpayOrderId: razorpay_order_id });
+        const { ORDERID, STATUS, TXNID } = req.body;
+
+        if (STATUS !== "TXN_SUCCESS") {
+            return res.status(400).json({ success: false, message: "Transaction failed" });
+        }
+
+        // Fetch order by ORDERID
+        const order = await orderModel.findById(ORDERID);
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found" });
+        }
+
+        // Re-validate stock
+        const stockValidation = await validateStockAvailability(order.items);
+        if (!stockValidation.success) {
+            return res.status(400).json({ success: false, message: `Payment successful but order cannot be completed: ${stockValidation.message}` });
+        }
+
+        // Update order payment status
+        order.payment = true;
+        order.paymentId = TXNID;
+        await order.save();
+
+        // Clear cart for registered users
+        if (!order.isGuest && order.userId) {
+            await userModel.findByIdAndUpdate(order.userId, { cartData: {} });
+        }
+
+        await updateStock(order.items);
 
         res.json({ success: true, message: "Payment Successful" });
 
     } catch (error) {
-        console.error("Razorpay verification error:", error);
+        console.error("Paytm verification error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
@@ -1010,4 +949,4 @@ export const getRecentOrders = async (req, res) => {
     }
 };
 
-export { verifyRazorpay, verifyStripe, placeOrderStripe, placeOrderRazorpay, listOrdersPaginated, userOrders, updateStatus, getBestsellers }
+export { verifyStripe, placeOrderStripe, listOrdersPaginated, userOrders, updateStatus, getBestsellers }
