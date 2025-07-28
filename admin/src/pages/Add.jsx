@@ -13,6 +13,12 @@ const Add = ({ token }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
 
+  // Track touched fields for validation error display
+  const [touchedFields, setTouchedFields] = useState({});
+
+  // Track if form has been submitted
+  const [formSubmitted, setFormSubmitted] = useState(false);
+
   // Image state
   const [images, setImages] = useState([null, null, null, null]);
   const [uploading, setUploading] = useState(false);
@@ -104,31 +110,40 @@ const Add = ({ token }) => {
   };
 
   // Form validation
-  const validateStep = (step) => {
-    const newErrors = {};
+  const validateStep = (step, currentErrors) => {
+    const newErrors = { ...currentErrors };
+    // Remove errors for the current step fields first
     switch (step) {
       case 1:
+        delete newErrors.images;
         if (!images.some(img => img !== null)) {
           newErrors.images = 'At least one image is required';
         }
         break;
       case 2:
+        delete newErrors.name;
+        delete newErrors.description;
         if (!formData.name.trim()) newErrors.name = 'Product name is required';
         if (!formData.description.trim()) newErrors.description = 'Description is required';
         break;
       case 3:
+        delete newErrors.gender;
+        delete newErrors.category;
         if (!formData.gender) newErrors.gender = 'Gender is required';
         if (!formData.category) newErrors.category = 'Category is required';
         break;
       case 4:
+        delete newErrors.price;
+        delete newErrors.sizes;
         if (!formData.price || formData.price <= 0) newErrors.price = 'Valid price is required';
         if (formData.hasSize && formData.sizes.length === 0) {
           newErrors.sizes = 'Select at least one size';
         }
         break;
     }
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    // Remove setErrors call here to avoid premature state updates
+    // setErrors(newErrors);
+    return { isValid: Object.keys(newErrors).length === 0, errors: newErrors };
   };
 
   // Handle form input changes
@@ -137,6 +152,8 @@ const Add = ({ token }) => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
+    // Mark current step as touched on input change to show errors for that step
+    setTouchedSteps(prev => new Set(prev).add(currentStep));
   };
 
   // Get available categories based on gender
@@ -211,7 +228,10 @@ const Add = ({ token }) => {
 
   // Handle step navigation
   const nextStep = () => {
-    if (validateStep(currentStep)) {
+    const { isValid, errors: newErrors } = validateStep(currentStep, errors);
+    setErrors(newErrors);
+    if (isValid) {
+      // Removed marking next step as touched here to prevent premature error display
       setCurrentStep(prev => Math.min(prev + 1, totalSteps));
     }
   };
@@ -224,14 +244,20 @@ const Add = ({ token }) => {
   const onSubmitHandler = async (e) => {
     e.preventDefault();
 
+    // Mark all steps as touched on submit to show all errors
+    setTouchedSteps(new Set([1, 2, 3, 4]));
+
     // Validate all steps
     let allValid = true;
+    let currentErrors = { ...errors };
     for (let i = 1; i <= totalSteps; i++) {
-      if (!validateStep(i)) {
+      const { isValid, errors: newErrors } = validateStep(i, currentErrors);
+      currentErrors = newErrors;
+      if (!isValid) {
         allValid = false;
-        break;
       }
     }
+    setErrors(currentErrors);
 
     if (!allValid) {
       toast.error("Please fix all validation errors before submitting");
@@ -391,7 +417,7 @@ const Add = ({ token }) => {
               ))}
             </div>
 
-            {errors.images && (
+            {(errors.images && (touchedFields.images || formSubmitted)) && (
               <p className="text-red-500 text-sm flex items-center justify-center">
                 <FaExclamationTriangle className="mr-2" />
                 {errors.images}
@@ -434,7 +460,7 @@ const Add = ({ token }) => {
                       : 'border-gray-300 focus:ring-blue-500'
                   }`}
                 />
-                {errors.name && (
+                {(errors.name && (touchedFields.name || formSubmitted)) && (
                   <p className="text-red-500 text-sm mt-1 flex items-center">
                     <FaExclamationTriangle className="mr-1" />
                     {errors.name}
@@ -457,7 +483,7 @@ const Add = ({ token }) => {
                       : 'border-gray-300 focus:ring-blue-500'
                   }`}
                 />
-                {errors.description && (
+                {(errors.description && (touchedFields.description || formSubmitted)) && (
                   <p className="text-red-500 text-sm mt-1 flex items-center">
                     <FaExclamationTriangle className="mr-1" />
                     {errors.description}
@@ -499,7 +525,7 @@ const Add = ({ token }) => {
                     <option key={g} value={g}>{g}</option>
                   ))}
               </select>
-                {errors.gender && (
+                {(errors.gender && (touchedFields.gender || formSubmitted)) && (
                   <p className="text-red-500 text-sm mt-1 flex items-center">
                     <FaExclamationTriangle className="mr-1" />
                     {errors.gender}
@@ -531,7 +557,7 @@ const Add = ({ token }) => {
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
-                {errors.category && (
+                {(errors.category && (touchedFields.category || formSubmitted)) && (
                   <p className="text-red-500 text-sm mt-1 flex items-center">
                     <FaExclamationTriangle className="mr-1" />
                     {errors.category}
@@ -687,7 +713,7 @@ const Add = ({ token }) => {
                       : 'border-gray-300 focus:ring-blue-500'
                   }`}
                 />
-                {errors.price && (
+                {(errors.price && (touchedFields.price || formSubmitted)) && (
                   <p className="text-red-500 text-sm mt-1 flex items-center">
                     <FaExclamationTriangle className="mr-1" />
                     {errors.price}
@@ -746,7 +772,7 @@ const Add = ({ token }) => {
                       </button>
                     ))}
                   </div>
-                  {errors.sizes && (
+                  {(errors.sizes && (touchedFields.sizes || formSubmitted)) && (
                     <p className="text-red-500 text-sm mt-2 flex items-center">
                       <FaExclamationTriangle className="mr-1" />
                       {errors.sizes}
