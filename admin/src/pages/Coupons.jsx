@@ -41,7 +41,7 @@ const Coupons = () => {
   const loadCoupons = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(`${backendUrl}/coupon/list`, {
+      const response = await axios.get(`${backendUrl}/api/coupon/list`, {
         headers: { token }
       });
       if (response.data.success) {
@@ -75,7 +75,7 @@ const Coupons = () => {
     }));
   };
 
-const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
 
@@ -126,8 +126,8 @@ const handleSubmit = async (e) => {
       }
 
       const url = editingCoupon 
-        ? `${backendUrl}/coupon/update/${editingCoupon._id}`
-        : `${backendUrl}/coupon/create`;
+        ? `${backendUrl}/api/coupon/update/${editingCoupon._id}`
+        : `${backendUrl}/api/coupon/create`;
       
       const method = editingCoupon ? 'put' : 'post';
 
@@ -137,7 +137,7 @@ const handleSubmit = async (e) => {
         ...restFormData,
         code: sanitizedCode,
         discountType,
-discountValue: (discountType === 'percentage' || discountType === 'fixed') && discountValue !== '' && discountValue !== undefined ? Number(discountValue) : undefined,
+        discountValue: (discountType === 'percentage' || discountType === 'fixed') && discountValue !== '' && discountValue !== undefined ? Number(discountValue) : undefined,
         maximumDiscountAmount: discountType === 'percentage' && formData.maximumDiscountAmount ? Number(formData.maximumDiscountAmount) : undefined,
         bannerImage: bannerImage || undefined,
         termsAndConditions: Array.isArray(formData.termsAndConditions)
@@ -200,7 +200,7 @@ discountValue: (discountType === 'percentage' || discountType === 'fixed') && di
     }
 
     try {
-      const response = await axios.delete(`${backendUrl}/coupon/delete/${couponId}`, {
+      const response = await axios.delete(`${backendUrl}/api/coupon/delete/${couponId}`, {
         headers: { token }
       });
 
@@ -590,4 +590,4 @@ discountValue: (discountType === 'percentage' || discountType === 'fixed') && di
   );
 };
 
-export default Coupons; 
+export default Coupons;

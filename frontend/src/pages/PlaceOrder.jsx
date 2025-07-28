@@ -12,6 +12,7 @@ import NewsletterBox from '../components/NewsletterBox'
 import ScrollToTop from "../components/scrollToTop";
 import { useRazorpay } from 'react-razorpay';
 import CouponCode from '../components/CouponCode';
+import SabpaisaPaymentGateway from '../components/SabpaisaPaymentGateway';
 
 import { useLocation } from 'react-router-dom';
 
@@ -20,23 +21,32 @@ const PlaceOrder = () => {
     const isDirectBuy = location.state?.directBuy;
     const directBuyProductId = location.state?.productId;
     const directBuySize = location.state?.size;
-    const { error, isLoading, Razorpay } = useRazorpay();
-    const [method, setMethod] = useState('cod');
-    const [checkoutMode, setCheckoutMode] = useState(null); // 'guest' or 'login'
-    const [appliedCoupon, setAppliedCoupon] = useState(null);
-    const [userProfileLoading, setUserProfileLoading] = useState(false);
-    const { navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
-    const [formData, setFormData] = useState({
-        firstName: '',
-        lastName: '',
-        email: '',
-        street: '',
-        city: '',
-        state: '',
-        zipcode: '',
-        country: '',
-        phone: ''
-    })
+  const { error, isLoading, Razorpay } = useRazorpay();
+  // Removed redundant 'method' state
+  const [checkoutMode, setCheckoutMode] = useState(null); // 'guest' or 'login'
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [userProfileLoading, setUserProfileLoading] = useState(false);
+  const { navigate, backendUrl, token, cartItems, setCartItems, getCartAmount, delivery_fee, products } = useContext(ShopContext);
+  const [formData, setFormData] = useState({
+      firstName: '',
+      lastName: '',
+      email: '',
+      street: '',
+      city: '',
+      state: '',
+      zipcode: '',
+      country: '',
+      phone: ''
+  })
+
+  
+  const [paymentMethod, setPaymentMethod] = useState('sabpaisa');
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  // Reset isRedirecting on component mount to allow multiple submissions
+  useEffect(() => {
+    setIsRedirecting(false);
+  }, []);
 
     // Determine if user is logged in
     const isLoggedIn = !!token;
@@ -230,13 +240,13 @@ const PlaceOrder = () => {
         }
     }
 
-    const onSubmitHandler = async (event) => {
-        event.preventDefault()
-        
-        let orderData = {}; // Move declaration to function scope
-        let orderItems = []; // Move declaration to function scope
-        
-        try {
+  const onSubmitHandler = async (event) => {
+      event.preventDefault()
+      
+      let orderData = {}; // Move declaration to function scope
+      let orderItems = []; // Move declaration to function scope
+      
+      try {
 
             if (isDirectBuy && directBuyProductId) {
                 // For direct buy, we only want to show the selected product
@@ -439,12 +449,12 @@ const PlaceOrder = () => {
             console.log('Token exists:', !!token);
             console.log('Order data:', JSON.stringify(orderData, null, 2));
             console.log('Headers:', headers);
-            console.log('Payment method:', method);
+            console.log('Payment method:', paymentMethod);
             console.log('Cart items:', cartItems);
             console.log('Order items processed:', orderItems);
             console.log('=== END DEBUG ===');
 
-            switch (method) {
+            switch (paymentMethod) {
 
                 // API Calls for COD
                 case 'cod':
@@ -489,6 +499,29 @@ const PlaceOrder = () => {
                         toast.error(errorMessage);
                     }
 
+                    break;
+
+                case 'sabpaisa':
+                    // Debug log for sabpaisa redirect
+                    console.log("Sabpaisa payment selected. Preparing redirect...");
+                    const baseUrl = "https://secure.sabpaisa.in/SabPaisa/sabpaisaInit";
+                    const params = new URLSearchParams({
+                      clientCode: import.meta.env.VITE_SABPAISA_CLIENT_CODE,
+                      transUserName: import.meta.env.VITE_SABPAISA_TRANS_USER,
+                      transUserPassword: import.meta.env.VITE_SABPAISA_TRANS_PASS,
+                      authkey: import.meta.env.VITE_SABPAISA_AUTH_KEY,
+                      authiv: import.meta.env.VITE_SABPAISA_AUTH_IV,
+                      payerName: `${formData.firstName} ${formData.lastName}`,
+                      payerEmail: formData.email,
+                      payerMobile: formData.phone,
+                      payerAddress: `${formData.street}, ${formData.city}, ${formData.state}`,
+                      clientTxnId: Date.now().toString(),
+                      amount: Math.max(0, getCartAmount() - (appliedCoupon?.discountAmount || 0) + (appliedCoupon?.discountType === 'free_shipping' ? 0 : delivery_fee)),
+                      callbackUrl: `${window.location.origin}/sabpaisa-response`
+                    });
+                    const redirectUrl = `${baseUrl}?${params.toString()}`;
+                    console.log("Redirecting to Sabpaisa URL:", redirectUrl);
+                    window.location.href = redirectUrl;
                     break;
 
                 default:
@@ -726,19 +759,23 @@ const PlaceOrder = () => {
                         <Title text1={'PAYMENT'} text2={'METHOD'} />
                         {/* --------------- Payment Method Selection ------------- */}
                         <div className='flex gap-3 flex-col lg:flex-row'>
-                            <div onClick={() => setMethod('cod')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
-                                <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'cod' ? 'bg-green-400' : ''}`}></p>
-                                <p className='text-gray-500 text-sm font-medium mx-3'>CASH ON DELIVERY</p>
-                            </div>
-                            {/* Temporarily disable Stripe */}
-                            {/* <div onClick={() => setMethod('stripe')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
-                                <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'stripe' ? 'bg-green-400' : ''}`}></p>
-                                <img className='h-5 mx-4' src={assets.stripe_logo} alt="" />
-                            </div> */}
-                            <div onClick={() => setMethod('razorpay')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
-                                <p className={`min-w-3.5 h-3.5 border rounded-full ${method === 'razorpay' ? 'bg-green-400' : ''}`}></p>
-                                <img className='h-5 mx-4' src={assets.razorpay_logo} alt="" />
-                            </div>
+                        <div onClick={() => setPaymentMethod('cod')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+                            <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'cod' ? 'bg-green-400' : ''}`}></p>
+                            <p className='text-gray-500 text-sm font-medium mx-3'>CASH ON DELIVERY</p>
+                        </div>
+                        <div onClick={() => setPaymentMethod('sabpaisa')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+                            <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'sabpaisa' ? 'bg-green-400' : ''}`}></p>
+                            <p className='text-gray-500 text-sm font-medium mx-3'>Online Payment (SabPaisa)</p>
+                        </div>
+                        {/* Temporarily disable Stripe */}
+                        {/* <div onClick={() => setPaymentMethod('stripe')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+                            <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'stripe' ? 'bg-green-400' : ''}`}></p>
+                            <img className='h-5 mx-4' src={assets.stripe_logo} alt="" />
+                        </div> */}
+                        <div onClick={() => setPaymentMethod('razorpay')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+                            <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'razorpay' ? 'bg-green-400' : ''}`}></p>
+                            <img className='h-5 mx-4' src={assets.razorpay_logo} alt="" />
+                        </div>
                         </div>
 
                         <div className='w-full text-end mt-8'>
@@ -754,16 +791,16 @@ const PlaceOrder = () => {
                             )}
                             <button 
                                 type='submit' 
-                                disabled={hasCriticalStockIssues}
+                                disabled={hasCriticalStockIssues || isRedirecting}
                                 className={`px-16 py-3 text-sm font-medium transition-all ${
-                                    hasCriticalStockIssues 
+                                    hasCriticalStockIssues || isRedirecting
                                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
                                         : 'bg-black text-white hover:bg-gray-800'
                                 }`}
                             >
                                 {hasCriticalStockIssues 
                                     ? 'RESOLVE STOCK ISSUES TO CONTINUE'
-                                    : checkoutMode === 'guest' ? 'PLACE ORDER AS GUEST' : 'PLACE ORDER'
+                                    : isRedirecting ? 'Redirecting...' : (checkoutMode === 'guest' ? 'PLACE ORDER AS GUEST' : 'PLACE ORDER')
                                 }
                             </button>
                         </div>
@@ -773,6 +810,10 @@ const PlaceOrder = () => {
             <BestSeller />
             <OurPolicy />
             {/* <NewsletterBox /> */}
+            <SabpaisaPaymentGateway
+                formData={formData}
+                amount={Math.max(0, getCartAmount() - (appliedCoupon?.discountAmount || 0) + (appliedCoupon?.discountType === 'free_shipping' ? 0 : delivery_fee))}
+            />
         </div>
     )
 }
