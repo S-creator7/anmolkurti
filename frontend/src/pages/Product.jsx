@@ -14,12 +14,12 @@ const Product = () => {
 
   const { productId } = useParams();
   const navigate = useNavigate();
-  const { products, currency ,addToCart, cartItems, setProducts } = useContext(ShopContext);
+  const { products, currency, addToCart, cartItems, setProducts } = useContext(ShopContext);
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('')
   const [imageIndex, setImageIndex] = useState(0);
-  const [size,setSize] = useState('')
+  const [size, setSize] = useState('')
   const [showCartModal, setShowCartModal] = useState(false);
   const [addedQuantity, setAddedQuantity] = useState(1);
 
@@ -30,28 +30,28 @@ const Product = () => {
   }, [productData.hasSize])
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
-    //checking stock status 
-    // Convert stock object to Map if needed
-    const stockMap = productData.hasSize
-      ? (productData.stock instanceof Map ? productData.stock : new Map(Object.entries(productData.stock || {})))
-      : (typeof productData.stock === 'object' && productData.stock !== null && 'value' in productData.stock
-          ? new Map([['', productData.stock.value]])
-          : new Map());
+  //checking stock status 
+  // Convert stock object to Map if needed
+  const stockMap = productData.hasSize
+    ? (productData.stock instanceof Map ? productData.stock : new Map(Object.entries(productData.stock || {})))
+    : (typeof productData.stock === 'object' && productData.stock !== null && 'value' in productData.stock
+      ? new Map([['', productData.stock.value]])
+      : new Map());
 
-    const isInStock = () => {
-      if (!productData) return false;
-      
-      if (productData.hasSize) {
-        // For products with sizes, check if selected size has stock
-        if (!size) return false; // No size selected
-        const sizeStock = productData.stock?.[size] || 0;
-        return sizeStock > 0;
-      } else {
-        // For products without sizes, check total stock
-        const totalStock = typeof productData.stock === 'number' ? productData.stock : 0;
-        return totalStock > 0;
-      }
-    };
+  const isInStock = () => {
+    if (!productData) return false;
+
+    if (productData.hasSize) {
+      // For products with sizes, check if selected size has stock
+      if (!size) return false; // No size selected
+      const sizeStock = productData.stock?.[size] || 0;
+      return sizeStock > 0;
+    } else {
+      // For products without sizes, check total stock
+      const totalStock = typeof productData.stock === 'number' ? productData.stock : 0;
+      return totalStock > 0;
+    }
+  };
 
   // Get quantity of selected product and size in cart
   const cartQuantity = productData.hasSize
@@ -77,7 +77,7 @@ const Product = () => {
   const handleShare = (platform) => {
     const url = window.location.href;
     const text = `Check out this amazing ${productData.name}!`;
-    
+
     let shareUrl = '';
     switch (platform) {
       case 'whatsapp':
@@ -97,7 +97,7 @@ const Product = () => {
       default:
         return;
     }
-    
+
     window.open(shareUrl, '_blank');
     setShowShareMenu(false);
   };
@@ -121,22 +121,22 @@ const Product = () => {
         });
         const data = await response.json();
         if (data.success) {
-        setProductData(data.product);
-        setImage(data.product.image[0]);
-        setImageIndex(0);
-        // Update products state in ShopContext to include this product if not already present
-        if (!products.find(p => p._id === data.product._id)) {
-          setProducts(prevProducts => [...prevProducts, data.product]);
+          setProductData(data.product);
+          setImage(data.product.image[0]);
+          setImageIndex(0);
+          // Update products state in ShopContext to include this product if not already present
+          if (!products.find(p => p._id === data.product._id)) {
+            setProducts(prevProducts => [...prevProducts, data.product]);
+          }
         }
+      } catch (error) {
+        console.error("Error fetching product data:", error);
       }
-    } catch (error) {
-      console.error("Error fetching product data:", error);
     }
-  }
-}; // 
+  }; // 
   useEffect(() => {
     fetchProductData();
-  }, [productId,products])
+  }, [productId, products])
 
   const handleStockAlert = async (email) => {
     await subscribeStockAlert(productData._id, email);
@@ -151,74 +151,72 @@ const Product = () => {
         {/*---------- Product Images------------- */}
         <div className='flex-1 flex flex-col-reverse gap-3 sm:flex-row'>
           <div className='flex sm:flex-col overflow-x-auto sm:overflow-y-scroll justify-between sm:justify-normal sm:w-[18.7%] w-full'>
-              {
-                productData.image?.map((item,index)=>(
-                  <img 
-                    onClick={() => handleImageChange(item, index)} 
-                    src={item} 
-                    key={index} 
-                    className={`w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer border-2 ${
-                      index === imageIndex ? 'border-hotpink-500' : 'border-transparent'
+            {
+              productData.image?.map((item, index) => (
+                <img
+                  onClick={() => handleImageChange(item, index)}
+                  src={item}
+                  key={index}
+                  className={`w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer border-2 ${index === imageIndex ? 'border-hotpink-500' : 'border-transparent'
                     } hover:border-hotpink-300 transition-colors`}
-                    alt="" 
-                    onError={(e) => {
-                      e.target.src = '/placeholder-image.jpg'; // ✅ Fallback image
-                    }}
-                  />
-                )) || []
-              }
+                  alt=""
+                  onError={(e) => {
+                    e.target.src = '/placeholder-image.jpg'; // ✅ Fallback image
+                  }}
+                />
+              )) || []
+            }
           </div>
           <div className='w-full sm:w-[80%] relative group'>
-              <img className='w-full h-auto' src={image} alt="" />
-              
-              {/* Dot navigation overlay on hover */}
-              <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
-                <div className='flex space-x-2'>
-                  {productData.image?.map((_, index) => (
-                    <button
-                      key={index}
-                      onClick={() => handleImageChange(productData.image[index], index)}
-                      className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                        index === imageIndex 
-                          ? 'bg-hotpink-500 scale-125' 
-                          : 'bg-white bg-opacity-60 hover:bg-opacity-80'
-                      }`}
-                    />
-                  )) || []}
-                </div>
-              </div>
-              
-              {/* Share button */}
-              <div className='absolute top-4 right-4'>
-                <div className='relative'>
+            <img className='w-full h-auto' src={image} alt="" />
+
+            {/* Dot navigation overlay on hover */}
+            <div className='absolute bottom-4 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
+              <div className='flex space-x-2'>
+                {productData.image?.map((_, index) => (
                   <button
-                    onClick={() => setShowShareMenu(!showShareMenu)}
-                    className='bg-white bg-opacity-80 hover:bg-opacity-100 p-2 rounded-full shadow-md transition-all duration-200'
-                    title='Share product'
-                  >
-                    <svg className='w-5 h-5 text-gray-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
-                      <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z' />
-                    </svg>
-                  </button>
-                  
-                  {showShareMenu && (
-                    <div className='absolute top-full right-0 mt-2 bg-white rounded-lg shadow-lg border py-2 min-w-[150px] z-10'>
-                      <button onClick={() => handleShare('whatsapp')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
-                        <span className='text-green-500'>📱</span> WhatsApp
-                      </button>
-                      <button onClick={() => handleShare('facebook')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
-                        <span className='text-blue-500'>📘</span> Facebook
-                      </button>
-                      <button onClick={() => handleShare('twitter')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
-                        <span className='text-blue-400'>🐦</span> Twitter
-                      </button>
-                      <button onClick={() => handleShare('copy')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
-                        <span className='text-gray-500'>📋</span> Copy Link
-                      </button>
-                    </div>
-                  )}
-                </div>
+                    key={index}
+                    onClick={() => handleImageChange(productData.image[index], index)}
+                    className={`w-3 h-3 rounded-full transition-all duration-200 ${index === imageIndex
+                      ? 'bg-hotpink-500 scale-125'
+                      : 'bg-white bg-opacity-60 hover:bg-opacity-80'
+                      }`}
+                  />
+                )) || []}
               </div>
+            </div>
+
+            {/* Share button */}
+            <div className='absolute top-4 right-4'>
+              <div className='relative'>
+                <button
+                  onClick={() => setShowShareMenu(!showShareMenu)}
+                  className='bg-white bg-opacity-80 hover:bg-opacity-100 p-2 rounded-full shadow-md transition-all duration-200'
+                  title='Share product'
+                >
+                  <svg className='w-5 h-5 text-gray-600' fill='none' stroke='currentColor' viewBox='0 0 24 24'>
+                    <path strokeLinecap='round' strokeLinejoin='round' strokeWidth={2} d='M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z' />
+                  </svg>
+                </button>
+
+                {showShareMenu && (
+                  <div className='absolute top-full right-0 mt-2 bg-white rounded-lg shadow-lg border py-2 min-w-[150px] z-10'>
+                    <button onClick={() => handleShare('whatsapp')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
+                      <span className='text-green-500'>📱</span> WhatsApp
+                    </button>
+                    <button onClick={() => handleShare('facebook')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
+                      <span className='text-blue-500'>📘</span> Facebook
+                    </button>
+                    <button onClick={() => handleShare('twitter')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
+                      <span className='text-blue-400'>🐦</span> Twitter
+                    </button>
+                    <button onClick={() => handleShare('copy')} className='w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center gap-2'>
+                      <span className='text-gray-500'>📋</span> Copy Link
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -228,11 +226,10 @@ const Product = () => {
             <h1 className='font-medium text-2xl mt-2'>{productData.name}</h1>
             <button
               onClick={handleWishlistToggle}
-              className={`p-2 rounded-full transition-all duration-200 ${
-                isInWishlist(productData._id)
-                  ? 'text-red-500 bg-red-50 hover:bg-red-100'
-                  : 'text-gray-400 bg-gray-50 hover:bg-gray-100 hover:text-red-500'
-              }`}
+              className={`p-2 rounded-full transition-all duration-200 ${isInWishlist(productData._id)
+                ? 'text-red-500 bg-red-50 hover:bg-red-100'
+                : 'text-gray-400 bg-gray-50 hover:bg-gray-100 hover:text-red-500'
+                }`}
               title={isInWishlist(productData._id) ? 'Remove from wishlist' : 'Add to wishlist'}
             >
               <svg className='w-6 h-6' fill={isInWishlist(productData._id) ? 'currentColor' : 'none'} stroke='currentColor' viewBox='0 0 24 24'>
@@ -240,17 +237,17 @@ const Product = () => {
               </svg>
             </button>
           </div>
-          
+
           <div className=' flex items-center gap-1 mt-2'>
-              <img src={assets.star_icon} alt="" className="w-3 5" />
-              <img src={assets.star_icon} alt="" className="w-3 5" />
-              <img src={assets.star_icon} alt="" className="w-3 5" />
-              <img src={assets.star_icon} alt="" className="w-3 5" />
-              <img src={assets.star_dull_icon} alt="" className="w-3 5" />
-              <p className='pl-2'>(122)</p>
+            <img src={assets.star_icon} alt="" className="w-3 5" />
+            <img src={assets.star_icon} alt="" className="w-3 5" />
+            <img src={assets.star_icon} alt="" className="w-3 5" />
+            <img src={assets.star_icon} alt="" className="w-3 5" />
+            <img src={assets.star_dull_icon} alt="" className="w-3 5" />
+            <p className='pl-2'>(122)</p>
           </div>
           <p className='mt-5 text-3xl font-medium'>{currency}{productData.price}</p>
-          
+
           {/* Expandable Description */}
           <div className='mt-5'>
             <p className={`text-gray-500 md:w-4/5 transition-all duration-300 ${showFullDescription ? '' : 'line-clamp-3'}`}>
@@ -263,74 +260,72 @@ const Product = () => {
               {showFullDescription ? 'Show Less' : 'Read More'}
             </button>
           </div>
-          
+
           <div className='flex flex-col gap-4 my-8'>
-              {productData.hasSize ? (
-                <>
-                  <p>Select Size</p>
-                  <div className='flex gap-2'>
-                    {productData.sizes?.map((item,index) => {
-                      const sizeStock = productData.stock?.[item] || 0;
-                      return (
-                        <button 
-                          onClick={() => setSize(item)} 
-                          className={`border py-2 px-4 ${item === size ? 'border-hotpink-500' : ''} 
-                                     ${sizeStock === 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`} 
-                          key={index}
-                          disabled={sizeStock === 0}
-                        >
-                          {item} {sizeStock === 0 && '(Out of Stock)'}
-                        </button>
-                      )
-                    })}
+            {productData.hasSize ? (
+              <>
+                <p>Select Size</p>
+                <div className='flex gap-2'>
+                  {productData.sizes?.map((item, index) => {
+                    const sizeStock = productData.stock?.[item] || 0;
+                    return (
+                      <button
+                        onClick={() => setSize(item)}
+                        className={`border py-2 px-4 ${item === size ? 'border-hotpink-500' : ''} 
+                                     ${sizeStock === 0 ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-gray-100 hover:bg-gray-200'}`}
+                        key={index}
+                        disabled={sizeStock === 0}
+                      >
+                        {item} {sizeStock === 0 && '(Out of Stock)'}
+                      </button>
+                    )
+                  })}
+                </div>
+                {!isInStock() && size && (
+                  <div className="mt-4 text-red-600 font-semibold">
+                    Product is out of stock for selected size.
                   </div>
-                  {!isInStock() && size && (
-                    <div className="mt-4 text-red-600 font-semibold">
-                      Product is out of stock for selected size.
-                    </div>
-                  )}
-                </>
-              ) : (
-                <>
-                  <div className={`mt-4 p-3 rounded-lg ${
-                    (typeof productData.stock === 'number' ? productData.stock : 0) <= 0 ? 'bg-red-50 border border-red-200' : 
-                    (typeof productData.stock === 'number' ? productData.stock : 0) <= 5 ? 'bg-yellow-50 border border-yellow-200' : 
+                )}
+              </>
+            ) : (
+              <>
+                <div className={`mt-4 p-3 rounded-lg ${(typeof productData.stock === 'number' ? productData.stock : 0) <= 0 ? 'bg-red-50 border border-red-200' :
+                  (typeof productData.stock === 'number' ? productData.stock : 0) <= 5 ? 'bg-yellow-50 border border-yellow-200' :
                     'bg-green-50 border border-green-200'
                   }`}>
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-700">Stock Status:</span>
-                      <span className={`text-sm font-medium ${
-                        (typeof productData.stock === 'number' ? productData.stock : 0) <= 0 ? 'text-red-600' : 
-                        (typeof productData.stock === 'number' ? productData.stock : 0) <= 5 ? 'text-yellow-600' : 
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-700">Stock Status:</span>
+                    <span className={`text-sm font-medium ${(typeof productData.stock === 'number' ? productData.stock : 0) <= 0 ? 'text-red-600' :
+                      (typeof productData.stock === 'number' ? productData.stock : 0) <= 5 ? 'text-yellow-600' :
                         'text-green-600'
                       }`}>
-                        {(typeof productData.stock === 'number' ? productData.stock : 0) <= 0 ? '❌ Out of Stock' : 
-                         (typeof productData.stock === 'number' ? productData.stock : 0) <= 5 ? `⚠️ Low Stock (${productData.stock} left)` : 
-                         `✅ In Stock (${productData.stock} available)`
-                        }
-                      </span>
-                    </div>
-                    {!isInStock() && (
-                      <div className="mt-3">
-                        <div className="text-red-600 font-semibold text-sm mb-2">
-                          🚫 This product is currently unavailable
-                        </div>
-                        <StockAlert 
-                          productId={productData._id} 
-                          onSubscribe={handleStockAlert}
-                        />
-                      </div>
-                    )}
+                      {(typeof productData.stock === 'number' ? productData.stock : 0) <= 0 ? '❌ Out of Stock' :
+                        (typeof productData.stock === 'number' ? productData.stock : 0) <= 5 ? `⚠️ Low Stock (${productData.stock} left)` :
+                          `✅ In Stock (${productData.stock} available)`
+                      }
+                    </span>
                   </div>
-                </>
-              )}
-            </div>
+                  {!isInStock() && (
+                    <div className="mt-3">
+                      <div className="text-red-600 font-semibold text-sm mb-2">
+                        🚫 This product is currently unavailable
+                      </div>
+                      <StockAlert
+                        productId={productData._id}
+                        onSubscribe={handleStockAlert}
+                      />
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
           <div className="mb-4">
             <p>Quantity in Cart: {cartQuantity}</p>
           </div>
-          
+
           <div className='flex gap-4 mb-6'>
-              <button 
+            <button
               onClick={async () => {
                 try {
                   const success = await addToCart(productData, productData.hasSize ? size : null);
@@ -342,44 +337,53 @@ const Product = () => {
                   console.error("Error adding to cart:", error);
                   toast.error("Failed to add product to cart");
                 }
-              }} 
-                className='flex-1 bg-black text-white px-8 py-3 text-sm hover:bg-gray-800 transition-colors' 
-                disabled={!isInStock() || (productData.hasSize && !size)}
-              >
-                ADD TO CART
-              </button>
-              <button 
-                onClick={() => {
-                  if (!size && productData.hasSize) {
-                    toast.error("Please select a size");
-                    return;
-                  }
-                  if (!isInStock()) {
-                    toast.error('📦 Out of stock', {
-                      style: {
-                        background: '#fee2e2',
-                        border: '1px solid #fecaca',
-                        color: '#dc2626'
-                      }
-                    });
-                    return;
-                  }
-                  navigate('/place-order', { 
-                    state: { 
-                      directBuy: true, 
-                      productId: productData._id, 
-                      size 
-                    } 
+              }}
+              className='flex-1 bg-black text-white px-8 py-3 text-sm hover:bg-gray-800 transition-colors'
+              disabled={!isInStock() || (productData.hasSize && !size)}
+            >
+              ADD TO CART
+            </button>
+            <button
+              onClick={() => {
+                if (productData.hasSize && !size) {
+                  toast.error("Please select a size before buying!", {
+                    style: {
+                      background: '#fef2f2',
+                      border: '1px solid #fecaca',
+                      color: '#dc2626'
+                    }
                   });
-                }}
-                className='flex-1 bg-hotpink-500 text-white px-8 py-3 text-sm hover:bg-hotpink-600 transition-colors' 
-                disabled={!isInStock() || (productData.hasSize && !size)}
-              >
-                BUY NOW
-              </button>
+                  return; // Stop execution
+                }
+                if (!isInStock()) {
+                  toast.error('📦 Out of stock', {
+                    style: {
+                      background: '#fee2e2',
+                      border: '1px solid #fecaca',
+                      color: '#dc2626'
+                    }
+                  });
+                  return;
+                }
+
+                addToCart(productData, productData.hasSize ? size : null, 1, true);
+                navigate('/place-order', {
+                  state: {
+                    directBuy: true,
+                    productId: productData._id,
+                    size
+                  }
+                });
+              }}
+              className='flex-1 bg-hotpink-500 text-white px-8 py-3 text-sm hover:bg-hotpink-600 transition-colors'
+            // disabled={!isInStock() || (productData.hasSize && !size)}
+            >
+              BUY NOW
+            </button>
+
           </div>
 
-          <CartModal 
+          <CartModal
             isOpen={showCartModal}
             onClose={() => setShowCartModal(false)}
             product={productData}
@@ -402,9 +406,9 @@ const Product = () => {
 
           <hr className='mt-8 sm:w-4/5' />
           <div className='text-sm text-gray-500 mt-5 flex flex-col gap-1'>
-              <p>100% Original product.</p>
-              <p>Cash on delivery is available on this product.</p>
-              <p>Easy return and exchange policy within 7 days.</p>
+            <p>100% Original product.</p>
+            <p>Cash on delivery is available on this product.</p>
+            <p>Easy return and exchange policy within 7 days.</p>
           </div>
         </div>
       </div>
