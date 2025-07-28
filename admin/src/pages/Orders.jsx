@@ -40,9 +40,9 @@ const Orders = ({ token }) => {
       console.log('Orders.jsx: Request body:', { page, limit })
 
       const response = await axios.post(backendUrl.join('/order/list'), { page, limit }, { headers: { token } })
-      
+
       console.log('Orders.jsx: API response:', response.data)
-      
+
       if (response.data.success) {
         console.log('Orders.jsx: Orders received:', response.data.orders.length)
         setOrders(response.data.orders)
@@ -50,7 +50,7 @@ const Orders = ({ token }) => {
         setCurrentPage(response.data.currentPage)
         setTotalPages(response.data.totalPages)
         setTotalOrders(response.data.totalOrders)
-        
+
         // ✅ Fetch stock data for all products in orders
         await fetchStockDataForOrders(response.data.orders)
       } else {
@@ -78,8 +78,8 @@ const Orders = ({ token }) => {
 
       if (productIds.size === 0) return
 
-      const response = await axios.post(backendUrl + '/product/stock-levels', 
-        { productIds: Array.from(productIds) }, 
+      const response = await axios.post(backendUrl + '/product/stock-levels',
+        { productIds: Array.from(productIds) },
         { headers: { token } }
       )
 
@@ -117,14 +117,14 @@ const Orders = ({ token }) => {
 
   const statusHandler = async (event, orderId) => {
     try {
-      const response = await axios.post(backendUrl + '/order/update-status', 
-        { orderId, status: event.target.value }, 
+      const response = await axios.post(backendUrl + '/order/update-status',
+        { orderId, status: event.target.value },
         { headers: { token } }
       )
       if (response.data.success) {
         toast.success('Order status updated successfully')
         // Update the order in the current filtered list
-        const updatedOrders = orders.map(order => 
+        const updatedOrders = orders.map(order =>
           order._id === orderId ? { ...order, status: event.target.value } : order
         )
         setOrders(updatedOrders)
@@ -143,7 +143,7 @@ const Orders = ({ token }) => {
     // Search filter
     if (currentFilters.search) {
       const searchTerm = currentFilters.search.toLowerCase()
-      filtered = filtered.filter(order => 
+      filtered = filtered.filter(order =>
         order._id.toLowerCase().includes(searchTerm) ||
         order.address.firstName.toLowerCase().includes(searchTerm) ||
         order.address.lastName.toLowerCase().includes(searchTerm) ||
@@ -167,10 +167,10 @@ const Orders = ({ token }) => {
     if (currentFilters.dateRange !== 'all') {
       const now = new Date()
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-      
+
       filtered = filtered.filter(order => {
         const orderDate = new Date(order.date)
-        
+
         switch (currentFilters.dateRange) {
           case 'today':
             return orderDate >= today
@@ -189,7 +189,7 @@ const Orders = ({ token }) => {
     // Sort orders
     filtered.sort((a, b) => {
       let aValue, bValue
-      
+
       switch (currentFilters.sortBy) {
         case 'date':
           aValue = new Date(a.date)
@@ -271,8 +271,8 @@ const Orders = ({ token }) => {
   }
 
   const getPaymentStatusColor = (payment) => {
-    return payment 
-      ? 'bg-green-100 text-green-800' 
+    return payment
+      ? 'bg-green-100 text-green-800'
       : 'bg-red-100 text-red-800';
   }
 
@@ -337,7 +337,7 @@ const Orders = ({ token }) => {
           >
             Previous
           </button>
-          
+
           <div className="flex items-center gap-1">
             {Array.from({ length: Math.min(5, totalFilteredPages) }, (_, i) => {
               let pageNum;
@@ -350,16 +350,15 @@ const Orders = ({ token }) => {
               } else {
                 pageNum = currentPage - 2 + i;
               }
-              
+
               return (
                 <button
                   key={pageNum}
                   onClick={() => handlePageChange(pageNum)}
-                  className={`w-10 h-10 rounded-lg transition-colors ${
-                    currentPage === pageNum
-                      ? 'bg-blue-600 text-white'
-                      : 'hover:bg-gray-50'
-                  }`}
+                  className={`w-10 h-10 rounded-lg transition-colors ${currentPage === pageNum
+                    ? 'bg-blue-600 text-white'
+                    : 'hover:bg-gray-50'
+                    }`}
                 >
                   {pageNum}
                 </button>
@@ -390,7 +389,7 @@ const Orders = ({ token }) => {
               className="flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
             >
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z" />
               </svg>
               <span>Refresh Stock</span>
             </button>
@@ -415,7 +414,7 @@ const Orders = ({ token }) => {
             />
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           </div>
-          
+
           <select
             value={filters.status}
             onChange={(e) => handleFilter('status', e.target.value)}
@@ -479,7 +478,7 @@ const Orders = ({ token }) => {
           <FaShoppingBag className="text-5xl mb-4" />
           <p className="text-xl">No orders found</p>
           <p className="text-sm mt-2">
-            {filteredOrders.length === 0 && orders.length > 0 
+            {filteredOrders.length === 0 && orders.length > 0
               ? "Try adjusting your filters to see more orders"
               : "Orders will appear here once customers start placing them"
             }
@@ -504,7 +503,7 @@ const Orders = ({ token }) => {
 
                 return (
                   <tr key={order._id} className={`hover:bg-gray-50 ${orderHasStockIssues ? 'bg-orange-50' : ''}`}>
-                    <td className="px-6 py-4">
+                    {/* <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <div className="font-medium text-gray-900 flex items-center gap-2">
                           #{order._id.slice(-8).toUpperCase()}
@@ -520,9 +519,43 @@ const Orders = ({ token }) => {
                           {currency}{order.amount}
                         </div>
                       </div>
-                    </td>
-                    
+                    </td> */}
                     <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <div className="font-medium text-gray-900 flex items-center gap-2">
+                          #{order._id.slice(-8).toUpperCase()}
+                          {orderHasStockIssues && (
+                            <FaExclamationTriangle className="text-orange-500 text-sm" title="Stock issues detected" />
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                          <FaCalendarAlt className="text-xs" />
+                          {formatDate(order.date)}
+                        </div>
+                        <div className="text-lg font-semibold text-gray-900 mt-1">
+                          {currency}{order.amount}
+                        </div>
+
+                        {/* ✅ Show first 2 product images */}
+                        <div className="flex gap-2 mt-2">
+                          {order.items.slice(0, 2).map((item, idx) => (
+                            <img
+                              key={idx}
+                              src={item.image}
+                              alt={item.name}
+                              className="w-12 h-12 rounded object-cover border"
+                            />
+                          ))}
+                          {order.items.length > 2 && (
+                            <div className="w-12 h-12 flex items-center justify-center bg-gray-100 text-xs text-gray-600 rounded">
+                              +{order.items.length - 2}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <div className="font-medium text-gray-900">
                           {order.address.firstName} {order.address.lastName}
@@ -533,7 +566,22 @@ const Orders = ({ token }) => {
                           {order.address.street}, {order.address.city}
                         </div>
                       </div>
+                    </td> */}
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <div className="font-medium text-gray-900">
+                          {order.address.firstName} {order.address.lastName}
+                        </div>
+                        <div className="text-sm text-gray-500">{order.address.email}</div>
+                        <div className="text-sm text-gray-500">{order.address.phone}</div>
+
+                        {/* ✅ Full address */}
+                        <div className="text-xs text-gray-400 mt-1 leading-snug">
+                          {order.address.street}, {order.address.city}, {order.address.state}, {order.address.country}, {order.address.zipcode}
+                        </div>
+                      </div>
                     </td>
+
 
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
@@ -544,7 +592,7 @@ const Orders = ({ token }) => {
                           {order.items.slice(0, 2).map((item, itemIndex) => {
                             const currentStock = getCurrentStock(item._id, item.size)
                             const hasIssue = hasStockIssue(item)
-                            
+
                             return (
                               <div key={itemIndex} className="flex flex-col gap-1">
                                 <div className="flex justify-between">
@@ -581,9 +629,9 @@ const Orders = ({ token }) => {
                     </td>
 
                     <td className="px-6 py-4">
-                      <select 
-                        onChange={(event) => statusHandler(event, order._id)} 
-                        value={order.status} 
+                      <select
+                        onChange={(event) => statusHandler(event, order._id)}
+                        value={order.status}
                         className={`px-3 py-2 rounded-lg text-sm font-medium border-0 focus:outline-none focus:ring-2 focus:ring-blue-500 ${getStatusColor(order.status)}`}
                       >
                         <option value="Order Placed">Order Placed</option>
@@ -600,7 +648,7 @@ const Orders = ({ token }) => {
           </table>
         </div>
       )}
-      
+
       <div className="p-6 border-t">
         {renderPagination()}
       </div>
