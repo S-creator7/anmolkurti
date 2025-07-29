@@ -196,7 +196,7 @@ const FilterPanel = ({ backendUrl, onFilterChange, selectedCategory, selectedFil
             </span>
           </h4>
           <div className="space-y-3">
-            {['Saree', 'Kurti', 'Dress', 'Salwar', 'Shirt', 'Pants', 'Suit'].map(category => (
+            {['Sarees', 'Kurtis', 'Suits', 'Shirts', 'Pants', 'Dress', 'Salwars', "Sets"].map(category => (
               <label key={category} className="flex items-center cursor-pointer group">
                 <div className="relative flex items-center">
                   <input

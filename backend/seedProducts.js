@@ -263,7 +263,7 @@ const generateMoreProducts = () => {
     "Classic style with contemporary updates. Timeless piece for your wardrobe."
   ];
 
-  const categories = ["kurtis", "sets", "suits"];
+  const categories = ['sarees', 'kurtis', 'suits', 'shirts', 'pants', 'dress', 'salwars',"sets"];
   const subCategories = ["printed", "embroidered", "casual", "designer", "festive"];
   const occasions = [["casual", "office"], ["party", "festival"], ["wedding", "celebration"], ["casual", "daily"]];
   const types = [["cotton", "comfortable"], ["silk", "premium"], ["printed", "stylish"], ["embroidered", "traditional"]];
