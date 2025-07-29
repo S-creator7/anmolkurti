@@ -102,27 +102,44 @@ const updateImageUrls = async (oldUrl, newUrl) => {
     console.log(`📦 Updated ${updatedProducts} product image URLs`);
 
     // Update Orders Collection
+    // Update orders
     const orders = await orderModel.find({});
-    let updatedOrders = 0;
+    console.log(`📦 Found ${orders.length} orders to update`);
+
+    let updatedOrderCount = 0;
+
     for (const order of orders) {
-      let orderChanged = false;
-      order.items.forEach(item => {
-        const updatedImages = item.image.map(url =>
-          url.includes(oldUrl) ? url.replace(oldUrl, newUrl) : url
-        );
-        if (JSON.stringify(item.image) !== JSON.stringify(updatedImages)) {
-          item.image = updatedImages;
-          orderChanged = true;
+      let hasOrderUpdates = false;
+
+      const updatedItems = order.items.map(item => {
+        if (Array.isArray(item.image)) {
+          const updatedImages = item.image.map(imgUrl => {
+            if (imgUrl.includes(oldUrl)) {
+              hasOrderUpdates = true;
+              return imgUrl.replace(oldUrl, newUrl);
+            }
+            return imgUrl;
+          });
+          return { ...item, image: updatedImages };
+        } else if (typeof item.image === 'string' && item.image.includes(oldUrl)) {
+          hasOrderUpdates = true;
+          return { ...item, image: item.image.replace(oldUrl, newUrl) };
         }
+        return item;
       });
-      if (orderChanged) {
-        await order.save();
-        updatedOrders++;
+
+      if (hasOrderUpdates) {
+        await orderModel.findByIdAndUpdate(order._id, { items: updatedItems });
+        updatedOrderCount++;
+        console.log(`✅ Updated order ${order._id}`);
       }
     }
-    console.log(`🛒 Updated ${updatedOrders} order image URLs`);
 
-    console.log('🚀 Image URLs updated successfully in products & orders');
+    console.log(`\n🎯 Order Update Summary:`);
+    console.log(`  📦 Total Orders: ${orders.length}`);
+    console.log(`  🔄 Updated Orders: ${updatedOrderCount}`);
+    console.log(`  📊 Success Rate: ${((updatedOrderCount / orders.length) * 100).toFixed(1)}%`);
+
   } catch (error) {
     console.error('❌ Update failed:', error);
   } finally {
