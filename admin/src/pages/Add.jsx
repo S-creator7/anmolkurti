@@ -159,11 +159,11 @@ const Add = ({ token }) => {
   // Get available categories based on gender
   const getAvailableCategories = () => {
     if (formData.gender === "Women") {
-      return ["Saree", "Kurti", "Dress", "Salwar"];
+      return ["Sarees", "Kurtis", "Dress", "Salwars","Sets"];
     } else if (formData.gender === "Men") {
-      return ["Shirt", "Pants", "Suit"];
+      return ["Shirts", "Pants", "Suits", "Sets"];
     } else if (formData.gender === "Children") {
-      return ["Suit", "Dress"];
+      return ["Suits", "Dress", "Sets"];
     }
     return [];
   };
