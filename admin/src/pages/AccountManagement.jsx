@@ -11,22 +11,22 @@ import { useFilters } from '../context/FilterContext';
 
 const AccountManagement = ({ token }) => {
   const { dynamicFilters } = useFilters();
-  
+
   // Get categories from dynamic filters with fallback
   const categories = dynamicFilters?.category || ['Saree', 'Kurti', 'Suit', 'Shirt', 'Pants', 'Dress', 'Salwar'];
-  
+
   // State for data
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [bestsellers, setBestsellers] = useState([]);
   const [customers, setCustomers] = useState([]);
-  
+
   // Loading states
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingBestsellers, setLoadingBestsellers] = useState(false);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
-  
+
   // Metrics
   const [totalSales, setTotalSales] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -42,9 +42,9 @@ const AccountManagement = ({ token }) => {
   const [filters, setFilters] = useState({
     customers: { search: '', sortBy: 'name', sortOrder: 'asc' },
     orders: { status: 'all', dateRange: 'all' },
-    products: { 
-      search: '', 
-      category: '', 
+    products: {
+      search: '',
+      category: '',
       sortBy: 'date',
       sortOrder: 'desc'
     }
@@ -106,10 +106,10 @@ const AccountManagement = ({ token }) => {
           sortOrder: filters.products.sortOrder
         }
       });
-              console.log("in fetchProduct",response.data.products)
+      console.log("in fetchProduct", response.data.products)
 
       if (response.data.success) {
-              console.log("in fetchProduct",response.data.products)
+        console.log("in fetchProduct", response.data.products)
         setProducts(response.data.products);
         // Ensure we have a valid total count
         const totalCount = parseInt(response.data.totalProducts || response.data.total || 0);
@@ -237,10 +237,10 @@ const AccountManagement = ({ token }) => {
     } else if (activeTab === 'customers') {
       fetchCustomers();
     } else if (activeTab === 'orders') {
-    fetchOrders();
+      fetchOrders();
     } else if (activeTab === 'products') {
-    fetchProducts();
-    fetchBestsellers();
+      fetchProducts();
+      fetchBestsellers();
     }
   }, [activeTab, filters]);
 
@@ -311,8 +311,8 @@ const AccountManagement = ({ token }) => {
   // Add handleProductSort function to handle sorting
   const handleProductSort = (sortValue) => {
     let sortBy, sortOrder;
-    
-    switch(sortValue) {
+
+    switch (sortValue) {
       case 'newest':
         sortBy = 'date'; // Using 'date' field from the product model
         sortOrder = 'desc';
@@ -352,8 +352,8 @@ const AccountManagement = ({ token }) => {
 
     setFilters(prev => ({
       ...prev,
-      products: { 
-        ...prev.products, 
+      products: {
+        ...prev.products,
         sortBy,
         sortOrder
       }
@@ -372,7 +372,7 @@ const AccountManagement = ({ token }) => {
 
     // Don't show pagination if there's no data
     if (validTotal === 0) {
-  return (
+      return (
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600">
             No entries to show
@@ -385,7 +385,7 @@ const AccountManagement = ({ token }) => {
     const getPageNumbers = () => {
       const pageNumbers = [];
       const maxPagesToShow = 5;
-      
+
       if (totalPages <= maxPagesToShow) {
         for (let i = 1; i <= totalPages; i++) {
           pageNumbers.push(i);
@@ -418,7 +418,7 @@ const AccountManagement = ({ token }) => {
 
     const handlePageChange = (newPage) => {
       if (newPage < 1 || newPage > totalPages || newPage === validPage) return;
-      
+
       if (section === 'products') {
         fetchProducts(newPage);
       } else if (section === 'customers') {
@@ -429,10 +429,10 @@ const AccountManagement = ({ token }) => {
     const startEntry = ((validPage - 1) * validLimit) + 1;
     const endEntry = Math.min(validPage * validLimit, validTotal);
 
-  return (
+    return (
       <div className="flex items-center justify-between">
         <span className="text-sm text-gray-600">
-          {validTotal > 0 
+          {validTotal > 0
             ? `Showing ${startEntry} to ${endEntry} of ${validTotal} entries`
             : 'No entries to show'
           }
@@ -446,7 +446,7 @@ const AccountManagement = ({ token }) => {
             >
               Previous
             </button>
-            
+
             {getPageNumbers().map((pageNum, index) => (
               <React.Fragment key={index}>
                 {pageNum === '...' ? (
@@ -454,11 +454,10 @@ const AccountManagement = ({ token }) => {
                 ) : (
                   <button
                     onClick={() => handlePageChange(pageNum)}
-                    className={`w-10 h-10 rounded-lg transition-colors ${
-                      validPage === pageNum
-                        ? 'bg-blue-600 text-white'
-                        : 'hover:bg-gray-50'
-                    }`}
+                    className={`w-10 h-10 rounded-lg transition-colors ${validPage === pageNum
+                      ? 'bg-blue-600 text-white'
+                      : 'hover:bg-gray-50'
+                      }`}
                   >
                     {pageNum}
                   </button>
@@ -541,11 +540,11 @@ const AccountManagement = ({ token }) => {
 
       if (metricsResponse.data.success) {
         setDashboardMetrics(metricsResponse.data.metrics || {
-          revenue: { 
-            total: 0, 
-            today: 0, 
+          revenue: {
+            total: 0,
+            today: 0,
             yesterday: 0,
-            weekly: 0, 
+            weekly: 0,
             lastWeek: 0,
             monthly: 0,
             lastMonth: 0,
@@ -662,23 +661,23 @@ const AccountManagement = ({ token }) => {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl p-6 text-white">
               <div className="flex items-center justify-between">
-              <div>
+                <div>
                   <p className="text-blue-100">Total Revenue</p>
                   <h3 className="text-3xl font-bold mt-1">{formatCurrency(dashboardMetrics.revenue.total)}</h3>
-          <p className="text-blue-200 text-sm mt-1">
-            {typeof dashboardMetrics.revenue.growth?.monthly === 'number' && dashboardMetrics.revenue.growth.monthly > 0 ? '+' : ''}
-            {typeof dashboardMetrics.revenue.growth?.monthly === 'number' ? dashboardMetrics.revenue.growth.monthly.toFixed(1) : '0.0'}% vs last month
-          </p>
-              </div>
+                  <p className="text-blue-200 text-sm mt-1">
+                    {typeof dashboardMetrics.revenue.growth?.monthly === 'number' && dashboardMetrics.revenue.growth.monthly > 0 ? '+' : ''}
+                    {typeof dashboardMetrics.revenue.growth?.monthly === 'number' ? dashboardMetrics.revenue.growth.monthly.toFixed(1) : '0.0'}% vs last month
+                  </p>
+                </div>
                 <FaRupeeSign className="text-4xl text-blue-200" />
               </div>
             </div>
             <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white">
               <div className="flex items-center justify-between">
-              <div>
+                <div>
                   <p className="text-green-100">Monthly Revenue</p>
                   <h3 className="text-3xl font-bold mt-1">{formatCurrency(dashboardMetrics.revenue.monthly)}</h3>
-          <p className="text-green-200 text-sm mt-1">
+                  <p className="text-green-200 text-sm mt-1">
                     {typeof dashboardMetrics.revenue.growth?.monthly === 'number' && dashboardMetrics.revenue.growth.monthly > 0 ? '+' : ''}
                     {typeof dashboardMetrics.revenue.growth?.monthly === 'number' ? dashboardMetrics.revenue.growth.monthly.toFixed(1) : '0.0'}% vs last month
                   </p>
@@ -854,7 +853,7 @@ const AccountManagement = ({ token }) => {
               <div className="p-6 border-b">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-800">Recent Orders</h3>
-                  <button 
+                  <button
                     onClick={() => setActiveTab('orders')}
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                   >
@@ -868,11 +867,10 @@ const AccountManagement = ({ token }) => {
                     {recentOrders.map(order => (
                       <div key={order._id} className="flex items-center justify-between">
                         <div className="flex items-center space-x-4">
-                          <div className={`w-2 h-2 rounded-full ${
-                            order.status === 'delivered' ? 'bg-green-500' :
+                          <div className={`w-2 h-2 rounded-full ${order.status === 'delivered' ? 'bg-green-500' :
                             order.status === 'processing' ? 'bg-blue-500' :
-                            order.status === 'cancelled' ? 'bg-red-500' : 'bg-yellow-500'
-                          }`} />
+                              order.status === 'cancelled' ? 'bg-red-500' : 'bg-yellow-500'
+                            }`} />
                           <div>
                             <p className="font-medium text-gray-800">{order.orderNumber}</p>
                             <p className="text-sm text-gray-500">{formatDate(order.createdAt)}</p>
@@ -893,14 +891,14 @@ const AccountManagement = ({ token }) => {
                   </div>
                 )}
               </div>
-        </div>
+            </div>
 
             {/* Top Products */}
             <div className="bg-white rounded-xl shadow-sm">
               <div className="p-6 border-b">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold text-gray-800">Top Products</h3>
-                  <button 
+                  <button
                     onClick={() => setActiveTab('products')}
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                   >
@@ -915,8 +913,8 @@ const AccountManagement = ({ token }) => {
                       <div key={product._id} className="flex items-center space-x-4">
                         <div className="w-12 h-12 flex-shrink-0">
                           {Array.isArray(product.image) && product.image.length > 0 ? (
-                            <img 
-                              src={product.image[0]} 
+                            <img
+                              src={product.image[0]}
                               alt={product.name || 'Product'}
                               className="w-12 h-12 rounded-lg object-cover"
                               onError={(e) => {
@@ -946,7 +944,7 @@ const AccountManagement = ({ token }) => {
                     No top products data
                   </div>
                 )}
-            </div>
+              </div>
             </div>
           </div>
 
@@ -982,8 +980,8 @@ const AccountManagement = ({ token }) => {
             </button>
           </div>
         </>
-          )}
-        </div>
+      )}
+    </div>
   );
 
   // Add these functions before the renderCustomers function
@@ -1002,7 +1000,7 @@ const AccountManagement = ({ token }) => {
       customers: {
         ...prev.customers,
         sortBy: field,
-        sortOrder: prev.customers.sortBy === field 
+        sortOrder: prev.customers.sortBy === field
           ? prev.customers.sortOrder === 'asc' ? 'desc' : 'asc'
           : 'asc'
       }
@@ -1012,7 +1010,7 @@ const AccountManagement = ({ token }) => {
 
   const deleteCustomer = async (id) => {
     try {
-      const response = await axios.delete(`${backendUrl}/api/user/${id}`, {
+      const response = await axios.delete(backendUrl.join(`/user/${id}`), {
         headers: { token }
       });
 
@@ -1032,11 +1030,22 @@ const AccountManagement = ({ token }) => {
   const [customerDetailsModal, setCustomerDetailsModal] = useState(false);
 
   const viewCustomerDetails = async (id) => {
+    const customerData = customers.find(c => c._id === id);
+    if (customerData) {
+      setSelectedCustomer(customerData);
+      setCustomerDetailsModal(true);
+      return;
+    } else {
+      toast.error('Customer data not found');
+    }
+
+    // fallback if not in state
     try {
       setLoadingCustomers(true); // Add loading state while fetching details
-      const response = await axios.get(`${backendUrl}/api/user/${id}`, {
+      const response = await axios.get(backendUrl.join(`/user/${id}`), {
         headers: { token }
       });
+      console.log("Response for view customer deyails")
 
       if (response.data.success) {
         setSelectedCustomer(response.data.user);
@@ -1051,6 +1060,7 @@ const AccountManagement = ({ token }) => {
       setLoadingCustomers(false);
     }
   };
+
 
   // Update the CustomerDetailsModal component to handle loading state
   const CustomerDetailsModal = ({ customer, onClose }) => {
@@ -1075,7 +1085,7 @@ const AccountManagement = ({ token }) => {
         <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto relative">
           <div className="sticky top-0 bg-white pb-4 mb-4 border-b flex justify-between items-center">
             <h3 className="text-2xl font-semibold text-gray-800">Customer Details</h3>
-            <button 
+            <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 transition-colors"
             >
@@ -1083,7 +1093,7 @@ const AccountManagement = ({ token }) => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
-      </div>
+          </div>
 
           <div className="space-y-8">
             {/* Personal Information */}
@@ -1100,7 +1110,7 @@ const AccountManagement = ({ token }) => {
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Phone</p>
-                  <p className="font-medium text-gray-900">{customer.phone || 'N/A'}</p>
+                  <p className="font-medium text-gray-900">{customer.phone}</p>
                 </div>
                 <div className="p-4 bg-gray-50 rounded-lg">
                   <p className="text-sm text-gray-500">Join Date</p>
@@ -1172,9 +1182,8 @@ const AccountManagement = ({ token }) => {
                   { key: 'emailNotifications', label: 'Email Notifications' }
                 ].map(({ key, label }) => (
                   <div key={key} className="flex items-center p-4 bg-gray-50 rounded-lg">
-                    <span className={`w-3 h-3 rounded-full mr-3 ${
-                      customer.preferences?.[key] ? 'bg-green-500' : 'bg-red-500'
-                    }`} />
+                    <span className={`w-3 h-3 rounded-full mr-3 ${customer.preferences?.[key] ? 'bg-green-500' : 'bg-red-500'
+                      }`} />
                     <span className="text-gray-700">{label}</span>
                   </div>
                 ))}
@@ -1223,7 +1232,7 @@ const AccountManagement = ({ token }) => {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50">
-                <th 
+                <th
                   className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer group"
                   onClick={() => handleCustomerSort('name')}
                 >
@@ -1240,7 +1249,7 @@ const AccountManagement = ({ token }) => {
                     )}
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer group"
                   onClick={() => handleCustomerSort('email')}
                 >
@@ -1257,7 +1266,7 @@ const AccountManagement = ({ token }) => {
                     )}
                   </div>
                 </th>
-                <th 
+                <th
                   className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider cursor-pointer group"
                   onClick={() => handleCustomerSort('createdAt')}
                 >
@@ -1277,8 +1286,8 @@ const AccountManagement = ({ token }) => {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Orders</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Spent</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
+              </tr>
+            </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {customers.map(customer => (
                 <tr key={customer._id} className="hover:bg-gray-50">
@@ -1347,14 +1356,14 @@ const AccountManagement = ({ token }) => {
                         </span>
                       )}
                     </div>
-                      </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="p-6 border-t">
         {renderPagination('customers')}
       </div>
@@ -1405,7 +1414,7 @@ const AccountManagement = ({ token }) => {
             />
             <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           </div>
-          
+
           <select
             value={filters.products.category}
             onChange={(e) => handleProductFilter('category', e.target.value)}
@@ -1444,7 +1453,7 @@ const AccountManagement = ({ token }) => {
           <p className="text-xl">No products found</p>
           <p className="text-sm mt-2">Try adjusting your filters or add new products</p>
         </div>
-        ) : (
+      ) : (
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -1453,22 +1462,21 @@ const AccountManagement = ({ token }) => {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Product Details</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Stock Status</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
+              </tr>
+            </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {Array.isArray(products) && products.map(product => (
                 <tr key={product._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <img 
-                      src={product.image?.[0] || '/placeholder-product.png'} 
-                      alt={product.name} 
+                    <img
+                      src={product.image?.[0] || '/placeholder-product.png'}
+                      alt={product.name}
                       className="w-20 h-20 object-cover rounded-lg shadow-sm hover:scale-150 transition-transform cursor-zoom-in"
                     />
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-col">
                       {/* Defensive rendering: render product properties explicitly */}
-                      {console.log('Rendering product:', product)}
                       <h4 className="text-lg font-medium text-gray-900">
                         {typeof product.name === 'string' ? product.name : JSON.stringify(product.name)}
                       </h4>
@@ -1493,13 +1501,12 @@ const AccountManagement = ({ token }) => {
                         {Object.entries(product.stock || {}).map(([size, count]) => (
                           <div key={size} className="flex items-center gap-2">
                             <span className="w-8 font-medium">{size}:</span>
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              count < lowStockThreshold 
-                                ? 'bg-red-100 text-red-800'
-                                : count < lowStockThreshold * 2
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${count < lowStockThreshold
+                              ? 'bg-red-100 text-red-800'
+                              : count < lowStockThreshold * 2
                                 ? 'bg-yellow-100 text-yellow-800'
                                 : 'bg-green-100 text-green-800'
-                            }`}>
+                              }`}>
                               {count} pcs
                             </span>
                           </div>
@@ -1507,13 +1514,12 @@ const AccountManagement = ({ token }) => {
                       </div>
                     ) : (
                       typeof product.stock === 'number' ? (
-                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                          product.stock < lowStockThreshold 
-                            ? 'bg-red-100 text-red-800'
-                            : product.stock < lowStockThreshold * 2
+                        <div className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${product.stock < lowStockThreshold
+                          ? 'bg-red-100 text-red-800'
+                          : product.stock < lowStockThreshold * 2
                             ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-green-100 text-green-800'
-                        }`}>
+                          }`}>
                           {product.stock} in stock
                         </div>
                       ) : (
@@ -1525,14 +1531,14 @@ const AccountManagement = ({ token }) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col gap-2">
-                      <button 
+                      {/* <button
                         className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                        onClick={() => {/* Handle edit */}}
+                        onClick={() => {}}
                       >
                         <FaEdit className="text-sm" />
                         Edit
-                      </button>
-                      <button 
+                      </button> */}
+                      <button
                         className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
                         onClick={() => {
                           if (window.confirm('Are you sure you want to delete this product?')) {
@@ -1545,13 +1551,13 @@ const AccountManagement = ({ token }) => {
                       </button>
                     </div>
                   </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div className="p-6 border-t">
         {renderPagination('products')}
       </div>
@@ -1561,8 +1567,8 @@ const AccountManagement = ({ token }) => {
   // Add removeProduct function
   const removeProduct = async (id) => {
     try {
-      const response = await axios.post(`${backendUrl}/api/product/remove`, 
-        { id }, 
+      const response = await axios.post(backendUrl.join(`/product/remove`),
+        { id },
         { headers: { token } }
       );
 
@@ -1599,11 +1605,10 @@ const AccountManagement = ({ token }) => {
             <button
               key={id}
               onClick={() => setActiveTab(id)}
-              className={`px-6 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 ${
-                activeTab === id
-                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
-                  : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
-              }`}
+              className={`px-6 py-3 rounded-xl flex items-center gap-2 transition-all duration-200 ${activeTab === id
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
+                : 'bg-white text-gray-600 hover:bg-gray-50 border border-gray-200'
+                }`}
             >
               <Icon className={activeTab === id ? 'text-white' : 'text-gray-400'} />
               <span>{label}</span>
@@ -1617,7 +1622,7 @@ const AccountManagement = ({ token }) => {
         {activeTab === 'customers' && renderCustomers()}
         {activeTab === 'products' && renderProducts()}
         {activeTab === 'coupons' && <Coupons />}
-        {activeTab === 'add' && <Add token={token} />}
+        {activeTab === 'add' && <Add/>}
         {activeTab === 'filters' && <FilterManager />}
         {activeTab === 'orders' && <Orders token={token} />}
       </div>

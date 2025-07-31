@@ -5,19 +5,16 @@ import { backendUrl } from '../App'
 import { toast } from 'react-toastify'
 import { useFilters } from '../context/FilterContext'
 import { FaCloudUploadAlt, FaTimes, FaCheck, FaExclamationTriangle, FaInfoCircle, FaPlus, FaTrash, FaImage, FaFilter } from 'react-icons/fa'
+import { useEffect } from 'react'
 
-const Add = ({ token }) => {
+const token = localStorage.getItem('token');
+
+const Add = () => {
   const { filterOptions, getFilterValues, dynamicFilters, getGlobalFilters, getCategoryFilters, getApplicableFilters } = useFilters();
 
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
-
-  // Track touched fields for validation error display
-  const [touchedFields, setTouchedFields] = useState({});
-
-  // Track if form has been submitted
-  const [formSubmitted, setFormSubmitted] = useState(false);
 
   // Image state
   const [images, setImages] = useState([null, null, null, null]);
@@ -29,7 +26,7 @@ const Add = ({ token }) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    price: '',
+    price: 0,
     gender: '',
     category: '',
     bestseller: false,
@@ -132,11 +129,23 @@ const Add = ({ token }) => {
         if (!formData.gender) newErrors.gender = 'Gender is required';
         if (!formData.category) newErrors.category = 'Category is required';
         break;
+      // case 4:
+      //   delete newErrors.price;
+      //   delete newErrors.sizes;
+      //   if (!formData.price || formData.price <= 0) newErrors.price = 'Valid price is required';
+      //   if (formData.hasSize && formData.sizes.length === 0) {
+      //     newErrors.sizes = 'Select at least one size';
+      //   }
+
+      //   break;
       case 4:
         delete newErrors.price;
         delete newErrors.sizes;
-        if (!formData.price || formData.price <= 0) newErrors.price = 'Valid price is required';
-        if (formData.hasSize && formData.sizes.length === 0) {
+        const priceValue = parseFloat(formData.price);
+        if (isNaN(priceValue) || priceValue <= 0) {
+          newErrors.price = 'Valid price is required';
+        }
+        if (formData.hasSize && (!formData.sizes || formData.sizes.length === 0)) {
           newErrors.sizes = 'Select at least one size';
         }
         break;
@@ -152,14 +161,13 @@ const Add = ({ token }) => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-    // Mark current step as touched on input change to show errors for that step
-    setTouchedSteps(prev => new Set(prev).add(currentStep));
+
   };
 
   // Get available categories based on gender
   const getAvailableCategories = () => {
     if (formData.gender === "Women") {
-      return ["Sarees", "Kurtis", "Dress", "Salwars","Sets"];
+      return ["Sarees", "Kurtis", "Dress", "Salwars", "Sets"];
     } else if (formData.gender === "Men") {
       return ["Shirts", "Pants", "Suits", "Sets"];
     } else if (formData.gender === "Children") {
@@ -180,7 +188,7 @@ const Add = ({ token }) => {
   // Get filters that should be shown for the current product
   const getAvailableFilters = () => {
     let availableFilters = [];
-    
+
     if (!formData.category) {
       // If no category selected, show only global filters
       availableFilters = getGlobalFilters();
@@ -188,13 +196,13 @@ const Add = ({ token }) => {
       // Show global + category-specific filters for the selected category
       availableFilters = getApplicableFilters(formData.category);
     }
-    
+
     // Filter out redundant filters that are handled elsewhere in the form
     const excludedFilters = ['gender', 'size']; // Gender is selected above, Size is in Step 4
-    
-    return availableFilters.filter(filter => 
+
+    return availableFilters.filter(filter =>
       !excludedFilters.includes(filter.name.toLowerCase()) &&
-      filter.values && 
+      filter.values &&
       filter.values.length > 0 &&
       filter.values.some(v => v.isActive)
     );
@@ -207,7 +215,7 @@ const Add = ({ token }) => {
       const newValues = currentValues.includes(value)
         ? currentValues.filter(v => v !== value)
         : [...currentValues, value];
-      
+
       setFormData(prev => ({
         ...prev,
         filterValues: {
@@ -229,12 +237,22 @@ const Add = ({ token }) => {
   // Handle step navigation
   const nextStep = () => {
     const { isValid, errors: newErrors } = validateStep(currentStep, errors);
+    console.log("Validating Step", currentStep, newErrors);
+
     setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) {
+      Object.values(newErrors).forEach(msg => toast.error(msg));
+    }
+
     if (isValid) {
-      // Removed marking next step as touched here to prevent premature error display
       setCurrentStep(prev => Math.min(prev + 1, totalSteps));
     }
   };
+
+
+  useEffect(() => {
+    console.log("My Current step is", currentStep)
+  }, [currentStep])
 
   const prevStep = () => {
     setCurrentStep(prev => Math.max(prev - 1, 1));
@@ -242,10 +260,10 @@ const Add = ({ token }) => {
 
   // Handle form submission
   const onSubmitHandler = async (e) => {
+    console.log("onsubmit handler triggerred")
+
     e.preventDefault();
 
-    // Mark all steps as touched on submit to show all errors
-    setTouchedSteps(new Set([1, 2, 3, 4]));
 
     // Validate all steps
     let allValid = true;
@@ -272,21 +290,21 @@ const Add = ({ token }) => {
       // Add form fields
       formDataToSend.append("name", formData.name.trim());
       formDataToSend.append("description", formData.description.trim());
-      formDataToSend.append("price", formData.price);
+      formDataToSend.append("price", parseFloat(formData.price) || 0);
       formDataToSend.append("gender", formData.gender);
       formDataToSend.append("category", formData.category);
       formDataToSend.append("bestseller", formData.bestseller);
       formDataToSend.append("hasSize", formData.hasSize);
       formDataToSend.append("sizes", JSON.stringify(formData.hasSize ? formData.sizes : []));
-      
+
       // Include all dynamic filter values
       formDataToSend.append("occasion", JSON.stringify(formData.filterValues.occasion || []));
       formDataToSend.append("type", JSON.stringify(formData.filterValues.type || []));
-      
+
       // Add all filter values as a combined filters object
       const allFilterValues = { ...formData.filterValues };
       formDataToSend.append("filters", JSON.stringify(allFilterValues));
-      
+
       // Handle stock properly
       if (formData.hasSize) {
         formDataToSend.append("stock", JSON.stringify(formData.stock));
@@ -301,13 +319,13 @@ const Add = ({ token }) => {
         }
       });
 
-      const response = await axios.post(backendUrl.base + "/product/add", formDataToSend, {
+      const response = await axios.post(backendUrl.join("/product/add"), formDataToSend, {
         headers: { token }
       });
 
       if (response.data.success) {
         toast.success(response.data.message);
-        
+
         // Reset form
         setFormData({
           name: '',
@@ -341,12 +359,12 @@ const Add = ({ token }) => {
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
-  return (
+        return (
           <div className="space-y-6">
             <div className="text-center">
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Upload Product Images</h3>
               <p className="text-gray-600">Add up to 4 high-quality images of your product</p>
-                    </div>
+            </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               {images.map((image, index) => (
@@ -358,17 +376,16 @@ const Add = ({ token }) => {
                   onDragOver={handleDrag}
                   onDrop={(e) => handleDrop(e, index)}
                 >
-                  <div className={`w-full h-40 border-2 border-dashed rounded-xl transition-all duration-300 ${
-                    image 
-                      ? 'border-green-400 bg-green-50' 
-                      : dragActive 
-                        ? 'border-blue-400 bg-blue-50' 
-                        : 'border-gray-300 hover:border-gray-400'
-                  }`}>
+                  <div className={`w-full h-40 border-2 border-dashed rounded-xl transition-all duration-300 ${image
+                    ? 'border-green-400 bg-green-50'
+                    : dragActive
+                      ? 'border-blue-400 bg-blue-50'
+                      : 'border-gray-300 hover:border-gray-400'
+                    }`}>
                     {image ? (
                       <div className="relative w-full h-full">
-                        <img 
-                          src={URL.createObjectURL(image)} 
+                        <img
+                          src={URL.createObjectURL(image)}
                           alt={`Preview ${index + 1}`}
                           className="w-full h-full object-cover rounded-lg"
                         />
@@ -377,7 +394,7 @@ const Add = ({ token }) => {
                           className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600 transition-colors"
                         >
                           <FaTimes />
-                </button>
+                        </button>
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 rounded-lg flex items-center justify-center">
                           <label className="cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity bg-white bg-opacity-90 px-3 py-1 rounded-full text-sm font-medium">
                             Change
@@ -404,8 +421,8 @@ const Add = ({ token }) => {
                           className="hidden"
                         />
                       </label>
-              )}
-            </div>
+                    )}
+                  </div>
 
                   {imageErrors[index] && (
                     <p className="text-xs text-red-500 mt-2 flex items-center">
@@ -417,13 +434,6 @@ const Add = ({ token }) => {
               ))}
             </div>
 
-            {(errors.images && (touchedFields.images || formSubmitted)) && (
-              <p className="text-red-500 text-sm flex items-center justify-center">
-                <FaExclamationTriangle className="mr-2" />
-                {errors.images}
-              </p>
-            )}
-
             <div className="bg-blue-50 rounded-lg p-4">
               <h4 className="font-medium text-blue-800 mb-2">Image Guidelines</h4>
               <ul className="text-sm text-blue-700 space-y-1">
@@ -432,8 +442,8 @@ const Add = ({ token }) => {
                 <li>• Maximum file size: 5MB per image</li>
                 <li>• First image will be the main product display</li>
               </ul>
-                    </div>
-                </div>
+            </div>
+          </div>
         );
 
       case 2:
@@ -454,43 +464,29 @@ const Add = ({ token }) => {
                   value={formData.name}
                   onChange={(e) => handleInputChange('name', e.target.value)}
                   placeholder="Enter product name"
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                    errors.name 
-                      ? 'border-red-300 focus:ring-red-500' 
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.name
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                 />
-                {(errors.name && (touchedFields.name || formSubmitted)) && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <FaExclamationTriangle className="mr-1" />
-                    {errors.name}
-                  </p>
-                  )}
-                </div>
+              </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Product Description <span className="text-red-500">*</span>
-              </label>
+                </label>
                 <textarea
                   value={formData.description}
                   onChange={(e) => handleInputChange('description', e.target.value)}
                   placeholder="Describe your product features, materials, and benefits"
                   rows="4"
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors resize-none ${
-                    errors.description 
-                      ? 'border-red-300 focus:ring-red-500' 
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors resize-none ${errors.description
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                 />
-                {(errors.description && (touchedFields.description || formSubmitted)) && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <FaExclamationTriangle className="mr-1" />
-                    {errors.description}
-                  </p>
-              )}
+              </div>
             </div>
-          </div>
           </div>
         );
 
@@ -500,76 +496,62 @@ const Add = ({ token }) => {
             <div className="text-center">
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Categories & Filters</h3>
               <p className="text-gray-600">Organize your product for better discoverability</p>
-        </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Gender <span className="text-red-500">*</span>
                 </label>
-              <select
+                <select
                   value={formData.gender}
                   onChange={(e) => {
                     handleInputChange('gender', e.target.value);
                     handleInputChange('category', '');
                     // handleInputChange('subCategory', ''); // Removed subCategory
                   }}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                    errors.gender 
-                      ? 'border-red-300 focus:ring-red-500' 
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-              >
-                <option value="">Select Gender</option>
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.gender
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-blue-500'
+                    }`}
+                >
+                  <option value="">Select Gender</option>
                   {getFilterOptions('gender').map(g => (
                     <option key={g} value={g}>{g}</option>
                   ))}
-              </select>
-                {(errors.gender && (touchedFields.gender || formSubmitted)) && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <FaExclamationTriangle className="mr-1" />
-                    {errors.gender}
-                  </p>
-                )}
-            </div>
+                </select>
+              </div>
 
-            <div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Category <span className="text-red-500">*</span>
                 </label>
-              <select
+                <select
                   value={formData.category}
                   onChange={(e) => {
                     handleInputChange('category', e.target.value);
                     // handleInputChange('subCategory', ''); // Removed subCategory
                   }}
                   disabled={!formData.gender}
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                    !formData.gender 
-                      ? 'bg-gray-100 cursor-not-allowed' 
-                      : errors.category 
-                        ? 'border-red-300 focus:ring-red-500' 
-                        : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-              >
-                <option value="">Select Category</option>
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${!formData.gender
+                    ? 'bg-gray-100 cursor-not-allowed'
+                    : errors.category
+                      ? 'border-red-300 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                    }`}
+                >
+                  <option value="">Select Category</option>
                   {getAvailableCategories().map(cat => (
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
-                {(errors.category && (touchedFields.category || formSubmitted)) && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <FaExclamationTriangle className="mr-1" />
-                    {errors.category}
-                  </p>
-                )}
-            </div>
+              </div>
 
               {/* Removed subCategory field - not properly integrated with filter system */}
-              
+
               <div className="flex items-center">
                 <label className="flex items-center cursor-pointer bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg px-4 py-3 hover:from-yellow-100 hover:to-orange-100 transition-all">
-              <input
+                  <input
                     type="checkbox"
                     checked={formData.bestseller}
                     onChange={(e) => handleInputChange('bestseller', e.target.checked)}
@@ -587,7 +569,7 @@ const Add = ({ token }) => {
                 <p className="text-sm text-gray-600 mb-6">
                   Select the attributes that describe this product. These help customers find and filter products.
                 </p>
-                
+
                 {getAvailableFilters().length > 0 ? (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {getAvailableFilters()
@@ -595,85 +577,85 @@ const Add = ({ token }) => {
                         // Priority order for better UX
                         const priority = {
                           'color': 1,
-                          'material': 2, 
+                          'material': 2,
                           'occasion': 3,
                           'type': 4
                         };
                         return (priority[a.name.toLowerCase()] || 99) - (priority[b.name.toLowerCase()] || 99);
                       })
                       .map((filter) => (
-                      <div key={filter._id} className="bg-gray-50 rounded-lg p-5 border border-gray-200">
-                        <div className="mb-4">
-                          <h5 className="font-medium text-gray-800 text-base mb-1">
-                            {filter.displayName}
-                          </h5>
-                          {filter.description && (
-                            <p className="text-xs text-gray-500">{filter.description}</p>
-                          )}
-            </div>
-
-                        {filter.filterType === 'single-select' ? (
-                          // Radio buttons for single select
-                          <div className="grid grid-cols-2 gap-3">
-                            {filter.values.filter(v => v.isActive).map((item) => (
-                              <label key={item.value} className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
-                                <input
-                                  type="radio"
-                                  name={filter.name}
-                                  checked={formData.filterValues[filter.name] === item.value}
-                                  onChange={() => handleFilterValueChange(filter.name, item.value, false)}
-                                  className="mr-3 w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                />
-                                <span className="text-sm text-gray-700 flex items-center gap-2">
-                                  {item.colorCode && (
-                                    <span 
-                                      className="w-4 h-4 rounded-full border-2 border-gray-300 shadow-sm"
-                                      style={{ backgroundColor: item.colorCode }}
-                                    />
-                                  )}
-                                  {item.displayName}
-                                </span>
-                              </label>
-                            ))}
-        </div>
-                        ) : filter.filterType === 'multi-select' ? (
-                          // Checkboxes for multi select
-                          <div className="grid grid-cols-2 gap-3">
-                            {filter.values.filter(v => v.isActive).map((item) => (
-                              <label key={item.value} className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
-          <input
-            type="checkbox"
-                                  checked={(formData.filterValues[filter.name] || []).includes(item.value)}
-                                  onChange={() => handleFilterValueChange(filter.name, item.value, true)}
-                                  className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                />
-                                <span className="text-sm text-gray-700 flex items-center gap-2">
-                                  {item.colorCode && (
-                                    <span 
-                                      className="w-4 h-4 rounded-full border-2 border-gray-300 shadow-sm"
-                                      style={{ backgroundColor: item.colorCode }}
-                                    />
-                                  )}
-                                  {item.displayName}
-                                </span>
-                              </label>
-                            ))}
+                        <div key={filter._id} className="bg-gray-50 rounded-lg p-5 border border-gray-200">
+                          <div className="mb-4">
+                            <h5 className="font-medium text-gray-800 text-base mb-1">
+                              {filter.displayName}
+                            </h5>
+                            {filter.description && (
+                              <p className="text-xs text-gray-500">{filter.description}</p>
+                            )}
                           </div>
-                        ) : (
-                          // Range input (for future use)
-                          <div className="text-sm text-gray-500 italic bg-white p-3 rounded border">
-                            Range filters are not implemented yet
-        </div>
-                        )}
-                </div>
-                    ))}
-                </div>
+
+                          {filter.filterType === 'single-select' ? (
+                            // Radio buttons for single select
+                            <div className="grid grid-cols-2 gap-3">
+                              {filter.values.filter(v => v.isActive).map((item) => (
+                                <label key={item.value} className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
+                                  <input
+                                    type="radio"
+                                    name={filter.name}
+                                    checked={formData.filterValues[filter.name] === item.value}
+                                    onChange={() => handleFilterValueChange(filter.name, item.value, false)}
+                                    className="mr-3 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm text-gray-700 flex items-center gap-2">
+                                    {item.colorCode && (
+                                      <span
+                                        className="w-4 h-4 rounded-full border-2 border-gray-300 shadow-sm"
+                                        style={{ backgroundColor: item.colorCode }}
+                                      />
+                                    )}
+                                    {item.displayName}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : filter.filterType === 'multi-select' ? (
+                            // Checkboxes for multi select
+                            <div className="grid grid-cols-2 gap-3">
+                              {filter.values.filter(v => v.isActive).map((item) => (
+                                <label key={item.value} className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
+                                  <input
+                                    type="checkbox"
+                                    checked={(formData.filterValues[filter.name] || []).includes(item.value)}
+                                    onChange={() => handleFilterValueChange(filter.name, item.value, true)}
+                                    className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm text-gray-700 flex items-center gap-2">
+                                    {item.colorCode && (
+                                      <span
+                                        className="w-4 h-4 rounded-full border-2 border-gray-300 shadow-sm"
+                                        style={{ backgroundColor: item.colorCode }}
+                                      />
+                                    )}
+                                    {item.displayName}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : (
+                            // Range input (for future use)
+                            <div className="text-sm text-gray-500 italic bg-white p-3 rounded border">
+                              Range filters are not implemented yet
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                  </div>
                 ) : (
                   <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
                     <FaFilter className="text-5xl text-gray-300 mx-auto mb-3" />
                     <h5 className="text-lg font-medium text-gray-700 mb-2">No product attributes available</h5>
                     <p className="text-sm text-gray-500 mb-4">
-                      {!formData.category 
+                      {!formData.category
                         ? "Select a category above to see available product attributes"
                         : "No attributes are configured for this category"
                       }
@@ -681,11 +663,11 @@ const Add = ({ token }) => {
                     <p className="text-xs text-gray-400">
                       Add filters in Filter Management to enable product attributes
                     </p>
-                </div>
+                  </div>
                 )}
-                </div>
-                </div>
-                </div>
+              </div>
+            </div>
+          </div>
         );
 
       case 4:
@@ -694,7 +676,7 @@ const Add = ({ token }) => {
             <div className="text-center">
               <h3 className="text-xl font-semibold text-gray-800 mb-2">Stock & Pricing</h3>
               <p className="text-gray-600">Set your product pricing and inventory</p>
-                </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
@@ -707,19 +689,13 @@ const Add = ({ token }) => {
                   onChange={(e) => handleInputChange('price', e.target.value)}
                   placeholder="0"
                   min="1"
-                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${
-                    errors.price 
-                      ? 'border-red-300 focus:ring-red-500' 
-                      : 'border-gray-300 focus:ring-blue-500'
-                  }`}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.price
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-blue-500'
+                    }`}
                 />
-                {(errors.price && (touchedFields.price || formSubmitted)) && (
-                  <p className="text-red-500 text-sm mt-1 flex items-center">
-                    <FaExclamationTriangle className="mr-1" />
-                    {errors.price}
-                  </p>
-                )}
-                </div>
+
+              </div>
 
               <div className="flex items-center">
                 <label className="flex items-center cursor-pointer bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 hover:bg-blue-100 transition-all">
@@ -737,7 +713,7 @@ const Add = ({ token }) => {
                 </label>
               </div>
             </div>
-         
+
             {formData.hasSize ? (
               <div className="space-y-4">
                 <div>
@@ -749,12 +725,14 @@ const Add = ({ token }) => {
                       <button
                         key={size}
                         type="button"
+                        placeholder="0"
+                        min="1"
                         onClick={() => {
                           const newSizes = formData.sizes.includes(size)
                             ? formData.sizes.filter(s => s !== size)
                             : [...formData.sizes, size];
                           handleInputChange('sizes', newSizes);
-                          
+
                           // Remove stock for deselected size
                           if (!newSizes.includes(size)) {
                             const newStock = { ...formData.stock };
@@ -762,22 +740,16 @@ const Add = ({ token }) => {
                             handleInputChange('stock', newStock);
                           }
                         }}
-                        className={`px-3 py-2 text-sm font-medium rounded-lg border transition-all ${
-                          formData.sizes.includes(size)
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
-                        }`}
+                        className={`px-3 py-2 text-sm font-medium rounded-lg border transition-all ${formData.sizes.includes(size)
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
+                          }`}
                       >
                         {size}
                       </button>
                     ))}
                   </div>
-                  {(errors.sizes && (touchedFields.sizes || formSubmitted)) && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center">
-                      <FaExclamationTriangle className="mr-1" />
-                      {errors.sizes}
-                    </p>
-                  )}
+
                 </div>
 
                 {formData.sizes.length > 0 && (
@@ -787,20 +759,22 @@ const Add = ({ token }) => {
                       {formData.sizes.map(size => (
                         <div key={size} className="flex items-center space-x-2">
                           <span className="w-12 text-sm font-medium text-gray-700">{size}:</span>
-                    <input
-                      type="number"
-                      min="0"
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+
                             value={formData.stock[size] || 0}
                             onChange={(e) => handleInputChange('stock', {
                               ...formData.stock,
                               [size]: parseInt(e.target.value) || 0
                             })}
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
-            </div>
                 )}
               </div>
             ) : (
@@ -808,15 +782,15 @@ const Add = ({ token }) => {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Stock Quantity <span className="text-red-500">*</span>
                 </label>
-            <input
-              type="number"
-              min="0"
+                <input
+                  type="number"
+                  min="0"
                   value={formData.stock.value || 0}
                   onChange={(e) => handleInputChange('stock', { value: parseInt(e.target.value) || 0 })}
                   className="w-full max-w-xs px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-        )}
+                />
+              </div>
+            )}
           </div>
         );
 
@@ -838,11 +812,10 @@ const Add = ({ token }) => {
         <div className="flex items-center justify-between">
           {steps.map((step, index) => (
             <div key={step.id} className="flex items-center">
-              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${
-                currentStep >= step.id
-                  ? 'bg-blue-600 border-blue-600 text-white'
-                  : 'bg-white border-gray-300 text-gray-500'
-              }`}>
+              <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all ${currentStep >= step.id
+                ? 'bg-blue-600 border-blue-600 text-white'
+                : 'bg-white border-gray-300 text-gray-500'
+                }`}>
                 {currentStep > step.id ? (
                   <FaCheck className="text-sm" />
                 ) : (
@@ -850,24 +823,28 @@ const Add = ({ token }) => {
                 )}
               </div>
               <div className="ml-3">
-                <p className={`text-sm font-medium ${
-                  currentStep >= step.id ? 'text-blue-600' : 'text-gray-500'
-                }`}>
+                <p className={`text-sm font-medium ${currentStep >= step.id ? 'text-blue-600' : 'text-gray-500'
+                  }`}>
                   {step.title}
                 </p>
               </div>
               {index < steps.length - 1 && (
-                <div className={`w-16 h-0.5 mx-4 ${
-                  currentStep > step.id ? 'bg-blue-600' : 'bg-gray-300'
-                }`} />
+                <div className={`w-16 h-0.5 mx-4 ${currentStep > step.id ? 'bg-blue-600' : 'bg-gray-300'
+                  }`} />
               )}
+            </div>
+          ))}
         </div>
-            ))}
-          </div>
-        </div>
+      </div>
 
       {/* Step Content */}
-      <form onSubmit={onSubmitHandler} className="p-6">
+      <form onSubmit={onSubmitHandler}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && currentStep !== totalSteps) {
+            e.preventDefault(); // Prevent auto-submit on intermediate steps
+          }
+        }}
+        className="p-6">
         {renderStepContent()}
 
         {/* Navigation Buttons */}
@@ -876,34 +853,32 @@ const Add = ({ token }) => {
             type="button"
             onClick={prevStep}
             disabled={currentStep === 1}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              currentStep === 1
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
+            className={`px-6 py-3 rounded-lg font-medium transition-colors ${currentStep === 1
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              }`}
           >
             Previous
           </button>
 
           <div className="text-sm text-gray-500">
             Step {currentStep} of {totalSteps}
-        </div>
+          </div>
 
           {currentStep === totalSteps ? (
-        <button 
-          type="submit" 
-          disabled={uploading}
-              className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${
-            uploading 
-              ? 'bg-gray-400 cursor-not-allowed' 
-                  : 'bg-green-600 hover:bg-green-700'
-          }`}
-        >
-          {uploading ? (
+            <button
+              type="submit"
+              disabled={uploading}
+              className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${uploading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700'
+                }`}
+            >
+              {uploading ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                   Creating Product...
-            </div>
+                </div>
               ) : (
                 'Create Product'
               )}
@@ -918,7 +893,7 @@ const Add = ({ token }) => {
             </button>
           )}
         </div>
-    </form>
+      </form>
     </div>
   );
 };

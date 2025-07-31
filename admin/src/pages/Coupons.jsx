@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { backendUrl, currency } from '../App';
 
 const Coupons = () => {
   const [coupons, setCoupons] = useState([]);
@@ -31,7 +32,7 @@ const Coupons = () => {
     isActive: true
   });
 
-  const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+
   const token = localStorage.getItem('token');
 
   useEffect(() => {
@@ -41,7 +42,7 @@ const Coupons = () => {
   const loadCoupons = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.get(`${backendUrl}/api/coupon/list`, {
+      const response = await axios.get(backendUrl.join(`/coupon/list`), {
         headers: { token }
       });
       if (response.data.success) {
@@ -126,8 +127,8 @@ const Coupons = () => {
       }
 
       const url = editingCoupon 
-        ? `${backendUrl}/api/coupon/update/${editingCoupon._id}`
-        : `${backendUrl}/api/coupon/create`;
+        ? backendUrl.join(`/coupon/update/${editingCoupon._id}`)
+        : backendUrl.join(`/coupon/create`);
       
       const method = editingCoupon ? 'put' : 'post';
 
@@ -200,7 +201,7 @@ const Coupons = () => {
     }
 
     try {
-      const response = await axios.delete(`${backendUrl}/api/coupon/delete/${couponId}`, {
+      const response = await axios.delete(backendUrl.join(`/coupon/delete/${couponId}`), {
         headers: { token }
       });
 

@@ -30,7 +30,7 @@ const Product = () => {
   }, [productData.hasSize])
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
-  //checking stock status 
+  
   // Convert stock object to Map if needed
   const stockMap = productData.hasSize
     ? (productData.stock instanceof Map ? productData.stock : new Map(Object.entries(productData.stock || {})))

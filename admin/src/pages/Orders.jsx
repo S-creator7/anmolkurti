@@ -78,7 +78,7 @@ const Orders = ({ token }) => {
 
       if (productIds.size === 0) return
 
-      const response = await axios.post(backendUrl + '/product/stock-levels',
+      const response = await axios.post(backendUrl.join('/product/stock-levels'),
         { productIds: Array.from(productIds) },
         { headers: { token } }
       )

@@ -8,7 +8,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FilterProvider } from './context/FilterContext';
 
-const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000/api';
+const rawBackendUrl = import.meta.env.VITE_BACKEND_URL;
 
 // Utility to safely join base URL and path without duplicate slashes
 function joinUrl(base, path) {
