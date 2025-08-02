@@ -30,7 +30,7 @@ export const FilterProvider = ({ children, token }) => {
   const fetchFilters = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${backendUrl}/filter`, {
+      const response = await axios.get(backendUrl.join(`/filter`), {
         headers: token ? { token } : {}
       });
       if (response.data.success) {
@@ -54,7 +54,7 @@ export const FilterProvider = ({ children, token }) => {
   // Fetch dynamic filters from products
   const fetchDynamicFilters = async () => {
     try {
-      const response = await axios.get(`${backendUrl}/filter/dynamic`);
+      const response = await axios.get(backendUrl.join(`/filter/dynamic`));
       if (response.data.success) {
         setDynamicFilters(response.data.filters);
       }
@@ -67,7 +67,7 @@ export const FilterProvider = ({ children, token }) => {
   const addFilter = async (filterData) => {
     try {
       const response = await axios.post(
-        `${backendUrl}/filter`,
+        backendUrl.join(`/filter`),
         filterData,
         { headers: { token } }
       );
@@ -87,7 +87,7 @@ export const FilterProvider = ({ children, token }) => {
   const updateFilter = async (filterId, filterData) => {
     try {
       const response = await axios.put(
-        `${backendUrl}/filter/${filterId}`,
+        backendUrl.join(`/filter/${filterId}`),
         filterData,
         { headers: { token } }
       );
@@ -106,7 +106,7 @@ export const FilterProvider = ({ children, token }) => {
   // Delete filter
   const deleteFilter = async (filterId) => {
     try {
-      const response = await axios.delete(`${backendUrl}/filter/${filterId}`, {
+      const response = await axios.delete(backendUrl.join(`/filter/${filterId}`), {
         headers: { token }
       });
       if (response.data.success) {
@@ -124,7 +124,7 @@ export const FilterProvider = ({ children, token }) => {
   // Initialize default filters
   const initializeDefaultFilters = async () => {
     try {
-      const response = await axios.post(`${backendUrl}/filter/initialize`, {}, {
+      const response = await axios.post(backendUrl.join(`/filter/initialize`), {}, {
         headers: { token }
       });
       if (response.data.success) {
