@@ -2,12 +2,15 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { backendUrl, currency } from '../App';
 import { toast } from 'react-toastify';
-import { FaSearch, FaFilter, FaUser, FaShoppingBag, FaBox, FaChartLine, FaSort, FaSortUp, FaSortDown, FaTicketAlt, FaPlus, FaEdit, FaTrash, FaRupeeSign, FaExclamationTriangle, FaCheckCircle, FaTruck, FaClock, FaCalendarAlt } from 'react-icons/fa';
+import { FaSearch, FaFilter, FaUser, FaShoppingBag, FaBox, FaChartLine, FaSort, FaSortUp, FaSortDown, FaTicketAlt, FaPlus, FaEdit, FaTrash, FaRupeeSign, FaExclamationTriangle, FaCheckCircle, FaTruck, FaClock, FaCalendarAlt, FaEnvelope } from 'react-icons/fa';
 import Coupons from './Coupons';
 import Add from './Add';
 import FilterManager from './FilterManager';
 import Orders from './Orders';
 import { useFilters } from '../context/FilterContext';
+import NewsletterManager from './NewsletterManager';
+import Pagination from '../components/Pagination';
+import EditProductModal from '../components/EditProductModal';
 
 const AccountManagement = ({ token }) => {
   const { dynamicFilters } = useFilters();
@@ -26,7 +29,7 @@ const AccountManagement = ({ token }) => {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [loadingBestsellers, setLoadingBestsellers] = useState(false);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
-
+  const [editingProduct, setEditingProduct] = useState(null);
   // Metrics
   const [totalSales, setTotalSales] = useState(0);
   const [totalOrders, setTotalOrders] = useState(0);
@@ -359,123 +362,6 @@ const AccountManagement = ({ token }) => {
       }
     }));
     fetchProducts(1); // Reset to first page when sorting changes
-  };
-
-  // Update the pagination render function to handle products properly
-  const renderPagination = (section) => {
-    const { page, total, limit } = pagination[section];
-    // Ensure we have valid numbers
-    const validTotal = Number.isInteger(total) ? total : 0;
-    const validPage = Number.isInteger(page) ? page : 1;
-    const validLimit = Number.isInteger(limit) ? limit : 10;
-    const totalPages = Math.max(1, Math.ceil(validTotal / validLimit));
-
-    // Don't show pagination if there's no data
-    if (validTotal === 0) {
-      return (
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-600">
-            No entries to show
-          </span>
-        </div>
-      );
-    }
-
-    // Generate page numbers to show
-    const getPageNumbers = () => {
-      const pageNumbers = [];
-      const maxPagesToShow = 5;
-
-      if (totalPages <= maxPagesToShow) {
-        for (let i = 1; i <= totalPages; i++) {
-          pageNumbers.push(i);
-        }
-      } else {
-        if (validPage <= 3) {
-          for (let i = 1; i <= 4; i++) {
-            pageNumbers.push(i);
-          }
-          pageNumbers.push('...');
-          pageNumbers.push(totalPages);
-        } else if (validPage >= totalPages - 2) {
-          pageNumbers.push(1);
-          pageNumbers.push('...');
-          for (let i = totalPages - 3; i <= totalPages; i++) {
-            pageNumbers.push(i);
-          }
-        } else {
-          pageNumbers.push(1);
-          pageNumbers.push('...');
-          for (let i = validPage - 1; i <= validPage + 1; i++) {
-            pageNumbers.push(i);
-          }
-          pageNumbers.push('...');
-          pageNumbers.push(totalPages);
-        }
-      }
-      return pageNumbers;
-    };
-
-    const handlePageChange = (newPage) => {
-      if (newPage < 1 || newPage > totalPages || newPage === validPage) return;
-
-      if (section === 'products') {
-        fetchProducts(newPage);
-      } else if (section === 'customers') {
-        fetchCustomers(newPage);
-      }
-    };
-
-    const startEntry = ((validPage - 1) * validLimit) + 1;
-    const endEntry = Math.min(validPage * validLimit, validTotal);
-
-    return (
-      <div className="flex items-center justify-between">
-        <span className="text-sm text-gray-600">
-          {validTotal > 0
-            ? `Showing ${startEntry} to ${endEntry} of ${validTotal} entries`
-            : 'No entries to show'
-          }
-        </span>
-        {validTotal > 0 && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => handlePageChange(validPage - 1)}
-              disabled={validPage === 1}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-colors"
-            >
-              Previous
-            </button>
-
-            {getPageNumbers().map((pageNum, index) => (
-              <React.Fragment key={index}>
-                {pageNum === '...' ? (
-                  <span className="px-3 py-2">...</span>
-                ) : (
-                  <button
-                    onClick={() => handlePageChange(pageNum)}
-                    className={`w-10 h-10 rounded-lg transition-colors ${validPage === pageNum
-                      ? 'bg-blue-600 text-white'
-                      : 'hover:bg-gray-50'
-                      }`}
-                  >
-                    {pageNum}
-                  </button>
-                )}
-              </React.Fragment>
-            ))}
-
-            <button
-              onClick={() => handlePageChange(validPage + 1)}
-              disabled={validPage === totalPages}
-              className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:hover:bg-white transition-colors"
-            >
-              Next
-            </button>
-          </div>
-        )}
-      </div>
-    );
   };
 
   const [dashboardMetrics, setDashboardMetrics] = useState({
@@ -1365,7 +1251,13 @@ const AccountManagement = ({ token }) => {
       )}
 
       <div className="p-6 border-t">
-        {renderPagination('customers')}
+        {/* {renderPagination('customers')} */}
+        <Pagination
+          page={pagination.customers.page}
+          total={pagination.customers.total}
+          limit={pagination.customers.limit}
+          onPageChange={(newPage) => fetchCustomers(newPage)}
+        />
       </div>
 
       {customerDetailsModal && selectedCustomer && (
@@ -1531,13 +1423,13 @@ const AccountManagement = ({ token }) => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex flex-col gap-2">
-                      {/* <button
+                      <button
                         className="flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors"
-                        onClick={() => {}}
+                        onClick={() => setEditingProduct(product)}
                       >
                         <FaEdit className="text-sm" />
                         Edit
-                      </button> */}
+                      </button>
                       <button
                         className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors"
                         onClick={() => {
@@ -1559,8 +1451,23 @@ const AccountManagement = ({ token }) => {
       )}
 
       <div className="p-6 border-t">
-        {renderPagination('products')}
+        {/* {renderPagination('products')} */}
+        <Pagination
+          page={pagination.products.page}
+          total={pagination.products.total}
+          limit={pagination.products.limit}
+          onPageChange={(newPage) => fetchProducts(newPage)}
+        />
       </div>
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+          onUpdate={fetchProducts}
+          backendUrl={backendUrl}
+          token={token}
+        />
+      )}
     </div>
   );
 
@@ -1592,7 +1499,7 @@ const AccountManagement = ({ token }) => {
       </div>
 
       <div className="mb-8">
-        <nav className="flex gap-2">
+        <nav className="flex flex-wrap w-full gap-2 sm:gap-3">
           {[
             { id: 'dashboard', icon: FaChartLine, label: 'Dashboard' },
             { id: 'customers', icon: FaUser, label: 'Customers' },
@@ -1600,6 +1507,7 @@ const AccountManagement = ({ token }) => {
             { id: 'products', icon: FaBox, label: 'Products' },
             { id: 'coupons', icon: FaTicketAlt, label: 'Coupons' },
             { id: 'filters', icon: FaFilter, label: 'Filters' },
+            { id: 'newsletter', icon: FaEnvelope, label: 'Newsletter' },
             { id: 'add', icon: FaPlus, label: 'Add Product' }
           ].map(({ id, icon: Icon, label }) => (
             <button
@@ -1622,8 +1530,9 @@ const AccountManagement = ({ token }) => {
         {activeTab === 'customers' && renderCustomers()}
         {activeTab === 'products' && renderProducts()}
         {activeTab === 'coupons' && <Coupons />}
-        {activeTab === 'add' && <Add/>}
+        {activeTab === 'add' && <Add />}
         {activeTab === 'filters' && <FilterManager />}
+        {activeTab === 'newsletter' && <NewsletterManager />}
         {activeTab === 'orders' && <Orders token={token} />}
       </div>
     </div>

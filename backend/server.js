@@ -14,6 +14,8 @@ import contactRouter from './routes/contactRoute.js'
 import dotenv from 'dotenv';
 import { checkStockAlerts } from "./services/stockAlertChecker.js";
 import cron from "node-cron";
+import newsletterRouter from './routes/newsletterRoute.js';
+
 dotenv.config();
 
 // App Config
@@ -44,6 +46,7 @@ app.use('/api/filter', filterRouter);
 app.use('/api/coupon', couponRouter);
 app.use('/api/wishlist', wishlistRouter);
 app.use('/api/contact', contactRouter);
+app.use('/api/newsletter', newsletterRouter);
 
 app.get('/',(req,res)=>{
     res.send("API Working")

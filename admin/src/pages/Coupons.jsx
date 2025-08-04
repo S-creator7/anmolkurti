@@ -79,13 +79,22 @@ const Coupons = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+    const parseLocalDateTime = (value) => {
+      if (!value) return null;
+      const [date, time] = value.split('T');
+      if (!date || !time) return null;
+      const [year, month, day] = date.split('-').map(Number);
+      const [hour, minute] = time.split(':').map(Number);
+      return new Date(year, month - 1, day, hour, minute, 0);
+    };
 
-    // Improved date validation for validFrom and validUntil
     const now = new Date();
-    const validFromDate = new Date(formData.validFrom);
-    const validUntilDate = new Date(formData.validUntil);
-
-    if (isNaN(validFromDate.getTime()) || isNaN(validUntilDate.getTime())) {
+    now.setSeconds(0, 0); // Round to nearest minute
+    now.setMinutes(now.getMinutes() - 1);
+    const validFromDate = parseLocalDateTime(formData.validFrom);
+    const validUntilDate = parseLocalDateTime(formData.validUntil);
+    validUntilDate.setSeconds(0, 0);
+    if (!validFromDate || !validUntilDate || isNaN(validFromDate.getTime()) || isNaN(validUntilDate.getTime())) {
       toast.error('Please provide valid dates for Valid From and Valid Until.');
       setIsLoading(false);
       return;
@@ -97,11 +106,12 @@ const Coupons = () => {
       return;
     }
 
-    if (validFromDate < now) {
-      toast.error('Valid From date must be greater than or equal to the current date and time.');
+    if (validFromDate.getTime() < now.getTime()) {
+      toast.error('Valid From date must be greater than the current date and time.');
       setIsLoading(false);
       return;
     }
+
 
     if (validUntilDate < validFromDate) {
       toast.error('Valid Until date must be greater than or equal to Valid From date.');
@@ -126,10 +136,10 @@ const Coupons = () => {
         return;
       }
 
-      const url = editingCoupon 
+      const url = editingCoupon
         ? backendUrl.join(`/coupon/update/${editingCoupon._id}`)
         : backendUrl.join(`/coupon/create`);
-      
+
       const method = editingCoupon ? 'put' : 'post';
 
       // Ensure termsAndConditions is an array before sending
@@ -145,7 +155,7 @@ const Coupons = () => {
           ? (formData.termsAndConditions.length > 0 ? formData.termsAndConditions : ['N/A'])
           : (typeof formData.termsAndConditions === 'string' ? formData.termsAndConditions.split('\n').filter(line => line.trim() !== '') : ['N/A'])
       };
-      
+
       const response = await axios[method](url, dataToSend, {
         headers: { token }
       });
@@ -178,8 +188,8 @@ const Coupons = () => {
       minimumOrderAmount: coupon.minimumOrderAmount,
       maximumDiscountAmount: coupon.maximumDiscountAmount,
       usageLimit: coupon.usageLimit,
-      validFrom: new Date(new Date(coupon.validFrom).toDateString() + ' 00:00:00').toISOString().slice(0,16),
-      validUntil: new Date(new Date(coupon.validUntil).toDateString() + ' 23:59:59').toISOString().slice(0,16),
+      validFrom: new Date(new Date(coupon.validFrom).toDateString() + ' 00:00:00').toISOString().slice(0, 16),
+      validUntil: new Date(new Date(coupon.validUntil).toDateString() + ' 23:59:59').toISOString().slice(0, 16),
       applicableCategories: coupon.applicableCategories || [],
       excludedCategories: coupon.excludedCategories || [],
       couponType: coupon.couponType,
@@ -257,6 +267,10 @@ const Coupons = () => {
     }
   };
 
+  const formatDateToInput = (date) => {
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
@@ -279,7 +293,7 @@ const Coupons = () => {
           <h2 className="text-xl font-semibold mb-4">
             {editingCoupon ? 'Edit Coupon' : 'Create New Coupon'}
           </h2>
-          
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -299,7 +313,7 @@ const Coupons = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Coupon Name *</label>
                 <input
@@ -311,7 +325,7 @@ const Coupons = () => {
                   required
                 />
               </div>
-              
+
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium mb-1">Description *</label>
                 <textarea
@@ -323,7 +337,7 @@ const Coupons = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Discount Type *</label>
                 <select
@@ -338,7 +352,7 @@ const Coupons = () => {
                   <option value="free_shipping">Free Shipping</option>
                 </select>
               </div>
-              
+
               {(formData.discountType === 'percentage' || formData.discountType === 'fixed') && (
                 <div>
                   <label className="block text-sm font-medium mb-1">Discount Value *</label>
@@ -352,7 +366,7 @@ const Coupons = () => {
                   />
                 </div>
               )}
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Minimum Order Amount</label>
                 <input
@@ -363,7 +377,7 @@ const Coupons = () => {
                   className="w-full border rounded px-3 py-2"
                 />
               </div>
-              
+
               {formData.discountType === 'percentage' && (
                 <div>
                   <label className="block text-sm font-medium mb-1">Maximum Discount Amount</label>
@@ -376,7 +390,7 @@ const Coupons = () => {
                   />
                 </div>
               )}
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Usage Limit</label>
                 <input
@@ -387,7 +401,7 @@ const Coupons = () => {
                   className="w-full border rounded px-3 py-2"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Valid From *</label>
                 <input
@@ -396,10 +410,11 @@ const Coupons = () => {
                   value={formData.validFrom}
                   onChange={handleInputChange}
                   className="w-full border rounded px-3 py-2"
+                  min={formatDateToInput(new Date())}
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Valid Until *</label>
                 <input
@@ -411,7 +426,7 @@ const Coupons = () => {
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Coupon Type</label>
                 <select
@@ -420,14 +435,14 @@ const Coupons = () => {
                   onChange={handleInputChange}
                   className="w-full border rounded px-3 py-2"
                 >
-                    <option value="public">Public</option>
-  <option value="private">Private</option>
-  <option value="first_order">First Time User</option>
-  <option value="seasonal">Seasonal</option>
-  <option value="flash_sale">Flash Sale</option>
+                  <option value="public">Public</option>
+                  <option value="private">Private</option>
+                  <option value="first_order">First Time User</option>
+                  <option value="seasonal">Seasonal</option>
+                  <option value="flash_sale">Flash Sale</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium mb-1">Priority</label>
                 <input
@@ -440,7 +455,7 @@ const Coupons = () => {
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
               <label className="block text-sm font-medium mb-1">Banner Image</label>
               <input
@@ -473,7 +488,7 @@ const Coupons = () => {
                 />
                 First Time User Only
               </label>
-              
+
               <label className="flex items-center">
                 <input
                   type="checkbox"
@@ -484,9 +499,9 @@ const Coupons = () => {
                 />
                 Stackable with other coupons
               </label>
-              
+
             </div>
-            
+
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -516,7 +531,7 @@ const Coupons = () => {
         <div className="p-4 border-b">
           <h2 className="text-lg font-semibold">All Coupons</h2>
         </div>
-        
+
         {isLoading ? (
           <div className="p-4 text-center">Loading...</div>
         ) : (
@@ -552,13 +567,12 @@ const Coupons = () => {
                         const now = new Date();
                         const validFrom = new Date(coupon.validFrom);
                         const validUntil = new Date(coupon.validUntil);
-                        const isWithinDateRange =  now >=validFrom && now <= validUntil;
+                        const isWithinDateRange = now >= validFrom && now <= validUntil;
                         const hasUsageLeft = coupon.usedCount < (coupon.usageLimit || Infinity);
                         const isActive = isWithinDateRange && hasUsageLeft;
                         return (
-                          <span className={`px-2 py-1 rounded text-sm ${
-                            isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                          }`}>
+                          <span className={`px-2 py-1 rounded text-sm ${isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
                             {isActive ? 'Active' : 'Inactive'}
                           </span>
                         );

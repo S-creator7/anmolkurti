@@ -136,6 +136,76 @@ const addProduct = async (req, res) => {
   }
 }
 
+export const editProduct = async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const {
+      name,
+      description,
+      price,
+      gender,
+      category,
+      subCategory,
+      occasion,
+      type,
+      filterTags,
+      bestseller,
+      stock,
+      hasSize,
+      sizes,
+      filters
+    } = req.body;
+
+    if (!name || !price || !category || !gender) {
+      return res.status(400).json({ success: false, message: "Required fields are missing" });
+    }
+
+    const occasionArr = typeof occasion === "string" ? JSON.parse(occasion) : occasion || [];
+    const typeArr = typeof type === "string" ? JSON.parse(type) : type || [];
+    const filterTagsArr = typeof filterTags === "string" ? JSON.parse(filterTags) : filterTags || [];
+    const sizesArr = typeof sizes === "string" ? JSON.parse(sizes) : sizes || [];
+    const filtersObj = typeof filters === "string" ? JSON.parse(filters) : filters || {};
+    const stockParsed = typeof stock === "string" ? JSON.parse(stock) : stock || {};
+
+    let normalizedStock = stockParsed;
+    if (hasSize === "false" || hasSize === false) {
+      if (typeof stockParsed === 'object' && stockParsed !== null && 'value' in stockParsed) {
+        normalizedStock = Number(stockParsed.value);
+      }
+    }
+
+    const updateData = {
+      name: name.trim(),
+      description: description?.trim() || '',
+      gender,
+      category,
+      subCategory: subCategory?.trim() || '',
+      price: Number(price),
+      occasion: occasionArr,
+      type: typeArr,
+      filterTags: filterTagsArr,
+      bestseller: bestseller === "true" || bestseller === true,
+      hasSize: hasSize === "true" || hasSize === true,
+      sizes: sizesArr,
+      stock: normalizedStock,
+      filters: filtersObj
+    };
+
+    const updated = await productModel.findByIdAndUpdate(productId, updateData, { new: true });
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    res.json({ success: true, message: "Product updated successfully", product: updated });
+
+  } catch (error) {
+    console.error("Product update error:", error);
+    res.status(500).json({ success: false, message: "Something went wrong", error: error.message });
+  }
+};
+
+
 //add stock alert subscription
 const addStockAlert = async (req, res) => {
   try {

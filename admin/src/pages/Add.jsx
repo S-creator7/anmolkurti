@@ -306,12 +306,27 @@ const Add = () => {
       formDataToSend.append("filters", JSON.stringify(allFilterValues));
 
       // Handle stock properly
+      // if (formData.hasSize) {
+      //   formDataToSend.append("stock", JSON.stringify(formData.stock));
+      // } else {
+      //   formDataToSend.append("stock", JSON.stringify({ value: formData.stock.value || 0 }));
+      // }
+      // ✅ Normalize stock before appending
+      let normalizedStock = {};
       if (formData.hasSize) {
-        formDataToSend.append("stock", JSON.stringify(formData.stock));
+        formData.sizes.forEach((size) => {
+          const val = formData.stock[size];
+          normalizedStock[size] = val === '' || val === undefined ? 0 : parseInt(val);
+        });
       } else {
-        formDataToSend.append("stock", JSON.stringify({ value: formData.stock.value || 0 }));
+        normalizedStock = {
+          value: formData.stock?.value === '' || formData.stock?.value === undefined
+            ? 0
+            : parseInt(formData.stock.value)
+        };
       }
 
+      formDataToSend.append("stock", JSON.stringify(normalizedStock));
       // Add images
       images.forEach((image, index) => {
         if (image) {
@@ -670,6 +685,130 @@ const Add = () => {
           </div>
         );
 
+      // case 4:
+      //   return (
+      //     <div className="space-y-6">
+      //       <div className="text-center">
+      //         <h3 className="text-xl font-semibold text-gray-800 mb-2">Stock & Pricing</h3>
+      //         <p className="text-gray-600">Set your product pricing and inventory</p>
+      //       </div>
+
+      //       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      //         <div>
+      //           <label className="block text-sm font-medium text-gray-700 mb-2">
+      //             Price (₹) <span className="text-red-500">*</span>
+      //           </label>
+      //           <input
+      //             type="number"
+      //             value={formData.price}
+      //             onChange={(e) => handleInputChange('price', e.target.value)}
+      //             placeholder="0"
+      //             min="1"
+      //             className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.price
+      //               ? 'border-red-300 focus:ring-red-500'
+      //               : 'border-gray-300 focus:ring-blue-500'
+      //               }`}
+      //           />
+
+      //         </div>
+
+      //         <div className="flex items-center">
+      //           <label className="flex items-center cursor-pointer bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 hover:bg-blue-100 transition-all">
+      //             <input
+      //               type="checkbox"
+      //               checked={formData.hasSize}
+      //               onChange={(e) => {
+      //                 handleInputChange('hasSize', e.target.checked);
+      //                 handleInputChange('sizes', []);
+      //                 handleInputChange('stock', {});
+      //               }}
+      //               className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+      //             />
+      //             <span className="text-sm font-medium text-gray-700">Product has sizes</span>
+      //           </label>
+      //         </div>
+      //       </div>
+
+      //       {formData.hasSize ? (
+      //         <div className="space-y-4">
+      //           <div>
+      //             <label className="block text-sm font-medium text-gray-700 mb-3">
+      //               Available Sizes <span className="text-red-500">*</span>
+      //             </label>
+      //             <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
+      //               {['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size'].map(size => (
+      //                 <button
+      //                   key={size}
+      //                   type="button"
+      //                   placeholder="0"
+      //                   min="1"
+      //                   onClick={() => {
+      //                     const newSizes = formData.sizes.includes(size)
+      //                       ? formData.sizes.filter(s => s !== size)
+      //                       : [...formData.sizes, size];
+      //                     handleInputChange('sizes', newSizes);
+
+      //                     // Remove stock for deselected size
+      //                     if (!newSizes.includes(size)) {
+      //                       const newStock = { ...formData.stock };
+      //                       delete newStock[size];
+      //                       handleInputChange('stock', newStock);
+      //                     }
+      //                   }}
+      //                   className={`px-3 py-2 text-sm font-medium rounded-lg border transition-all ${formData.sizes.includes(size)
+      //                     ? 'bg-blue-600 text-white border-blue-600'
+      //                     : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
+      //                     }`}
+      //                 >
+      //                   {size}
+      //                 </button>
+      //               ))}
+      //             </div>
+
+      //           </div>
+
+      //           {formData.sizes.length > 0 && (
+      //             <div>
+      //               <label className="block text-sm font-medium text-gray-700 mb-3">Stock per Size</label>
+      //               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      //                 {formData.sizes.map(size => (
+      //                   <div key={size} className="flex items-center space-x-2">
+      //                     <span className="w-12 text-sm font-medium text-gray-700">{size}:</span>
+      //                     <input
+      //                       type="number"
+      //                       min="0"
+      //                       placeholder="0"
+
+      //                       value={formData.stock[size] || 0}
+      //                       onChange={(e) => handleInputChange('stock', {
+      //                         ...formData.stock,
+      //                         [size]: parseInt(e.target.value) || 0
+      //                       })}
+      //                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      //                     />
+      //                   </div>
+      //                 ))}
+      //               </div>
+      //             </div>
+      //           )}
+      //         </div>
+      //       ) : (
+      //         <div>
+      //           <label className="block text-sm font-medium text-gray-700 mb-2">
+      //             Stock Quantity <span className="text-red-500">*</span>
+      //           </label>
+      //           <input
+      //             type="number"
+      //             min="0"
+      //             value={formData.stock.value || 0}
+      //             onChange={(e) => handleInputChange('stock', { value: parseInt(e.target.value) || 0 })}
+      //             className="w-full max-w-xs px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+      //           />
+      //         </div>
+      //       )}
+      //     </div>
+      //   );
+
       case 4:
         return (
           <div className="space-y-6">
@@ -685,8 +824,13 @@ const Add = () => {
                 </label>
                 <input
                   type="number"
-                  value={formData.price}
-                  onChange={(e) => handleInputChange('price', e.target.value)}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={formData.price === 0 ? '' : formData.price}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    handleInputChange('price', value === '' ? 0 : parseInt(value));
+                  }}
                   placeholder="0"
                   min="1"
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.price
@@ -694,7 +838,6 @@ const Add = () => {
                     : 'border-gray-300 focus:ring-blue-500'
                     }`}
                 />
-
               </div>
 
               <div className="flex items-center">
@@ -721,19 +864,16 @@ const Add = () => {
                     Available Sizes <span className="text-red-500">*</span>
                   </label>
                   <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-                    {['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size'].map(size => (
+                    {['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size'].map((size) => (
                       <button
                         key={size}
                         type="button"
-                        placeholder="0"
-                        min="1"
                         onClick={() => {
                           const newSizes = formData.sizes.includes(size)
-                            ? formData.sizes.filter(s => s !== size)
+                            ? formData.sizes.filter((s) => s !== size)
                             : [...formData.sizes, size];
                           handleInputChange('sizes', newSizes);
 
-                          // Remove stock for deselected size
                           if (!newSizes.includes(size)) {
                             const newStock = { ...formData.stock };
                             delete newStock[size];
@@ -749,26 +889,31 @@ const Add = () => {
                       </button>
                     ))}
                   </div>
-
                 </div>
 
                 {formData.sizes.length > 0 && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-3">Stock per Size</label>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      {formData.sizes.map(size => (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {formData.sizes.map((size) => (
                         <div key={size} className="flex items-center space-x-2">
-                          <span className="w-12 text-sm font-medium text-gray-700">{size}:</span>
+                          <span className="w-14 text-sm font-medium text-gray-700">{size}:</span>
                           <input
                             type="number"
-                            min="0"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
                             placeholder="0"
-
-                            value={formData.stock[size] || 0}
-                            onChange={(e) => handleInputChange('stock', {
-                              ...formData.stock,
-                              [size]: parseInt(e.target.value) || 0
-                            })}
+                            value={
+                              formData.stock[size] === undefined || formData.stock[size] === 0
+                                ? ''
+                                : formData.stock[size]
+                            }
+                            onChange={(e) =>
+                              handleInputChange('stock', {
+                                ...formData.stock,
+                                [size]: e.target.value === '' ? 0 : parseInt(e.target.value)
+                              })
+                            }
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
                         </div>
@@ -784,9 +929,15 @@ const Add = () => {
                 </label>
                 <input
                   type="number"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   min="0"
-                  value={formData.stock.value || 0}
-                  onChange={(e) => handleInputChange('stock', { value: parseInt(e.target.value) || 0 })}
+                  value={formData.stock?.value === 0 ? '' : formData.stock?.value}
+                  onChange={(e) =>
+                    handleInputChange('stock', {
+                      value: e.target.value === '' ? 0 : parseInt(e.target.value)
+                    })
+                  }
                   className="w-full max-w-xs px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
