@@ -9,6 +9,7 @@ import ScrollToTop from "../components/scrollToTop";
 import { toast } from 'react-toastify';
 import CartModal from '../components/CartModal';
 import StockAlert from '../components/StockAlert';
+import { backendUrl } from '../../../admin/src/App';
 
 const Product = () => {
 
@@ -114,7 +115,7 @@ const Product = () => {
     });
     if (!found) {
       try {
-        const response = await fetch(' /product/single', {
+        const response = await fetch(backendUrl.join('/product/single'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ productId }),
