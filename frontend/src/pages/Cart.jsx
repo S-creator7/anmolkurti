@@ -15,7 +15,6 @@ import { ShoppingBag } from 'lucide-react';
 const Cart = () => {
 
   const { products, currency, cartItems, updateQuantity, navigate, getCartAmount } = useContext(ShopContext);
-  const { appliedCoupon, calculateDiscountedTotal } = useCoupon();
 
   const [cartData, setCartData] = useState([]);
 
@@ -280,14 +279,6 @@ const Cart = () => {
           <div className='w-full lg:w-96'>
             <div className='sticky top-4'>
               <CartTotal />
-              <div className='mt-6'>
-                <button 
-                  onClick={() => navigate('/place-order')} 
-                  className='w-full bg-black text-white text-sm py-4 px-8 hover:bg-gray-800 transition-colors rounded-lg font-medium'
-                >
-                  PROCEED TO CHECKOUT
-                </button>
-              </div>
             </div>
           </div>
         </div>

@@ -9,13 +9,13 @@ import ScrollToTop from "../components/scrollToTop";
 import { toast } from 'react-toastify';
 import CartModal from '../components/CartModal';
 import StockAlert from '../components/StockAlert';
-import { backendUrl } from '../../../admin/src/App';
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 
 const Product = () => {
-
   const { productId } = useParams();
   const navigate = useNavigate();
-  const { products, currency, addToCart, cartItems, setProducts } = useContext(ShopContext);
+  const { products, currency, addToCart, cartItems, setProducts, setDirectBuyItem, directBuyItem, buyNow } = useContext(ShopContext);
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [productData, setProductData] = useState(false);
   const [image, setImage] = useState('')
@@ -24,20 +24,14 @@ const Product = () => {
   const [showCartModal, setShowCartModal] = useState(false);
   const [addedQuantity, setAddedQuantity] = useState(1);
 
-  useEffect(() => {
-    if (!productData.hasSize) {
-      setSize(''); // Clear size selection if product has no size
-    }
-  }, [productData.hasSize])
+  // useEffect(() => {
+  //   console.log("product", product)
+  //   if (!productData.hasSize) {
+  //     setSize(''); 
+  //   }
+  // }, [productData.hasSize])
   const [showFullDescription, setShowFullDescription] = useState(false);
   const [showShareMenu, setShowShareMenu] = useState(false);
-  
-  // Convert stock object to Map if needed
-  const stockMap = productData.hasSize
-    ? (productData.stock instanceof Map ? productData.stock : new Map(Object.entries(productData.stock || {})))
-    : (typeof productData.stock === 'object' && productData.stock !== null && 'value' in productData.stock
-      ? new Map([['', productData.stock.value]])
-      : new Map());
 
   const isInStock = () => {
     if (!productData) return false;
@@ -54,10 +48,7 @@ const Product = () => {
     }
   };
 
-  // Get quantity of selected product and size in cart
-  const cartQuantity = productData.hasSize
-    ? (size && cartItems[productId] && cartItems[productId][size] ? cartItems[productId][size] : 0)
-    : (cartItems[productId] ? cartItems[productId].quantity || 0 : 0);
+
 
   // Handle wishlist toggle
   const handleWishlistToggle = async () => {
@@ -115,7 +106,7 @@ const Product = () => {
     });
     if (!found) {
       try {
-        const response = await fetch(backendUrl.join('/product/single'), {
+        const response = await fetch(`${backendUrl}/product/single`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ productId }),
@@ -141,6 +132,18 @@ const Product = () => {
 
   const handleStockAlert = async (email) => {
     await subscribeStockAlert(productData._id, email);
+  };
+
+
+  const handleBuyNow = async (product) => {
+    if (!isInStock()) {
+    toast.error("Selected size is out of stock!");
+    return;
+  }
+    const success = await buyNow(product, size);
+    if (success) {
+      navigate('/place-order');
+    }
   };
 
   return productData ? (
@@ -322,12 +325,21 @@ const Product = () => {
             )}
           </div>
           <div className="mb-4">
-            <p>Quantity in Cart: {cartQuantity}</p>
+            <p className="text-gray-700 font-medium">
+              Available quantity:&nbsp;
+              {productData.hasSize
+                ? size
+                  ? productData.stock?.[size] || 0
+                  : 'Please select a size'
+                : productData.stock || 0}
+            </p>
           </div>
 
           <div className='flex gap-4 mb-6'>
             <button
               onClick={async () => {
+                    setDirectBuyItem(null)
+
                 try {
                   const success = await addToCart(productData, productData.hasSize ? size : null);
                   if (success) {
@@ -354,7 +366,7 @@ const Product = () => {
                       color: '#dc2626'
                     }
                   });
-                  return; // Stop execution
+                  return;
                 }
                 if (!isInStock()) {
                   toast.error('📦 Out of stock', {
@@ -367,17 +379,10 @@ const Product = () => {
                   return;
                 }
 
-                addToCart(productData, productData.hasSize ? size : null, 1, true);
-                navigate('/place-order', {
-                  state: {
-                    directBuy: true,
-                    productId: productData._id,
-                    size
-                  }
-                });
+                handleBuyNow(productData)
+
               }}
               className='flex-1 bg-hotpink-500 text-white px-8 py-3 text-sm hover:bg-hotpink-600 transition-colors'
-            // disabled={!isInStock() || (productData.hasSize && !size)}
             >
               BUY NOW
             </button>
@@ -391,19 +396,6 @@ const Product = () => {
             size={size}
             quantity={addedQuantity}
           />
-
-          {/* //--- */}
-          {/* <button 
-            onClick={() => {
-              addToCart(productData._id, productData.hasSize ? size : null);
-              navigate('/cart');
-            }} 
-            className='bg-black text-white mx-4 px-12 py-3 text-sm active:bg-gray-700' 
-            disabled={!isInStock()}
-          >
-            BUY NOW
-          </button> */}
-          {/* ///---- */}
 
           <hr className='mt-8 sm:w-4/5' />
           <div className='text-sm text-gray-500 mt-5 flex flex-col gap-1'>

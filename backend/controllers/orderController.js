@@ -949,4 +949,27 @@ export const getRecentOrders = async (req, res) => {
     }
 };
 
-export { verifyStripe, placeOrderStripe, listOrdersPaginated, userOrders, updateStatus, getBestsellers }
+// controllers/orderController.js
+
+const sabpaisaPaymentCallback = async (req, res) => {
+  try {
+    const paymentData = req.body;
+
+    console.log('SabPaisa Payment Callback:', paymentData);
+
+    // TODO: Validate SabPaisa signature (if provided)
+    const { txnStatus, clientTxnId } = paymentData;
+
+    // You can update order status in DB based on txnStatus and clientTxnId
+    // For example:
+    // await OrderModel.updateOne({ clientTxnId }, { paymentStatus: txnStatus });
+
+    res.status(200).json({ success: true, message: 'Callback received' });
+  } catch (error) {
+    console.error('SabPaisa callback error:', error);
+    res.status(500).json({ success: false, message: 'Server error during callback' });
+  }
+};
+
+
+export { verifyStripe, placeOrderStripe, listOrdersPaginated, userOrders, updateStatus, getBestsellers, sabpaisaPaymentCallback }

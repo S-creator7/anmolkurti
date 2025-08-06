@@ -22,7 +22,6 @@ import SearchBar from './components/SearchBar'
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import Verify from './pages/Verify'
-import SabpaisaResponse from './pages/SabpaisaResponse'
 import './styles/theme-components.css'
 import SplashScreen from './components/SplashScreen'
 import { CouponProvider } from './context/CouponContext'
@@ -82,7 +81,6 @@ const App = () => {
                         <Route path='/terms-conditions' element={<TermsConditions />} />
                         <Route path='/guest-tracking' element={<GuestOrderTracking />} />
                         <Route path='/verify' element={<Verify />} />
-                        <Route path='/sabpaisa-response' element={<SabpaisaResponse />} />
                         <Route path='/product-list' element={<ProductList />} />
                       </Routes>
                     </main>

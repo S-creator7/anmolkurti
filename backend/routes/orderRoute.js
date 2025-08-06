@@ -1,5 +1,5 @@
 import express from 'express'
-import {placeOrder, placeOrderStripe, listOrdersPaginated, userOrders, updateStatus, verifyStripe, getBestsellers, getDashboardMetrics, getRecentOrders, placeOrderPaytm, verifyPaytm} from '../controllers/orderController.js'
+import {placeOrder, placeOrderStripe, listOrdersPaginated, userOrders, updateStatus, verifyStripe, getBestsellers, getDashboardMetrics, getRecentOrders, placeOrderPaytm, verifyPaytm, sabpaisaPaymentCallback } from '../controllers/orderController.js'
 import { adminAuth } from '../middleware/auth.js'
 import { auth } from '../middleware/auth.js'
 
@@ -66,5 +66,6 @@ orderRouter.get('/user-orders', auth, userOrders)
 //     res.status(501).json({ success: false, message: "Razorpay verification not implemented" });
 // })
 orderRouter.post('/verify-paytm', optionalAuth, verifyPaytm)
+orderRouter.post('/sabpaisa-callback', sabpaisaPaymentCallback);
 
 export default orderRouter

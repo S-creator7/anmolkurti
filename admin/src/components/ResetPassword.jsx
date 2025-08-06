@@ -56,7 +56,7 @@ const ResetPassword = ({ setToken }) => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post(`${backendUrl}/user/reset-password`, {
+      const response = await axios.post(backendUrl.join(`/user/reset-password`), {
         token,
         newPassword: formData.newPassword
       });
