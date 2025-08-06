@@ -60,7 +60,7 @@ function SabpaisaPaymentGateway(props) {
         transUserPassword={transUserPassword}
         transUserName={transUserName}
         isOpen={isOpen}
-        clientTxnId={uniqid()}
+        clientTxnId={clientTxnId}
         authkey={authkey}
         authiv={authiv}
         payerName={payerName}
