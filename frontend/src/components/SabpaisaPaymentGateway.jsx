@@ -77,7 +77,7 @@ function SabpaisaPaymentGateway(props) {
         programId={programId}
         mcc={mcc}
         label={"Production"}
-        env={'stag'}
+        env={'prod'}
       />
     }</div>
 
