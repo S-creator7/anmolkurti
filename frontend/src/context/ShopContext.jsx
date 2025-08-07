@@ -193,44 +193,6 @@ const ShopContextProvider = (props) => {
     return true;
   };
 
-  //   const getCartCount = () => {
-  //   let totalCount = 0;
-  //   for (const items in cartItems) {
-  //     for (const item in cartItems[items]) {
-  //       try {
-  //         if (cartItems[items][item] > 0) {
-  //           totalCount += cartItems[items][item];
-  //         }
-  //       } catch (error) {
-  //         console.error('Error calculating cart count:', error);
-  //       }
-  //     }
-  //   }
-  //   return totalCount;
-  // };
-
-  //   const getCartAmount = () => {
-  //   let totalAmount = 0;
-  //   for (const items in cartItems) {
-  //     let itemInfo = products.find((product) => product._id === items);
-  //     if (!itemInfo) {
-  //       console.warn(`Product not found for cart item: ${items}`);
-  //       continue;
-  //     }
-
-  //     for (const item in cartItems[items]) {
-  //       try {
-  //         if (cartItems[items][item] > 0) {
-  //           totalAmount += itemInfo.price * cartItems[items][item];
-  //         }
-  //       } catch (error) {
-  //         console.error('Error calculating cart amount:', error);
-  //       }
-  //     }
-  //   }
-  //   return totalAmount;
-  // };
-
   const getCartCount = () => {
     // Prioritize Buy Now item
     if (directBuyItem) return 1;

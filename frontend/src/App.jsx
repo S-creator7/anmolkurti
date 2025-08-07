@@ -28,6 +28,8 @@ import { CouponProvider } from './context/CouponContext'
 import { WishlistProvider } from './context/WishlistContext'
 import ShopContextProvider from './context/ShopContext'
 import Profile from './pages/Profile'
+import PaymentSuccess from './components/PaymentSuccess'
+import PaymentFailure from './components/PaymentFailure'
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -41,7 +43,7 @@ const App = () => {
           <CouponProvider>
             <WishlistProvider>
               <div className='min-h-screen bg-gradient-to-br from-gray-50 to-white'>
-                <ToastContainer 
+                <ToastContainer
                   position="top-right"
                   autoClose={3000}
                   hideProgressBar={false}
@@ -54,14 +56,14 @@ const App = () => {
                   className="mt-20"
                   toastClassName="rounded-2xl shadow-medium"
                 />
-                
+
                 <Navbar />
-                
+
                 {/* Main content with top padding for fixed navbar */}
                 <div className='pt-18'>
                   <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
                     <SearchBar />
-                    
+
                     <main className='min-h-[60vh]'>
                       <Routes>
                         <Route path='/' element={<Home />} />
@@ -82,9 +84,11 @@ const App = () => {
                         <Route path='/guest-tracking' element={<GuestOrderTracking />} />
                         <Route path='/verify' element={<Verify />} />
                         <Route path='/product-list' element={<ProductList />} />
+                        <Route path="/payment/success" element={<PaymentSuccess />} />
+                        <Route path="/payment/failure" element={<PaymentFailure />} />
                       </Routes>
                     </main>
-                    
+
                     <Footer />
                   </div>
                 </div>

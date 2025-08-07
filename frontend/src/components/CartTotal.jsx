@@ -3,11 +3,14 @@ import { ShopContext } from '../context/ShopContext'
 import Title from './Title';
 import CouponCode from './CouponCode';
 import sabpaisaLogo from '../assets/sabpaisa_logo.png'
+import paytmLogo from '../assets/paytm_logo.png'
 import SabpaisaPaymentModal from './SabpaisaPaymentModal';
+import axios from 'axios';
 
 const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
+    let backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-    const { currency, delivery_fee, getCartAmount, cartItems, directBuyItem } = useContext(ShopContext);
+    const { currency, delivery_fee, getCartAmount, cartItems, directBuyItem, formData } = useContext(ShopContext);
     // const [localAppliedCoupon, setLocalAppliedCoupon] = useState(null);
     // Use props if provided (for PlaceOrder), otherwise use local state (for Cart)
     // const appliedCoupon = propAppliedCoupon !== undefined ? propAppliedCoupon : localAppliedCoupon;
@@ -20,6 +23,7 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
 
     let subtotal = 0;
     if (directBuyItem) {
+        console.log("Direct Buy Item", formData)
         subtotal = directBuyItem.price
     } else {
         subtotal = getCartAmount()
@@ -27,7 +31,7 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
     const total = Math.max(0, subtotal - discountAmount + shippingFee);
 
 
-    const [paymentMethod, setPaymentMethod] = useState('sabpaisa');
+    const [paymentMethod, setPaymentMethod] = useState('paytm');
     const [isRedirecting, setIsRedirecting] = useState(false);
     const [showSabpaisaModal, setShowSabpaisaModal] = useState(false);
     // Reset isRedirecting on component mount to allow multiple submissions
@@ -47,6 +51,43 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
 
     const handleCheckoutClick = () => {
         setShowSabpaisaModal(true);
+    };
+
+
+    const initiatePaytmPayment = async () => {
+        const orderId = 'ORDER_' + new Date().getTime();
+        const customerId = 'CUSTOMER_' + new Date().getTime();
+        try {
+            const res = await axios.post(`${backendUrl}/order/paytm/initiate`, {
+                orderId,
+                amount: total.toFixed(2),
+                customerId,
+                mobileNo: formData.phone,
+                emailId: formData.email
+            });
+            console.log("Response", res)
+
+
+            const { paymentData, paytm_url } = res.data;
+
+            const form = document.createElement("form");
+            form.method = "POST";
+            form.action = paytm_url;
+
+            for (const key in paymentData) {
+                const input = document.createElement("input");
+                input.type = "hidden";
+                input.name = key;
+                input.value = paymentData[key];
+                form.appendChild(input);
+            }
+
+            document.body.appendChild(form);
+            form.submit();
+        } catch (error) {
+            console.error("Paytm Error:", error);
+            alert("Payment failed. Try again.");
+        }
     };
 
     return (
@@ -102,13 +143,21 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
 
                     <div onClick={() => setPaymentMethod('sabpaisa')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
                         <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'sabpaisa' ? 'bg-green-400' : ''}`}></p>
-                        {/* <p className='text-gray-500 text-sm font-medium mx-3'>Online Payment (SabPaisa)</p> */}
                         <img
                             src={sabpaisaLogo}
                             alt="SabPaisa Logo"
                             className="h-6 mx-3"
                         />
 
+                    </div>
+                    <div onClick={() => setPaymentMethod('paytm')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+                        <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'paytm' ? 'bg-green-400' : ''}`}></p>
+                        {/* <p className='text-gray-500 text-sm font-medium mx-3'>Paytm</p> */}
+                        <img
+                            src={paytmLogo}
+                            alt="SabPaisa Logo"
+                            className="h-6 mx-3"
+                        />
                     </div>
 
                 </div>
@@ -134,7 +183,7 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
                             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             : 'bg-black text-white hover:bg-gray-800'
                             }`}
-                        onClick={handleCheckoutClick}
+                        onClick={paymentMethod === 'paytm' ? initiatePaytmPayment : handleCheckoutClick}
 
                     >
                         {hasCriticalStockIssues

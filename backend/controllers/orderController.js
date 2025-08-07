@@ -3,32 +3,18 @@ dotenv.config();
 
 import orderModel from "../models/orderModel.js";
 import userModel from "../models/userModel.js";
-/*
-import Stripe from 'stripe'
-import razorpay from 'razorpay'
-*/
-import crypto from 'crypto';
-import shortid from "shortid";
 import tempOrderModel from "../models/tempOrderModel.js"
 import productModel from "../models/productModel.js";
 import couponModel from "../models/couponModel.js";
 
 import https from 'https';
 import querystring from 'querystring';
+import PaytmChecksum from "paytmchecksum";
+import axios from "axios";
 
 // global variables
 const currency = 'inr';
 const deliveryCharge = 10;
-
-/*
-// gateway initialize
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-
-const razorpayInstance = new razorpay({
-    key_id: process.env.RAZORPAY_KEY_ID || '',
-    key_secret: process.env.RAZORPAY_SECRET_KEY || '',
-});
-*/
 
 
 
@@ -36,7 +22,7 @@ const razorpayInstance = new razorpay({
 export const placeOrder = async (req, res) => {
     try {
         const { items, address, amount, couponCode, isGuest, guestInfo } = req.body;
-        
+
         // Handle both guest and authenticated users
         let userId = null;
         if (!isGuest && req.user) {
@@ -49,9 +35,9 @@ export const placeOrder = async (req, res) => {
 
         // Validate guest checkout requirements
         if (isGuest && (!guestInfo || !guestInfo.email || !guestInfo.phone || !guestInfo.name)) {
-            return res.status(400).json({ 
-                success: false, 
-                message: "Guest information (name, email, phone) is required for guest checkout" 
+            return res.status(400).json({
+                success: false,
+                message: "Guest information (name, email, phone) is required for guest checkout"
             });
         }
 
@@ -76,30 +62,30 @@ export const placeOrder = async (req, res) => {
         // Apply coupon if provided
         let discountAmount = 0;
         if (couponCode) {
-            const coupon = await couponModel.findOne({ 
-                code: couponCode, 
+            const coupon = await couponModel.findOne({
+                code: couponCode,
                 isActive: true,
                 validFrom: { $lte: new Date() },
                 validUntil: { $gte: new Date() }
             });
-            
+
             if (coupon) {
                 // Check minimum order amount
                 if (totalAmount < coupon.minimumOrderAmount) {
-                    return res.status(400).json({ 
-                        success: false, 
-                        message: `Minimum order amount of ₹${coupon.minimumOrderAmount} required for this coupon` 
+                    return res.status(400).json({
+                        success: false,
+                        message: `Minimum order amount of ₹${coupon.minimumOrderAmount} required for this coupon`
                     });
                 }
-                
+
                 // Check usage limit
                 if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-                    return res.status(400).json({ 
-                        success: false, 
-                        message: 'Coupon usage limit exceeded' 
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Coupon usage limit exceeded'
                     });
                 }
-                
+
                 // Calculate discount
                 if (coupon.discountType === 'percentage') {
                     discountAmount = (totalAmount * coupon.discountValue) / 100;
@@ -110,17 +96,17 @@ export const placeOrder = async (req, res) => {
                 } else {
                     discountAmount = coupon.discountValue;
                 }
-                
+
                 totalAmount -= discountAmount;
-                
+
                 // Update coupon usage count
                 await couponModel.findByIdAndUpdate(coupon._id, {
                     $inc: { usedCount: 1 }
                 });
             } else {
-                return res.status(400).json({ 
-                    success: false, 
-                    message: 'Invalid or expired coupon code' 
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid or expired coupon code'
                 });
             }
         }
@@ -171,316 +157,54 @@ export const placeOrder = async (req, res) => {
     }
 };
 
-// Placing orders using Stripe Method
-const placeOrderStripe = async (req, res) => {
-    try {
-
-        const { userId, items, amount, address, isGuest, guestInfo } = req.body
-        const { origin } = req.headers;
-
-        // Validate required fields based on user type
-        if (!isGuest && !userId) {
-            return res.status(400).json({ success: false, message: "User ID is required for registered users" });
-        }
-
-        if (isGuest && (!guestInfo || !guestInfo.email || !guestInfo.phone || !guestInfo.name)) {
-            return res.status(400).json({ success: false, message: "Guest information (name, email, phone) is required for guest checkout" });
-        }
-
-        // ✅ Add stock validation before creating Stripe order
-        const stockValidation = await validateStockAvailability(items);
-        if (!stockValidation.success) {
-            return res.status(400).json({ success: false, message: stockValidation.message });
-        }
-
-        // Create order data based on user type
-        const orderData = {
-            items,
-            address,
-            amount,
-            paymentMethod: "Stripe",
-            payment: false,
-            date: Date.now(),
-            isGuest: isGuest || false
-        };
-
-        if (isGuest) {
-            orderData.guestInfo = guestInfo;
-            orderData.orderType = 'guest';
-        } else {
-            orderData.userId = userId;
-            orderData.orderType = 'regular';
-        }
-
-        const newOrder = new orderModel(orderData)
-        await newOrder.save()
-
-        const line_items = items.map((item) => ({
-            price_data: {
-                currency: currency,
-                product_data: {
-                    name: item.name
-                },
-                unit_amount: item.price * 100
-            },
-            quantity: item.quantity
-        }))
-
-        line_items.push({
-            price_data: {
-                currency: currency,
-                product_data: {
-                    name: 'Delivery Charges'
-                },
-                unit_amount: deliveryCharge * 100
-            },
-            quantity: 1
-        })
-
-        const session = await stripe.checkout.sessions.create({
-            success_url: `${origin}/verify?success=true&orderId=${newOrder._id}`,
-            cancel_url: `${origin}/verify?success=false&orderId=${newOrder._id}`,
-            line_items: line_items,
-            mode: 'payment',
-        })
-
-        res.json({ success: true, session_url: session.url });
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-
-}
-
-// Verify Stripe 
-const verifyStripe = async (req, res) => {
-
-    const { orderId, success, userId } = req.body
-
-    try {
-        if (success === "true") {
-            const order = await orderModel.findById(orderId);
-            if (!order) {
-                return res.json({ success: false, message: "Order not found" });
-            }
-
-            // ✅ Re-validate stock at payment verification time
-            const stockValidation = await validateStockAvailability(order.items);
-            if (!stockValidation.success) {
-                return res.status(400).json({ success: false, message: `Payment successful but order cannot be completed: ${stockValidation.message}` });
-            }
-
-            await orderModel.findByIdAndUpdate(orderId, { payment: true });
-            
-            // Clear cart only for registered users (guests don't have persistent carts)
-            if (!order.isGuest && userId) {
-                await userModel.findByIdAndUpdate(userId, { cartData: {} })
-            }
-            
-            await updateStock(order.items); // Deduct stock
-            res.json({ success: true });
-        } else {
-            await orderModel.findByIdAndDelete(orderId)
-            res.json({ success: false })
-        }
-
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-
-}
-
-// Placing orders using Paytm Method
-export const placeOrderPaytm = async (req, res) => {
-    try {
-        const { userId, items, amount, address, isGuest, guestInfo } = req.body;
-
-        // Validate required fields based on user type
-        if (!isGuest && !userId) {
-            return res.status(400).json({ success: false, message: "User ID is required for registered users" });
-        }
-
-        if (isGuest && (!guestInfo || !guestInfo.email || !guestInfo.phone || !guestInfo.name)) {
-            return res.status(400).json({ success: false, message: "Guest information (name, email, phone) is required for guest checkout" });
-        }
-
-        // Validate stock availability
-        const stockValidation = await validateStockAvailability(items);
-        if (!stockValidation.success) {
-            return res.status(400).json({ success: false, message: stockValidation.message });
-        }
-
-        // Create order data with paymentMethod Paytm and payment false
-        const orderData = {
-            items,
-            address,
-            amount,
-            paymentMethod: "Paytm",
-            payment: false,
-            date: Date.now(),
-            isGuest: isGuest || false
-        };
-
-        if (isGuest) {
-            orderData.guestInfo = guestInfo;
-            orderData.orderType = 'guest';
-        } else {
-            orderData.userId = userId;
-            orderData.orderType = 'regular';
-        }
-
-        const newOrder = new orderModel(orderData);
-        await newOrder.save();
-
-        // Prepare Paytm payment parameters
-        const paytmParams = {
-            MID: process.env.PAYTM_MERCHANT_ID,
-            WEBSITE: process.env.PAYTM_WEBSITE,
-            INDUSTRY_TYPE_ID: process.env.PAYTM_INDUSTRY_TYPE_ID,
-            CHANNEL_ID: process.env.PAYTM_CHANNEL_ID,
-            ORDER_ID: newOrder._id.toString(),
-            CUST_ID: isGuest ? guestInfo.email : userId,
-            TXN_AMOUNT: amount.toString(),
-            CALLBACK_URL: process.env.PAYTM_CALLBACK_URL,
-        };
-
-        // Generate checksum hash for Paytm request
-        const checksumLib = await import('paytmchecksum');
-        const checksum = await checksumLib.generateSignature(paytmParams, process.env.PAYTM_MERCHANT_KEY);
-
-        paytmParams.CHECKSUMHASH = checksum;
-
-        res.json({ success: true, paytmParams });
-
-    } catch (error) {
-        console.error("Paytm order creation error:", error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-// Verify Paytm payment
-export const verifyPaytm = async (req, res) => {
-    try {
-        const paytmChecksum = req.body.CHECKSUMHASH;
-        const paytmParams = { ...req.body };
-        delete paytmParams.CHECKSUMHASH;
-
-        const checksumLib = await import('paytmchecksum');
-        const isValidChecksum = await checksumLib.verifySignature(paytmParams, process.env.PAYTM_MERCHANT_KEY, paytmChecksum);
-
-        if (!isValidChecksum) {
-            return res.status(400).json({ success: false, message: "Checksum verification failed" });
-        }
-
-        const { ORDERID, STATUS, TXNID } = req.body;
-
-        if (STATUS !== "TXN_SUCCESS") {
-            return res.status(400).json({ success: false, message: "Transaction failed" });
-        }
-
-        // Fetch order by ORDERID
-        const order = await orderModel.findById(ORDERID);
-        if (!order) {
-            return res.status(404).json({ success: false, message: "Order not found" });
-        }
-
-        // Re-validate stock
-        const stockValidation = await validateStockAvailability(order.items);
-        if (!stockValidation.success) {
-            return res.status(400).json({ success: false, message: `Payment successful but order cannot be completed: ${stockValidation.message}` });
-        }
-
-        // Update order payment status
-        order.payment = true;
-        order.paymentId = TXNID;
-        await order.save();
-
-        // Clear cart for registered users
-        if (!order.isGuest && order.userId) {
-            await userModel.findByIdAndUpdate(order.userId, { cartData: {} });
-        }
-
-        await updateStock(order.items);
-
-        res.json({ success: true, message: "Payment Successful" });
-
-    } catch (error) {
-        console.error("Paytm verification error:", error);
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
-
-
-
-// const verifyRazorpay = async (req,res) => {
-//     try {
-
-//         const { userId, razorpay_order_id  } = req.body
-
-//         const orderInfo = await razorpayInstance.orders.fetch(razorpay_order_id)
-//         if (orderInfo.status === 'paid') {
-//             await orderModel.findByIdAndUpdate(orderInfo.receipt,{payment:true});
-//             await userModel.findByIdAndUpdate(userId,{cartData:{}})
-//             res.json({ success: true, message: "Payment Successful" })
-//         } else {
-//              res.json({ success: false, message: 'Payment Failed' });
-//         }
-
-//     } catch (error) {
-//         console.log(error)
-//         res.json({success:false,message:error.message})
-//     }
-// }
 
 
 const listOrdersPaginated = async (req, res) => {
-  try {
-    let { page = 1, limit = 10 } = req.body;
-    page = parseInt(page);
-    limit = parseInt(limit);
+    try {
+        let { page = 1, limit = 10 } = req.body;
+        page = parseInt(page);
+        limit = parseInt(limit);
 
-    const total = await orderModel.countDocuments();
+        const total = await orderModel.countDocuments();
 
-    const orders = await orderModel.find({})
-      .sort({ date: -1 })
-      .skip((page - 1) * limit)
-      .limit(limit);
+        const orders = await orderModel.find({})
+            .sort({ date: -1 })
+            .skip((page - 1) * limit)
+            .limit(limit);
 
-    // Transform orders to include customer info for display
-    const transformedOrders = orders.map(order => {
-      const orderObj = order.toObject();
+        // Transform orders to include customer info for display
+        const transformedOrders = orders.map(order => {
+            const orderObj = order.toObject();
 
-      if (order.isGuest) {
-        orderObj.customerInfo = {
-          name: order.guestInfo.name,
-          email: order.guestInfo.email,
-          phone: order.guestInfo.phone,
-          type: 'Guest'
-        };
-      } else {
-        orderObj.customerInfo = {
-          userId: order.userId,
-          type: 'Registered'
-        };
-      }
+            if (order.isGuest) {
+                orderObj.customerInfo = {
+                    name: order.guestInfo.name,
+                    email: order.guestInfo.email,
+                    phone: order.guestInfo.phone,
+                    type: 'Guest'
+                };
+            } else {
+                orderObj.customerInfo = {
+                    userId: order.userId,
+                    type: 'Registered'
+                };
+            }
 
-      return orderObj;
-    });
+            return orderObj;
+        });
 
-    res.json({
-      success: true,
-      orders: transformedOrders,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      totalOrders: total
-    });
+        res.json({
+            success: true,
+            orders: transformedOrders,
+            totalPages: Math.ceil(total / limit),
+            currentPage: page,
+            totalOrders: total
+        });
 
-  } catch (error) {
-    console.log(error);
-    res.json({ success: false, message: error.message });
-  }
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
 };
 
 // User Order Data For Frontend
@@ -507,7 +231,7 @@ export const guestOrderTracking = async (req, res) => {
             return res.json({ success: false, message: "Email or phone number is required" });
         }
 
-        const query = { 
+        const query = {
             isGuest: true,
             $or: []
         };
@@ -515,13 +239,13 @@ export const guestOrderTracking = async (req, res) => {
         if (email) {
             query.$or.push({ 'guestInfo.email': email });
         }
-        
+
         if (phone) {
             query.$or.push({ 'guestInfo.phone': phone });
         }
 
         const orders = await orderModel.find(query).sort({ date: -1 });
-        
+
         res.json({ success: true, orders });
 
     } catch (error) {
@@ -558,7 +282,7 @@ async function updateStock(items) {
             const size = item.size;
             const quantity = item.quantity || 0;
             const currentStock = product.stock?.[size] || 0;
-            
+
             // ✅ More robust stock update with proper object handling
             if (!product.stock) product.stock = {};
             product.stock[size] = Math.max(0, currentStock - quantity);
@@ -586,7 +310,7 @@ async function validateStockAvailability(items) {
             const size = item.size;
             const quantity = item.quantity || 0;
             const currentStock = product.stock?.[size] || 0;
-            
+
             // Industry standard: Allow slight overselling but block major issues
             if (currentStock <= 0) {
                 return { success: false, message: `${product.name} (Size: ${size}) is out of stock` };
@@ -598,7 +322,7 @@ async function validateStockAvailability(items) {
         } else {
             const quantity = item.quantity || 0;
             const currentStock = typeof product.stock === 'number' ? product.stock : 0;
-            
+
             // Industry standard: Allow slight overselling but block major issues  
             if (currentStock <= 0) {
                 return { success: false, message: `${product.name} is out of stock` };
@@ -612,47 +336,47 @@ async function validateStockAvailability(items) {
     return { success: true };
 }
 
-import mongoose from 'mongoose';
 
 const getBestsellers = async (req, res) => {
-  try {
-    // Aggregate order items to count total quantity sold per product
-    const bestsellers = await orderModel.aggregate([
-      { $unwind: "$items" },
-      { $group: {
-          _id: "$items.id",
-          totalQuantity: { $sum: "$items.quantity" },
-          totalRevenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } }
-        }
-      },
-      { $sort: { totalQuantity: -1 } },
-      { $limit: 10 },
-      {
-        $lookup: {
-          from: "products",
-          localField: "_id",
-          foreignField: "_id",
-          as: "product"
-        }
-      },
-      { $unwind: "$product" },
-      {
-        $project: {
-          _id: 1,
-          totalQuantity: 1,
-          totalRevenue: 1,
-          productName: "$product.name",
-          category: "$product.category",
-          price: "$product.price",
-          image: "$product.image"  // Return the full image array
-        }
-      }
-    ]);
-    res.json({ success: true, bestsellers });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ success: false, message: error.message });
-  }
+    try {
+        // Aggregate order items to count total quantity sold per product
+        const bestsellers = await orderModel.aggregate([
+            { $unwind: "$items" },
+            {
+                $group: {
+                    _id: "$items.id",
+                    totalQuantity: { $sum: "$items.quantity" },
+                    totalRevenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } }
+                }
+            },
+            { $sort: { totalQuantity: -1 } },
+            { $limit: 10 },
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "_id",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
+            { $unwind: "$product" },
+            {
+                $project: {
+                    _id: 1,
+                    totalQuantity: 1,
+                    totalRevenue: 1,
+                    productName: "$product.name",
+                    category: "$product.category",
+                    price: "$product.price",
+                    image: "$product.image"  // Return the full image array
+                }
+            }
+        ]);
+        res.json({ success: true, bestsellers });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: error.message });
+    }
 };
 
 // Get dashboard metrics
@@ -678,10 +402,10 @@ export const getDashboardMetrics = async (req, res) => {
 
         // Enhanced revenue metrics with growth calculations
         const [
-            totalRevenue, 
-            todayRevenue, 
+            totalRevenue,
+            todayRevenue,
             yesterdayRevenue,
-            weeklyRevenue, 
+            weeklyRevenue,
             lastWeekRevenue,
             monthlyRevenue,
             lastMonthRevenue,
@@ -695,76 +419,96 @@ export const getDashboardMetrics = async (req, res) => {
             ]),
             // Today's revenue
             orderModel.aggregate([
-                { $match: { 
-                    date: { $gte: today.getTime() },
-                    status: { $ne: 'cancelled' }
-                } },
+                {
+                    $match: {
+                        date: { $gte: today.getTime() },
+                        status: { $ne: 'cancelled' }
+                    }
+                },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             // Yesterday's revenue
             orderModel.aggregate([
-                { $match: { 
-                    date: { $gte: yesterday.getTime(), $lt: today.getTime() },
-                    status: { $ne: 'cancelled' }
-                } },
+                {
+                    $match: {
+                        date: { $gte: yesterday.getTime(), $lt: today.getTime() },
+                        status: { $ne: 'cancelled' }
+                    }
+                },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             // This week's revenue
             orderModel.aggregate([
-                { $match: { 
-                    date: { $gte: weekStart.getTime() },
-                    status: { $ne: 'cancelled' }
-                } },
+                {
+                    $match: {
+                        date: { $gte: weekStart.getTime() },
+                        status: { $ne: 'cancelled' }
+                    }
+                },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             // Last week's revenue
             orderModel.aggregate([
-                { $match: { 
-                    date: { $gte: lastWeekStart.getTime(), $lt: weekStart.getTime() },
-                    status: { $ne: 'cancelled' }
-                } },
+                {
+                    $match: {
+                        date: { $gte: lastWeekStart.getTime(), $lt: weekStart.getTime() },
+                        status: { $ne: 'cancelled' }
+                    }
+                },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             // This month's revenue
             orderModel.aggregate([
-                { $match: { 
-                    date: { $gte: monthStart.getTime() },
-                    status: { $ne: 'cancelled' }
-                } },
+                {
+                    $match: {
+                        date: { $gte: monthStart.getTime() },
+                        status: { $ne: 'cancelled' }
+                    }
+                },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             // Last month's revenue
             orderModel.aggregate([
-                { $match: { 
-                    date: { $gte: lastMonthStart.getTime(), $lt: monthStart.getTime() },
-                    status: { $ne: 'cancelled' }
-                } },
+                {
+                    $match: {
+                        date: { $gte: lastMonthStart.getTime(), $lt: monthStart.getTime() },
+                        status: { $ne: 'cancelled' }
+                    }
+                },
                 { $group: { _id: null, total: { $sum: '$amount' } } }
             ]),
             // Daily revenue for last 7 days
             orderModel.aggregate([
-                { $match: { 
-                    date: { $gte: weekStart.getTime() },
-                    status: { $ne: 'cancelled' }
-                } },
-                { $group: {
-                    _id: { $dateToString: { format: "%Y-%m-%d", date: { $toDate: "$date" } } },
-                    revenue: { $sum: '$amount' },
-                    orders: { $sum: 1 }
-                }},
+                {
+                    $match: {
+                        date: { $gte: weekStart.getTime() },
+                        status: { $ne: 'cancelled' }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: { $toDate: "$date" } } },
+                        revenue: { $sum: '$amount' },
+                        orders: { $sum: 1 }
+                    }
+                },
                 { $sort: { _id: 1 } }
             ]),
             // Monthly revenue for last 6 months
             orderModel.aggregate([
-                { $match: { 
-                    date: { $gte: new Date(today.getFullYear(), today.getMonth() - 6, 1).getTime() },
-                    status: { $ne: 'cancelled' }
-                } },
-                { $group: {
-                    _id: { $dateToString: { format: "%Y-%m", date: { $toDate: "$date" } } },
-                    revenue: { $sum: '$amount' },
-                    orders: { $sum: 1 }
-                }},
+                {
+                    $match: {
+                        date: { $gte: new Date(today.getFullYear(), today.getMonth() - 6, 1).getTime() },
+                        status: { $ne: 'cancelled' }
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $dateToString: { format: "%Y-%m", date: { $toDate: "$date" } } },
+                        revenue: { $sum: '$amount' },
+                        orders: { $sum: 1 }
+                    }
+                },
                 { $sort: { _id: 1 } }
             ])
         ]);
@@ -812,7 +556,7 @@ export const getDashboardMetrics = async (req, res) => {
         // Get product metrics
         const [totalProducts, outOfStock, lowStock] = await Promise.all([
             productModel.countDocuments({}),
-            productModel.countDocuments({ 
+            productModel.countDocuments({
                 $or: [
                     { hasSize: false, stock: 0 },
                     { hasSize: true, stock: { $size: 0 } }
@@ -835,19 +579,23 @@ export const getDashboardMetrics = async (req, res) => {
         // Get top performing categories
         const topCategories = await orderModel.aggregate([
             { $unwind: "$items" },
-            { $lookup: {
-                from: "products",
-                localField: "items._id",
-                foreignField: "_id",
-                as: "product"
-            }},
+            {
+                $lookup: {
+                    from: "products",
+                    localField: "items._id",
+                    foreignField: "_id",
+                    as: "product"
+                }
+            },
             { $unwind: "$product" },
             { $match: { status: { $ne: 'cancelled' } } },
-            { $group: {
-                _id: "$product.category",
-                revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
-                orders: { $sum: 1 }
-            }},
+            {
+                $group: {
+                    _id: "$product.category",
+                    revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+                    orders: { $sum: 1 }
+                }
+            },
             { $sort: { revenue: -1 } },
             { $limit: 5 }
         ]);
@@ -897,7 +645,7 @@ export const getDashboardMetrics = async (req, res) => {
             },
             analytics: {
                 topCategories,
-                averageOrderValue: orderMetrics.reduce((acc, curr) => acc + curr.revenue, 0) / 
+                averageOrderValue: orderMetrics.reduce((acc, curr) => acc + curr.revenue, 0) /
                     orderMetrics.reduce((acc, curr) => acc + curr.count, 0) || 0
             }
         };
@@ -952,24 +700,132 @@ export const getRecentOrders = async (req, res) => {
 // controllers/orderController.js
 
 const sabpaisaPaymentCallback = async (req, res) => {
-  try {
-    const paymentData = req.body;
+    try {
+        const paymentData = req.body;
 
-    console.log('SabPaisa Payment Callback:', paymentData);
+        console.log('SabPaisa Payment Callback:', paymentData);
 
-    // TODO: Validate SabPaisa signature (if provided)
-    const { txnStatus, clientTxnId } = paymentData;
+        // TODO: Validate SabPaisa signature (if provided)
+        const { txnStatus, clientTxnId } = paymentData;
 
-    // You can update order status in DB based on txnStatus and clientTxnId
-    // For example:
-    // await OrderModel.updateOne({ clientTxnId }, { paymentStatus: txnStatus });
+        // You can update order status in DB based on txnStatus and clientTxnId
+        // For example:
+        // await OrderModel.updateOne({ clientTxnId }, { paymentStatus: txnStatus });
 
-    res.status(200).json({ success: true, message: 'Callback received' });
-  } catch (error) {
-    console.error('SabPaisa callback error:', error);
-    res.status(500).json({ success: false, message: 'Server error during callback' });
-  }
+        res.status(200).json({ success: true, message: 'Callback received' });
+    } catch (error) {
+        console.error('SabPaisa callback error:', error);
+        res.status(500).json({ success: false, message: 'Server error during callback' });
+    }
+};
+
+export const paytmInitiatePayment = async (req, res) => {
+    try {
+        const { amount, orderId, customerId, mobileNo, emailId } = req.body;
+        console.log("Paytm init", req.body)
+
+        const paytmParams = {
+            MID: process.env.PAYTM_MID,
+            WEBSITE: process.env.PAYTM_WEBSITE,
+            INDUSTRY_TYPE_ID: process.env.PAYTM_INDUSTRY_TYPE_ID,
+            CHANNEL_ID: process.env.PAYTM_CHANNEL_ID,
+            ORDER_ID: orderId,
+            CUST_ID: customerId,
+            TXN_AMOUNT: String(amount),
+            CALLBACK_URL: process.env.PAYTM_CALLBACK_URL,
+            MOBILE_NO: mobileNo, 
+            EMAIL: emailId, 
+        };
+
+        const checksum = await PaytmChecksum.generateSignature(
+            paytmParams,
+            process.env.PAYTM_MERCHANT_KEY
+        );
+
+        const paymentData = {
+            ...paytmParams,
+            CHECKSUMHASH: checksum,
+        };
+
+        res.json({
+            success: true,
+            paymentData,
+            paytm_url: "https://securegw-stage.paytm.in/order/process",
+        });
+    } catch (error) {
+        console.error("Paytm Initiate Payment Error:", error);
+        res.status(500).json({ success: false, message: "Failed to initiate payment" });
+    }
+};
+
+export const paytmCallback = async (req, res) => {
+    try {
+        const received_data = req.body;
+        const paytmChecksum = received_data.CHECKSUMHASH;
+        delete received_data.CHECKSUMHASH;
+
+        const isVerifySignature = PaytmChecksum.verifySignature(
+            received_data,
+            process.env.PAYTM_MERCHANT_KEY,
+            paytmChecksum
+        );
+
+        if (!isVerifySignature) {
+            return res.status(400).send("Checksum mismatched");
+        }
+
+        // Verify transaction status with Paytm
+        const params = {
+            MID: process.env.PAYTM_MID,
+            ORDERID: received_data.ORDERID,
+        };
+
+        const checksum = await PaytmChecksum.generateSignature(params, process.env.PAYTM_MERCHANT_KEY);
+
+        const post_data = JSON.stringify({
+            ...params,
+            CHECKSUMHASH: checksum,
+        });
+
+        const options = {
+            hostname: "securegw-stage.paytm.in",
+            port: 443,
+            path: "/order/status",
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Content-Length": post_data.length,
+            },
+        };
+
+        let responseData = "";
+        const verifyReq = https.request(options, (verifyRes) => {
+            verifyRes.on("data", (chunk) => {
+                responseData += chunk;
+            });
+
+            verifyRes.on("end", () => {
+                const result = JSON.parse(responseData);
+                console.log("Paytm Payment Verification:", result);
+
+                if (txnStatus === 'SUCCESS') {
+                    // Save txn details to temp order or redirect to frontend
+                    return res.redirect(`${process.env.FRONTEND_URL}/payment/success?txnId=${clientTxnId}`);
+                } else {
+                    return res.redirect(`${process.env.FRONTEND_URL}/payment/failure`);
+                }
+
+            });
+        });
+
+        verifyReq.write(post_data);
+        verifyReq.end();
+    } catch (error) {
+        console.error("Paytm Callback Error:", error);
+        res.status(500).send("Server error");
+    }
 };
 
 
-export { verifyStripe, placeOrderStripe, listOrdersPaginated, userOrders, updateStatus, getBestsellers, sabpaisaPaymentCallback }
+
+export { listOrdersPaginated, userOrders, updateStatus, getBestsellers, sabpaisaPaymentCallback }
