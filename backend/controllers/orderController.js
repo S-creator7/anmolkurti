@@ -21,7 +21,7 @@ const deliveryCharge = 10;
 // Placing orders using COD Method
 export const placeOrder = async (req, res) => {
     try {
-        const { items, address, amount, couponCode, isGuest, guestInfo } = req.body;
+        const { items, address, amount, couponCode, isGuest, guestInfo, utrNumber } = req.body;
 
         // Handle both guest and authenticated users
         let userId = null;
@@ -121,7 +121,8 @@ export const placeOrder = async (req, res) => {
             payment: false,
             date: Date.now(),
             couponCode: couponCode || null,
-            isGuest: isGuest || false
+            isGuest: isGuest || false,
+            utrNumber: utrNumber || null
         };
 
         // Add user or guest info

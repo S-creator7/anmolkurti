@@ -16,7 +16,9 @@
 
 import mongoose from "mongoose";
 import dotenv from 'dotenv';
-dotenv.config();
+// dotenv.config();
+import path from 'path';
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
 
 const connectDB = async () => {
   try {
