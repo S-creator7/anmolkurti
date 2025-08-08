@@ -243,6 +243,11 @@ const ShopContextProvider = (props) => {
     return totalAmount;
   };
 
+  const clearCart = () => {
+  setCartItems({});
+  setDirectBuyItem(null);
+};
+
   // Function to refresh stock data for all products
   const refreshProductStock = async () => {
     try {
@@ -433,6 +438,7 @@ const ShopContextProvider = (props) => {
 
     formData,
     setFormData,
+    clearCart
   };
 
   return <ShopContext.Provider value={value}>{props.children}</ShopContext.Provider>;

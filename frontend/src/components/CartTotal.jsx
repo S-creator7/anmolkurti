@@ -18,6 +18,8 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
     cartItems,
     directBuyItem,
     formData,
+    products,
+    clearCart
   } = useContext(ShopContext);
   // const [localAppliedCoupon, setLocalAppliedCoupon] = useState(null);
   // Use props if provided (for PlaceOrder), otherwise use local state (for Cart)
@@ -148,6 +150,28 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
       document.body.appendChild(script);
     });
   };
+  const buildCartItemsArray = (cartItems, products) => {
+    const itemsArray = [];
+    for (const productId in cartItems) {
+      const sizesObj = cartItems[productId];
+      for (const size in sizesObj) {
+        const quantity = sizesObj[size];
+        if (quantity > 0) {
+          const product = products.find(p => p._id === productId);
+          if (product) {
+            itemsArray.push({
+              _id: productId,
+              name: product.name,
+              size: size, // use the cart size key here
+              quantity: quantity,
+            });
+          }
+        }
+      }
+    }
+    return itemsArray;
+  };
+
 
   const handleRazorpayPayment = async () => {
     const loaded = await loadRazorpay();
@@ -155,9 +179,11 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
       alert("Razorpay SDK failed to load.");
       return;
     }
-    console.log("Token:", token, checkoutMode)
-
+    console.log("Direct Buy Item:", directBuyItem)
+    console.log("Cart Items:", buildCartItemsArray(cartItems, products))
+    console.log("Form data", formData)
     try {
+      // Step 1: Create Razorpay Order
       const { data } = await axios.post(
         `${backendUrl}/order/razorpay/create-order`,
         {
@@ -168,36 +194,59 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
           headers: checkoutMode === "login" ? { token } : {},
         }
       );
-
-
-      console.log("Create Order Response:", data);
+      const items = directBuyItem
+        ? [{
+          _id: directBuyItem._id,
+          name: directBuyItem.name,
+          size: directBuyItem.selectedSize, // correct for direct buy
+          quantity: directBuyItem.quantity,
+        }]
+        : buildCartItemsArray(cartItems, products); // where buildCartItemsArray uses size keys from cartItems
 
       const options = {
         key: data.key,
         amount: data.amount,
         currency: data.currency,
-        name: "Your Store Name",
+        name: "Your Store",
         description: "Order Payment",
         order_id: data.orderId,
         handler: async function (response) {
-          const res = await axios.post(`${backendUrl}/order/razorpay/verify-payment`, {
-            razorpay_order_id: response.razorpay_order_id,
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_signature: response.razorpay_signature,
-            orderData: {
-              items: directBuyItem ? [directBuyItem] : cartItems,
-              address: formData.address,
-              couponCode: appliedCoupon?.code,
+          const res = await axios.post(
+            `${backendUrl}/order/razorpay/verify-payment`,
+            {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
               isGuest: checkoutMode === "guest",
-              guestInfo: checkoutMode === "guest" ? formData : null
-            }
-          });
+              orderData: {
+                items,
+                address: {
+                  street: formData.street,
+                  city: formData.city,
+                  state: formData.state,
+                  zipcode: formData.zipcode,
+                  country: formData.country,
+                },
+                couponCode: appliedCoupon?.code,
+                isGuest: checkoutMode === "guest",
+                guestInfo: checkoutMode === "guest" ? formData : null
+              }
 
+            },
+            {
+              headers: checkoutMode === "login" ? { token } : {},
+            }
+          );
+
+          console.log("Success response", res)
           if (res.data.success) {
             clearCart();
-            navigate(`/order-success/${res.data.orderId}`);
+            console.log("Navigating to order success page");
+            navigate(`/order-success?orderId=${res.data.orderId}`);
           } else {
+            console.log("")
             alert(res.data.message);
+            navigate('/order-failure')
           }
         },
         prefill: {
@@ -210,6 +259,7 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
 
       const rzp = new window.Razorpay(options);
       rzp.open();
+
     } catch (error) {
       console.error(error);
       alert("Payment initiation failed.");
