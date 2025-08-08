@@ -8,9 +8,9 @@ import razorPayLogo from '../assets/razorpay_logo.png'
 import SabpaisaPaymentModal from "./SabpaisaPaymentModal";
 import axios from "axios";
 
-const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
-  let backendUrl = import.meta.env.VITE_BACKEND_URL;
-
+const CartTotal = ({ hasCriticalStockIssues }) => {
+  const { backendUrl, token, navigate } = useContext(ShopContext)
+  const isLoggedIn = !!token;
   const {
     currency,
     delivery_fee,
@@ -74,10 +74,20 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
     }
   };
 
+
   const [paymentMethod, setPaymentMethod] = useState("razorPay");
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [showSabpaisaModal, setShowSabpaisaModal] = useState(false);
   // Reset isRedirecting on component mount to allow multiple submissions
+  const [checkoutMode, setCheckoutMode] = useState(null); // 'guest' or 'login'
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      setCheckoutMode('login');
+    } else if (checkoutMode === null) {
+      setCheckoutMode('guest'); // Default to guest if not logged in
+    }
+  }, [isLoggedIn, checkoutMode]);
   useEffect(() => {
     setIsRedirecting(false);
   }, []);
@@ -94,40 +104,40 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
     setShowSabpaisaModal(true);
   };
 
-  const initiatePaytmPayment = async () => {
-    const orderId = "ORDER_" + new Date().getTime();
-    const customerId = "CUSTOMER_" + new Date().getTime();
-    try {
-      const res = await axios.post(`${backendUrl}/order/paytm/initiate`, {
-        orderId,
-        amount: total.toFixed(2),
-        customerId,
-        mobileNo: formData.phone,
-        emailId: formData.email,
-      });
-      console.log("Response", res);
+  // const initiatePaytmPayment = async () => {
+  //   const orderId = "ORDER_" + new Date().getTime();
+  //   const customerId = "CUSTOMER_" + new Date().getTime();
+  //   try {
+  //     const res = await axios.post(`${backendUrl}/order/paytm/initiate`, {
+  //       orderId,
+  //       amount: total.toFixed(2),
+  //       customerId,
+  //       mobileNo: formData.phone,
+  //       emailId: formData.email,
+  //     });
+  //     console.log("Response", res);
 
-      const { paymentData, paytm_url } = res.data;
+  //     const { paymentData, paytm_url } = res.data;
 
-      const form = document.createElement("form");
-      form.method = "POST";
-      form.action = paytm_url;
+  //     const form = document.createElement("form");
+  //     form.method = "POST";
+  //     form.action = paytm_url;
 
-      for (const key in paymentData) {
-        const input = document.createElement("input");
-        input.type = "hidden";
-        input.name = key;
-        input.value = paymentData[key];
-        form.appendChild(input);
-      }
+  //     for (const key in paymentData) {
+  //       const input = document.createElement("input");
+  //       input.type = "hidden";
+  //       input.name = key;
+  //       input.value = paymentData[key];
+  //       form.appendChild(input);
+  //     }
 
-      document.body.appendChild(form);
-      form.submit();
-    } catch (error) {
-      console.error("Paytm Error:", error);
-      alert("Payment failed. Try again.");
-    }
-  };
+  //     document.body.appendChild(form);
+  //     form.submit();
+  //   } catch (error) {
+  //     console.error("Paytm Error:", error);
+  //     alert("Payment failed. Try again.");
+  //   }
+  // };
 
   const loadRazorpay = () => {
     return new Promise((resolve) => {
@@ -145,11 +155,22 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
       alert("Razorpay SDK failed to load.");
       return;
     }
+    console.log("Token:", token, checkoutMode)
 
     try {
-      const { data } = await axios.post(`${backendUrl}/order/razorpay/create-order`, {
-        amount: total,
-      });
+      const { data } = await axios.post(
+        `${backendUrl}/order/razorpay/create-order`,
+        {
+          amount: total,
+          isGuest: checkoutMode === "guest",
+        },
+        {
+          headers: checkoutMode === "login" ? { token } : {},
+        }
+      );
+
+
+      console.log("Create Order Response:", data);
 
       const options = {
         key: data.key,

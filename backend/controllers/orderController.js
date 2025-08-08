@@ -122,6 +122,7 @@ export async function createPaidOrder(data) {
 
 export const createRazorpayOrder = async (req, res) => {
   try {
+
     const { amount } = req.body;
     if (!amount) return res.status(400).json({ success: false, message: "Amount is required" });
 
