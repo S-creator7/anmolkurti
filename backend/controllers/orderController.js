@@ -15,183 +15,257 @@ import Razorpay from "razorpay";
 
 
 const razorpayInstance = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 // global variables
 const currency = 'inr';
 const deliveryCharge = 10;
 
 
+// Helper function to update stock
+async function updateStock(items) {
+    for (const item of items) {
+        const product = await productModel.findById(item._id);
+        if (!product) {
+            console.log(`Product not found for ID: ${item._id}`);
+            continue;
+        }
 
+        if (product.hasSize) {
+            const size = item.size;
+            const quantity = item.quantity || 0;
+            const currentStock = product.stock?.[size] || 0;
 
-export async function createPaidOrder(data) {
-  const { items, address, couponCode, isGuest, guestInfo, utrNumber, paymentMethod, userId } = data;
+            // ✅ More robust stock update with proper object handling
+            if (!product.stock) product.stock = {};
+            product.stock[size] = Math.max(0, currentStock - quantity);
+            product.markModified('stock'); // Ensure Mongoose saves the change
+        } else {
+            const quantity = item.quantity || 0;
+            const currentStock = typeof product.stock === 'number' ? product.stock : 0;
+            product.stock = Math.max(0, currentStock - quantity);
+        }
 
-  if (!items || items.length === 0) {
-    throw new Error("No items in cart");
-  }
-
-  if (isGuest && (!guestInfo?.email || !guestInfo?.phone || !guestInfo?.name)) {
-    throw new Error("Guest information (name, email, phone) is required for guest checkout");
-  }
-
-  // Validate stock
-  const stockValidation = await validateStockAvailability(items);
-  if (!stockValidation.success) {
-    throw new Error(stockValidation.message);
-  }
-
-  // Calculate total amount
-  let totalAmount = 0;
-  for (const item of items) {
-    const product = await productModel.findById(item._id);
-    if (product) {
-      totalAmount += product.price * item.quantity;
+        await product.save();
+        console.log(`Stock updated for product ${product.name}: ${item.quantity} units deducted`);
     }
-  }
-  totalAmount += deliveryCharge;
+}
 
-  // Apply coupon
-  let discountAmount = 0;
-  if (couponCode) {
-    const coupon = await couponModel.findOne({
-      code: couponCode,
-      isActive: true,
-      validFrom: { $lte: new Date() },
-      validUntil: { $gte: new Date() }
-    });
+// New helper function to validate stock availability before placing order
+async function validateStockAvailability(items) {
+    for (const item of items) {
+        const product = await productModel.findById(item._id);
+        if (!product) {
+            return { success: false, message: `Product with id ${item._id} not found` };
+        }
 
-    if (!coupon) throw new Error("Invalid or expired coupon code");
+        if (product.hasSize) {
+            if (!item.size) {
+                return { success: false, message: `Size is required for ${product.name}` };
+            }
+            const size = item.size;
+            const quantity = item.quantity || 0;
+            const currentStock = product.stock?.[size] || 0;
+            if (currentStock <= 0) {
+                return { success: false, message: `${product.name} (Size: ${size}) is out of stock` };
+            }
+            if (quantity > currentStock * 2) {
+                return { success: false, message: `Cannot fulfill order: requesting ${quantity} of ${product.name} (Size: ${size}), but only ${currentStock} available` };
+            }
+        }
+        else {
+            const quantity = item.quantity || 0;
+            const currentStock = typeof product.stock === 'number' ? product.stock : 0;
 
-    if (totalAmount < coupon.minimumOrderAmount) {
-      throw new Error(`Minimum order amount of ₹${coupon.minimumOrderAmount} required for this coupon`);
+            // Industry standard: Allow slight overselling but block major issues  
+            if (currentStock <= 0) {
+                return { success: false, message: `${product.name} is out of stock` };
+            }
+            // Only block if trying to order more than 2x available stock (protects against massive overselling)
+            if (quantity > currentStock * 2) {
+                return { success: false, message: `Cannot fulfill order: requesting ${quantity} of ${product.name}, but only ${currentStock} available` };
+            }
+        }
     }
-
-    if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
-      throw new Error("Coupon usage limit exceeded");
-    }
-
-    if (coupon.discountType === "percentage") {
-      discountAmount = (totalAmount * coupon.discountValue) / 100;
-      if (coupon.maximumDiscountAmount) {
-        discountAmount = Math.min(discountAmount, coupon.maximumDiscountAmount);
-      }
-    } else {
-      discountAmount = coupon.discountValue;
-    }
-
-    totalAmount -= discountAmount;
-    await couponModel.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
-  }
-
-  const orderData = {
-    items,
-    address,
-    amount: totalAmount,
-    discountAmount,
-    paymentMethod,
-    payment: true, // ✅ Always paid
-    date: Date.now(),
-    couponCode: couponCode || null,
-    isGuest: isGuest || false,
-    utrNumber: utrNumber || null
-  };
-
-  if (isGuest) {
-    orderData.guestInfo = guestInfo;
-    orderData.orderType = "guest";
-  } else {
-    orderData.userId = userId;
-    orderData.orderType = "regular";
-  }
-
-  const order = new orderModel(orderData);
-  await order.save();
-  await updateStock(items);
-
-  if (!isGuest && userId) {
-    await userModel.findByIdAndUpdate(userId, {
-      $inc: { "stats.totalOrders": 1, "stats.totalSpent": totalAmount }
-    });
-  }
-
-  return order;
+    return { success: true };
 }
 
 
-export const createRazorpayOrder = async (req, res) => {
-  try {
 
-    const { amount } = req.body;
-    if (!amount) return res.status(400).json({ success: false, message: "Amount is required" });
+// ✅ Create paid order
+export async function createPaidOrder(data) {
+    const { items, address, couponCode, isGuest, guestInfo, utrNumber, paymentMethod, userId } = data;
 
-    const options = {
-      amount: Math.round(amount * 100), // in paise
-      currency: "INR",
-      receipt: `rcpt_${Date.now()}`,
-    };
+    if (!items || items.length === 0) throw new Error("No items in cart");
 
-    const order = await razorpayInstance.orders.create(options);
-
-    res.json({
-      success: true,
-      orderId: order.id,
-      currency: order.currency,
-      amount: order.amount,
-      key: process.env.RAZORPAY_KEY_ID,
-    });
-  } catch (error) {
-    console.error("Error creating Razorpay order:", error);
-    res.status(500).json({ success: false, message: "Failed to create Razorpay order" });
-  }
-};
-
-
-export const verifyRazorpayPayment = async (req, res) => {
-  try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderData } = req.body;
-
-    const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
-    hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-    const generatedSignature = hmac.digest("hex");
-
-    if (generatedSignature !== razorpay_signature) {
-      return res.status(400).json({ success: false, message: "Invalid payment signature" });
+    if (isGuest && (!guestInfo?.email || !guestInfo?.phone || !guestInfo?.name)) {
+        throw new Error("Guest information (name, email, phone) is required for guest checkout");
     }
 
-    const order = await createPaidOrder({
-      ...orderData,
-      paymentMethod: "Razorpay",
-      userId: req.user?.userId
-    });
+    // Validate stock
+    const stockValidation = await validateStockAvailability(items);
+    if (!stockValidation.success) throw new Error(stockValidation.message);
 
-    res.json({ success: true, message: "Payment verified and order placed", orderId: order._id, order });
-  } catch (error) {
-    console.error("Error verifying Razorpay payment:", error);
-    res.status(500).json({ success: false, message: "Payment verification failed" });
-  }
+    // Calculate total amount
+    let totalAmount = 0;
+    for (const item of items) {
+        const product = await productModel.findById(item._id);
+        if (product) {
+            totalAmount += product.price * item.quantity;
+        }
+    }
+    totalAmount += deliveryCharge;
+
+    // Apply coupon
+    let discountAmount = 0;
+    if (couponCode) {
+        const coupon = await couponModel.findOne({
+            code: couponCode,
+            isActive: true,
+            validFrom: { $lte: new Date() },
+            validUntil: { $gte: new Date() }
+        });
+
+        if (!coupon) throw new Error("Invalid or expired coupon code");
+        if (totalAmount < coupon.minimumOrderAmount) {
+            throw new Error(`Minimum order amount of ₹${coupon.minimumOrderAmount} required for this coupon`);
+        }
+        if (coupon.usageLimit && coupon.usedCount >= coupon.usageLimit) {
+            throw new Error("Coupon usage limit exceeded");
+        }
+
+        if (coupon.discountType === "percentage") {
+            discountAmount = (totalAmount * coupon.discountValue) / 100;
+            if (coupon.maximumDiscountAmount) {
+                discountAmount = Math.min(discountAmount, coupon.maximumDiscountAmount);
+            }
+        } else {
+            discountAmount = coupon.discountValue;
+        }
+
+        totalAmount -= discountAmount;
+        await couponModel.findByIdAndUpdate(coupon._id, { $inc: { usedCount: 1 } });
+    }
+
+    // Prepare order data
+    const orderData = {
+        items,
+        address,
+        amount: totalAmount,
+        discountAmount,
+        paymentMethod,
+        payment: true,
+        date: Date.now(),
+        couponCode: couponCode || null,
+        isGuest: !!isGuest,
+        utrNumber: utrNumber || null
+    };
+
+    if (isGuest) {
+        orderData.guestInfo = guestInfo;
+        orderData.orderType = "guest";
+    } else {
+        orderData.userId = userId;
+        orderData.orderType = "regular";
+    }
+
+    // Save order
+    const order = new orderModel(orderData);
+    await order.save();
+    await updateStock(items);
+
+    // Update user stats if logged in
+    if (!isGuest && userId) {
+        await userModel.findByIdAndUpdate(userId, {
+            $inc: { "stats.totalOrders": 1, "stats.totalSpent": totalAmount }
+        });
+    }
+
+    return order;
+}
+
+// ✅ Create Razorpay Order
+export const createRazorpayOrder = async (req, res) => {
+    try {
+        const { amount } = req.body;
+        if (!amount) return res.status(400).json({ success: false, message: "Amount is required" });
+
+        const options = {
+            amount: Math.round(amount * 100),
+            currency: "INR",
+            receipt: `rcpt_${Date.now()}`,
+        };
+
+        const order = await razorpayInstance.orders.create(options);
+
+        res.json({
+            success: true,
+            orderId: order.id,
+            currency: order.currency,
+            amount: order.amount,
+            key: process.env.RAZORPAY_KEY_ID,
+        });
+    } catch (error) {
+        console.error("Error creating Razorpay order:", error);
+        res.status(500).json({ success: false, message: "Failed to create Razorpay order" });
+    }
 };
+
+// ✅ Verify Razorpay Payment & Place Order
+export const verifyRazorpayPayment = async (req, res) => {
+    try {
+        const { razorpay_order_id, razorpay_payment_id, razorpay_signature, orderData, isGuest } = req.body;
+
+        // Verify payment signature
+        const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
+        hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
+        const generatedSignature = hmac.digest("hex");
+
+        if (generatedSignature !== razorpay_signature) {
+            return res.status(400).json({ success: false, message: "Invalid payment signature" });
+        }
+
+        // Create paid order
+        const order = await createPaidOrder({
+            ...orderData,
+            paymentMethod: "Razorpay",
+            userId: isGuest ? null : req.user?.userId
+        });
+
+        res.json({
+            success: true,
+            message: "Payment verified and order placed",
+            orderId: order._id,
+            order
+        });
+
+    } catch (error) {
+        console.error("Error verifying Razorpay payment:", error);
+        res.status(500).json({ success: false, message: error.message || "Payment verification failed" });
+    }
+};
+
 
 // Placing orders using COD Method
 export const placeOrder = async (req, res) => {
-  try {
-    const order = await placeOrderInternal({
-      ...req.body,
-      paymentMethod: "COD",
-      payment: false,
-      userId: req.user?.userId
-    });
+    try {
+        const order = await placeOrderInternal({
+            ...req.body,
+            paymentMethod: "COD",
+            payment: false,
+            userId: req.user?.userId
+        });
 
-    res.status(201).json({
-      success: true,
-      message: "Order placed successfully",
-      orderId: order._id,
-      order
-    });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
+        res.status(201).json({
+            success: true,
+            message: "Order placed successfully",
+            orderId: order._id,
+            order
+        });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
 };
 
 
@@ -306,72 +380,6 @@ const updateStatus = async (req, res) => {
     }
 }
 
-// Helper function to update stock
-async function updateStock(items) {
-    for (const item of items) {
-        const product = await productModel.findById(item._id);
-        if (!product) {
-            console.log(`Product not found for ID: ${item._id}`);
-            continue;
-        }
-
-        if (product.hasSize) {
-            const size = item.size;
-            const quantity = item.quantity || 0;
-            const currentStock = product.stock?.[size] || 0;
-
-            // ✅ More robust stock update with proper object handling
-            if (!product.stock) product.stock = {};
-            product.stock[size] = Math.max(0, currentStock - quantity);
-            product.markModified('stock'); // Ensure Mongoose saves the change
-        } else {
-            const quantity = item.quantity || 0;
-            const currentStock = typeof product.stock === 'number' ? product.stock : 0;
-            product.stock = Math.max(0, currentStock - quantity);
-        }
-
-        await product.save();
-        console.log(`Stock updated for product ${product.name}: ${item.quantity} units deducted`);
-    }
-}
-
-// New helper function to validate stock availability before placing order
-async function validateStockAvailability(items) {
-    for (const item of items) {
-        const product = await productModel.findById(item._id);
-        if (!product) {
-            return { success: false, message: `Product with id ${item._id} not found` };
-        }
-
-        if (product.hasSize) {
-            const size = item.size;
-            const quantity = item.quantity || 0;
-            const currentStock = product.stock?.[size] || 0;
-
-            // Industry standard: Allow slight overselling but block major issues
-            if (currentStock <= 0) {
-                return { success: false, message: `${product.name} (Size: ${size}) is out of stock` };
-            }
-            // Only block if trying to order more than 2x available stock (protects against massive overselling)
-            if (quantity > currentStock * 2) {
-                return { success: false, message: `Cannot fulfill order: requesting ${quantity} of ${product.name} (Size: ${size}), but only ${currentStock} available` };
-            }
-        } else {
-            const quantity = item.quantity || 0;
-            const currentStock = typeof product.stock === 'number' ? product.stock : 0;
-
-            // Industry standard: Allow slight overselling but block major issues  
-            if (currentStock <= 0) {
-                return { success: false, message: `${product.name} is out of stock` };
-            }
-            // Only block if trying to order more than 2x available stock (protects against massive overselling)
-            if (quantity > currentStock * 2) {
-                return { success: false, message: `Cannot fulfill order: requesting ${quantity} of ${product.name}, but only ${currentStock} available` };
-            }
-        }
-    }
-    return { success: true };
-}
 
 
 const getBestsellers = async (req, res) => {
@@ -770,8 +778,8 @@ export const paytmInitiatePayment = async (req, res) => {
             CUST_ID: customerId,
             TXN_AMOUNT: String(amount),
             CALLBACK_URL: process.env.PAYTM_CALLBACK_URL,
-            MOBILE_NO: mobileNo, 
-            EMAIL: emailId, 
+            MOBILE_NO: mobileNo,
+            EMAIL: emailId,
         };
 
         const checksum = await PaytmChecksum.generateSignature(
@@ -864,20 +872,20 @@ export const paytmCallback = async (req, res) => {
 };
 
 export const verifyPaytmPayment = async (req, res) => {
-  try {
-    // Your existing Paytm verification logic...
-    // If verification passes:
-    const order = await createPaidOrder({
-      ...req.body.orderData,
-      paymentMethod: "Paytm",
-      userId: req.user?.userId
-    });
+    try {
+        // Your existing Paytm verification logic...
+        // If verification passes:
+        const order = await createPaidOrder({
+            ...req.body.orderData,
+            paymentMethod: "Paytm",
+            userId: req.user?.userId
+        });
 
-    res.json({ success: true, message: "Paytm payment verified", orderId: order._id, order });
-  } catch (error) {
-    console.error("Error verifying Paytm payment:", error);
-    res.status(500).json({ success: false, message: "Paytm verification failed" });
-  }
+        res.json({ success: true, message: "Paytm payment verified", orderId: order._id, order });
+    } catch (error) {
+        console.error("Error verifying Paytm payment:", error);
+        res.status(500).json({ success: false, message: "Paytm verification failed" });
+    }
 };
 
 

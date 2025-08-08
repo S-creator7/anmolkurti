@@ -28,8 +28,8 @@ import { CouponProvider } from './context/CouponContext'
 import { WishlistProvider } from './context/WishlistContext'
 import ShopContextProvider from './context/ShopContext'
 import Profile from './pages/Profile'
-import PaymentSuccess from './components/PaymentSuccess'
-import PaymentFailure from './components/PaymentFailure'
+import OrderSuccess from './components/OrderSuccess'
+import OrderFailure from './components/OrderFail'
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -84,8 +84,8 @@ const App = () => {
                         <Route path='/guest-tracking' element={<GuestOrderTracking />} />
                         <Route path='/verify' element={<Verify />} />
                         <Route path='/product-list' element={<ProductList />} />
-                        <Route path="/payment/success" element={<PaymentSuccess />} />
-                        <Route path="/payment/failure" element={<PaymentFailure />} />
+                        <Route path="/order-success" element={<OrderSuccess />} />
+                        <Route path="/order-failure" element={<OrderFailure />} />
                       </Routes>
                     </main>
 
