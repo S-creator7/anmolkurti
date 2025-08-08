@@ -1,5 +1,5 @@
 import express from 'express'
-import {placeOrder, listOrdersPaginated, userOrders, updateStatus, getBestsellers, getDashboardMetrics, getRecentOrders, sabpaisaPaymentCallback, paytmInitiatePayment, paytmCallback, createRazorpayOrder, verifyRazorpayPayment } from '../controllers/orderController.js'
+import {placeOrder, listOrdersPaginated, userOrders, updateStatus, getBestsellers, getDashboardMetrics, getRecentOrders, sabpaisaPaymentCallback, paytmInitiatePayment, paytmCallback, createRazorpayOrder, verifyRazorpayPayment, createReturnRequest } from '../controllers/orderController.js'
 import { adminAuth } from '../middleware/auth.js'
 import { auth } from '../middleware/auth.js'
 
@@ -62,5 +62,6 @@ orderRouter.post("/paytm/initiate", paytmInitiatePayment);
 orderRouter.post("/paytm/callback", paytmCallback);
 orderRouter.post("/razorpay/create-order", optionalAuth, createRazorpayOrder);
 orderRouter.post("/razorpay/verify-payment", optionalAuth, verifyRazorpayPayment);
+orderRouter.post('/return-request', auth, createReturnRequest);
 
 export default orderRouter

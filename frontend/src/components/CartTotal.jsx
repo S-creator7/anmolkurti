@@ -172,6 +172,12 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
     return itemsArray;
   };
 
+  useEffect(() => {
+    console.log("All Products:",products)
+    console.log("Direct Buy Item:", directBuyItem)
+    console.log("Cart Items:", buildCartItemsArray(cartItems, products))
+    console.log("Form data", formData)
+  }, [])
 
   const handleRazorpayPayment = async () => {
     const loaded = await loadRazorpay();
@@ -179,9 +185,7 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
       alert("Razorpay SDK failed to load.");
       return;
     }
-    console.log("Direct Buy Item:", directBuyItem)
-    console.log("Cart Items:", buildCartItemsArray(cartItems, products))
-    console.log("Form data", formData)
+
     try {
       // Step 1: Create Razorpay Order
       const { data } = await axios.post(

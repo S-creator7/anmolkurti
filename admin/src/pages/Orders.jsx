@@ -435,9 +435,9 @@ const Orders = ({ token }) => {
             className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="all">All Payment Methods</option>
-            <option value="COD">Cash on Delivery</option>
+            {/* <option value="COD">Cash on Delivery</option> */}
             <option value="Razorpay">Razorpay</option>
-            <option value="Stripe">Stripe</option>
+            {/* <option value="Stripe">Stripe</option> */}
           </select>
 
           <select
@@ -494,13 +494,14 @@ const Orders = ({ token }) => {
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Items & Stock</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Payment</th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Return</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {paginatedOrders.map((order, index) => {
                 // ✅ Check if any item in this order has stock issues
                 const orderHasStockIssues = order.items.some(item => hasStockIssue(item))
-
+                const orderHasReturnRequest = order.items.some(item => item.isReturnRequested);
                 return (
                   <tr key={order._id} className={`hover:bg-gray-50 ${orderHasStockIssues ? 'bg-orange-50' : ''}`}>
                     {/* <td className="px-6 py-4">
@@ -640,6 +641,17 @@ const Orders = ({ token }) => {
                         <option value="Out for delivery">Out for delivery</option>
                         <option value="Delivered">Delivered</option>
                       </select>
+                    </td>
+                    <td className="px-6 py-4">
+                      {orderHasReturnRequest ? (
+                        <span className="inline-block px-3 py-1 text-sm font-semibold rounded-full bg-yellow-300 text-yellow-900">
+                          Return Requested
+                        </span>
+                      ) : (
+                        <span className="inline-block px-3 py-1 text-sm font-semibold rounded-full bg-yellow-300 text-yellow-900">
+                          Oedered
+                        </span>
+                      )}
                     </td>
                   </tr>
                 )
