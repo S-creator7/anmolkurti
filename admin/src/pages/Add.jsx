@@ -21,6 +21,7 @@ const Add = () => {
   const [uploading, setUploading] = useState(false);
   const [imageErrors, setImageErrors] = useState({});
   const [dragActive, setDragActive] = useState(false);
+  const [stepErrors, setStepErrors] = useState({});
 
   // Form state - now with dynamic filter values
   const [formData, setFormData] = useState({
@@ -236,10 +237,10 @@ const Add = () => {
 
   // Handle step navigation
   const nextStep = () => {
-    const { isValid, errors: newErrors } = validateStep(currentStep, errors);
-    console.log("Validating Step", currentStep, newErrors);
+    const { isValid, errors: newErrors } = validateStep(currentStep);
 
-    setErrors(newErrors);
+    setStepErrors(prev => ({ ...prev, [currentStep]: newErrors }));
+
     if (Object.keys(newErrors).length > 0) {
       Object.values(newErrors).forEach(msg => toast.error(msg));
     }
@@ -248,6 +249,7 @@ const Add = () => {
       setCurrentStep(prev => Math.min(prev + 1, totalSteps));
     }
   };
+
 
 
   useEffect(() => {

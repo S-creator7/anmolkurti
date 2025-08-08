@@ -1,9 +1,10 @@
-import React, { useContext, useState } from 'react';
+import React, { useContext, useState , useEffect} from 'react';
 import { ShopContext } from '../context/ShopContext';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ProductPreviewModal from './ProductPreviewModal';
 import { useWishlist } from '../context/WishlistContext';
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
 const ProductItem = ({ id, image, name, price }) => {
   const { currency, addToCart, products } = useContext(ShopContext);
@@ -11,12 +12,35 @@ const ProductItem = ({ id, image, name, price }) => {
   const [showPreview, setShowPreview] = useState(false);
 
   // Get full product data
-  const productData = products.find(product => product._id === id);
+  // const productData = products.find(product => product._id === id);
+  const [productData, setProductData] = useState(null);
+
+  useEffect(() => {
+    const localProduct = products.find(product => product._id === id);
+    if (localProduct) {
+      setProductData(localProduct);
+    } else {
+      // fetch from backend
+      fetch(`${backendUrl}/product/single`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId: id })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            setProductData(data.product);
+          }
+        })
+        .catch(err => console.error('Error fetching product:', err));
+    }
+  }, [id, products]);
+
 
   // Check if product is out of stock
   const isOutOfStock = () => {
     if (!productData) return false;
-    
+
     if (productData.hasSize) {
       // For products with sizes, check if ALL sizes are out of stock
       return Object.values(productData.stock || {}).every(stock => stock <= 0);
@@ -28,22 +52,22 @@ const ProductItem = ({ id, image, name, price }) => {
   };
 
   // Check if product has any stock available
-  const hasAnyStock = () => {
-    if (!productData) return false;
-    
-    if (productData.hasSize) {
-      return Object.values(productData.stock || {}).some(stock => stock > 0);
-    } else {
-      const totalStock = typeof productData.stock === 'number' ? productData.stock : 0;
-      return totalStock > 0;
-    }
-  };
+  // const hasAnyStock = () => {
+  //   if (!productData) return false;
+
+  //   if (productData.hasSize) {
+  //     return Object.values(productData.stock || {}).some(stock => stock > 0);
+  //   } else {
+  //     const totalStock = typeof productData.stock === 'number' ? productData.stock : 0;
+  //     return totalStock > 0;
+  //   }
+  // };
 
   // Quick Add now opens preview modal (like the old eye button)
   const handleQuickAdd = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (isOutOfStock()) {
       toast.error('📦 Out of stock', {
         style: {
@@ -54,7 +78,7 @@ const ProductItem = ({ id, image, name, price }) => {
       });
       return;
     }
-    
+
     setShowPreview(true);
   };
 
@@ -62,7 +86,7 @@ const ProductItem = ({ id, image, name, price }) => {
   const handleWishlistToggle = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!productData) {
       toast.error('Product not found');
       return;
@@ -95,33 +119,32 @@ const ProductItem = ({ id, image, name, price }) => {
             src={image[0]}
             alt={name}
           />
-          
+
           {/* Out of Stock Overlay */}
           {outOfStock && (
             <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
               <div className="bg-white/95 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-200 shadow-lg">
                 <div className="flex items-center gap-2 text-red-600 font-semibold text-sm">
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                   </svg>
                   Out of Stock
                 </div>
               </div>
             </div>
           )}
-          
+
           {/* Gradient overlay for better text readability */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-          
+
           {/* Add to Wishlist button (was Quick view button) */}
           <div className="absolute top-3 right-3">
             <button
               onClick={handleWishlistToggle}
-              className={`p-2.5 rounded-full backdrop-blur-sm border transition-all duration-300 ${
-                isInWishlist(id)
-                  ? 'bg-red-500/90 border-red-500 text-white shadow-lg'
-                  : 'bg-white/90 border-white/50 text-gray-600 hover:bg-white hover:text-red-500 hover:border-red-300'
-              } opacity-0 group-hover:opacity-100 transform scale-95 group-hover:scale-100`}
+              className={`p-2.5 rounded-full backdrop-blur-sm border transition-all duration-300 ${isInWishlist(id)
+                ? 'bg-red-500/90 border-red-500 text-white shadow-lg'
+                : 'bg-white/90 border-white/50 text-gray-600 hover:bg-white hover:text-red-500 hover:border-red-300'
+                } opacity-0 group-hover:opacity-100 transform scale-95 group-hover:scale-100`}
               title={isInWishlist(id) ? 'Remove from wishlist' : 'Add to wishlist'}
             >
               <svg className="w-4 h-4" fill={isInWishlist(id) ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
@@ -148,29 +171,28 @@ const ProductItem = ({ id, image, name, price }) => {
               </div>
             </div>
           </div>
-          
+
           {/* Stock status indicator */}
           {outOfStock && (
             <div className="mt-3 px-3 py-1.5 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center gap-2 text-red-600 text-xs font-medium">
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                 </svg>
                 Out of Stock
               </div>
             </div>
           )}
-          
+
           {/* Quick Add button - now opens preview modal */}
-          <div className="mt-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-            <button 
+          <div className="mt-4">
+            <button
               onClick={handleQuickAdd}
               disabled={outOfStock}
-              className={`w-full py-2.5 px-4 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 shadow-soft hover:shadow-medium ${
-                outOfStock 
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                  : 'bg-gradient-to-r from-hotpink-400 to-hotpink-600 text-white hover:from-hotpink-500 hover:to-hotpink-700'
-              }`}
+              className={`w-full py-2.5 px-4 rounded-xl font-medium text-sm transition-all duration-300 transform hover:scale-105 shadow-soft hover:shadow-medium ${outOfStock
+                ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-hotpink-400 to-hotpink-600 text-white hover:from-hotpink-500 hover:to-hotpink-700'
+                }`}
             >
               {outOfStock ? 'Out of Stock' : 'Quick Preview'}
             </button>
@@ -179,10 +201,10 @@ const ProductItem = ({ id, image, name, price }) => {
       </Link>
 
       {/* Product Preview Modal */}
-      <ProductPreviewModal 
-        product={productData} 
-        isOpen={showPreview} 
-        onClose={() => setShowPreview(false)} 
+      <ProductPreviewModal
+        product={productData}
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
       />
     </>
   );
