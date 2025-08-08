@@ -19,6 +19,7 @@ const Add = () => {
   const [uploading, setUploading] = useState(false);
   const [imageErrors, setImageErrors] = useState({});
   const [dragActive, setDragActive] = useState(false);
+  const [stepErrors, setStepErrors] = useState({});
 
   // Form state - now with dynamic filter values
   const [formData, setFormData] = useState({
