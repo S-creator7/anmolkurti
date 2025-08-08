@@ -1,11 +1,9 @@
-import React, { useState, useCallback } from 'react'
-import { assets } from '../assets/assets'
+import React, { useState, useCallback, useEffect } from 'react'
 import axios from 'axios'
 import { backendUrl } from '../App'
 import { toast } from 'react-toastify'
 import { useFilters } from '../context/FilterContext'
 import { FaCloudUploadAlt, FaTimes, FaCheck, FaExclamationTriangle, FaInfoCircle, FaPlus, FaTrash, FaImage, FaFilter } from 'react-icons/fa'
-import { useEffect } from 'react'
 
 const token = localStorage.getItem('token');
 
@@ -91,7 +89,7 @@ const Add = () => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleImageUpload(e.dataTransfer.files[0], index);
     }
   }, []);
@@ -100,60 +98,75 @@ const Add = () => {
   const removeImage = (index) => {
     setImages(prev => {
       const newImages = [...prev];
+      // revoke object URL not strictly necessary here but could be added if using createObjectURL elsewhere
       newImages[index] = null;
       return newImages;
     });
     setImageErrors(prev => ({ ...prev, [index]: '' }));
   };
 
-  // Form validation
-  const validateStep = (step, currentErrors) => {
-    const newErrors = { ...currentErrors };
-    // Remove errors for the current step fields first
+  // Form validation - step-focused
+  const validateStep = (step, currentErrors = {}) => {
+    // Compute only step-specific errors
+    const stepErrors = {};
+
     switch (step) {
-      case 1:
-        delete newErrors.images;
+      case 1: {
         if (!images.some(img => img !== null)) {
-          newErrors.images = 'At least one image is required';
+          stepErrors.images = 'At least one image is required';
         }
         break;
-      case 2:
-        delete newErrors.name;
-        delete newErrors.description;
-        if (!formData.name.trim()) newErrors.name = 'Product name is required';
-        if (!formData.description.trim()) newErrors.description = 'Description is required';
+      }
+      case 2: {
+        if (!formData.name || !formData.name.trim()) stepErrors.name = 'Product name is required';
+        if (!formData.description || !formData.description.trim()) stepErrors.description = 'Description is required';
         break;
-      case 3:
-        delete newErrors.gender;
-        delete newErrors.category;
-        if (!formData.gender) newErrors.gender = 'Gender is required';
-        if (!formData.category) newErrors.category = 'Category is required';
+      }
+      case 3: {
+        if (!formData.gender) stepErrors.gender = 'Gender is required';
+        if (!formData.category) stepErrors.category = 'Category is required';
         break;
-      // case 4:
-      //   delete newErrors.price;
-      //   delete newErrors.sizes;
-      //   if (!formData.price || formData.price <= 0) newErrors.price = 'Valid price is required';
-      //   if (formData.hasSize && formData.sizes.length === 0) {
-      //     newErrors.sizes = 'Select at least one size';
-      //   }
-
-      //   break;
-      case 4:
-        delete newErrors.price;
-        delete newErrors.sizes;
+      }
+      case 4: {
         const priceValue = parseFloat(formData.price);
         if (isNaN(priceValue) || priceValue <= 0) {
-          newErrors.price = 'Valid price is required';
+          stepErrors.price = 'Valid price is required';
         }
         if (formData.hasSize && (!formData.sizes || formData.sizes.length === 0)) {
-          newErrors.sizes = 'Select at least one size';
+          stepErrors.sizes = 'Select at least one size';
         }
         break;
+      }
+      default:
+        break;
     }
-    // Remove setErrors call here to avoid premature state updates
-    // setErrors(newErrors);
-    return { isValid: Object.keys(newErrors).length === 0, errors: newErrors };
+
+    // Merge stepErrors into a copy of currentErrors for display
+    const mergedErrors = { ...currentErrors };
+
+    // Remove any previous keys relevant to this step so display uses current stepErrors
+    if (step === 1) {
+      delete mergedErrors.images;
+    } else if (step === 2) {
+      delete mergedErrors.name;
+      delete mergedErrors.description;
+    } else if (step === 3) {
+      delete mergedErrors.gender;
+      delete mergedErrors.category;
+    } else if (step === 4) {
+      delete mergedErrors.price;
+      delete mergedErrors.sizes;
+    }
+
+    // Add the stepErrors
+    Object.assign(mergedErrors, stepErrors);
+
+    // isValid refers only to this step's errors (so other steps' errors don't block advancing)
+    const isValid = Object.keys(stepErrors).length === 0;
+
+    return { isValid, errors: mergedErrors };
   };
+
 
   // Handle form input changes
   const handleInputChange = (field, value) => {
@@ -161,7 +174,6 @@ const Add = () => {
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: '' }));
     }
-
   };
 
   // Get available categories based on gender
@@ -178,11 +190,11 @@ const Add = () => {
 
   // Get filter options with fallbacks
   const getFilterOptions = (filterName) => {
-    const filterValues = getFilterValues(filterName);
-    if (filterValues.length > 0) {
+    const filterValues = getFilterValues ? getFilterValues(filterName) : [];
+    if (Array.isArray(filterValues) && filterValues.length > 0) {
       return filterValues;
     }
-    return filterOptions[filterName] || [];
+    return (filterOptions && filterOptions[filterName]) || [];
   };
 
   // Get filters that should be shown for the current product
@@ -191,21 +203,33 @@ const Add = () => {
 
     if (!formData.category) {
       // If no category selected, show only global filters
-      availableFilters = getGlobalFilters();
+      availableFilters = typeof getGlobalFilters === 'function' ? getGlobalFilters() : [];
     } else {
       // Show global + category-specific filters for the selected category
-      availableFilters = getApplicableFilters(formData.category);
+      availableFilters = typeof getApplicableFilters === 'function'
+        ? getApplicableFilters(formData.category)
+        : [];
     }
 
     // Filter out redundant filters that are handled elsewhere in the form
     const excludedFilters = ['gender', 'size']; // Gender is selected above, Size is in Step 4
 
-    return availableFilters.filter(filter =>
-      !excludedFilters.includes(filter.name.toLowerCase()) &&
-      filter.values &&
-      filter.values.length > 0 &&
-      filter.values.some(v => v.isActive)
-    );
+    return (Array.isArray(availableFilters) ? availableFilters : [])
+      .filter(filter => {
+        if (!filter || !filter.name) return false;
+        const nameLower = String(filter.name).toLowerCase();
+        if (excludedFilters.includes(nameLower)) return false;
+        // If values is an array of objects with isActive flag:
+        if (Array.isArray(filter.values) && filter.values.length > 0) {
+          const first = filter.values[0];
+          if (typeof first === 'object' && first !== null && 'isActive' in first) {
+            return filter.values.some(v => v && v.isActive);
+          }
+          // If values are simple strings, show them
+          return true;
+        }
+        return false;
+      });
   };
 
   // Handle dynamic filter value changes
@@ -236,19 +260,24 @@ const Add = () => {
 
   // Handle step navigation
   const nextStep = () => {
-    const { isValid, errors: newErrors } = validateStep(currentStep, errors);
-    console.log("Validating Step", currentStep, newErrors);
+    // Validate only if leaving a step *before* Step 4
+    if (currentStep < totalSteps) {
+      const { isValid, errors: newErrors } = validateStep(currentStep, {});
 
-    setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) {
-      Object.values(newErrors).forEach(msg => toast.error(msg));
+      setErrors(newErrors);
+
+      if (!isValid) {
+        const firstMsg = Object.values(newErrors)[0] || "Please fix validation errors before continuing";
+        toast.error(firstMsg);
+        return false; // stop, don't advance
+      }
     }
 
-    if (isValid) {
-      setCurrentStep(prev => Math.min(prev + 1, totalSteps));
-    }
+    // Clear errors when moving forward
+    setErrors({});
+    setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+    return true;
   };
-
 
   useEffect(() => {
     console.log("My Current step is", currentStep)
@@ -261,24 +290,33 @@ const Add = () => {
   // Handle form submission
   const onSubmitHandler = async (e) => {
     console.log("onsubmit handler triggerred")
-
+    if (currentStep !== totalSteps) {
+      return; // Ignore accidental submits before last step
+    }
     e.preventDefault();
 
-
-    // Validate all steps
+    // Validate *all steps* when submitting
     let allValid = true;
-    let currentErrors = { ...errors };
+    let currentErrors = {};
+
     for (let i = 1; i <= totalSteps; i++) {
-      const { isValid, errors: newErrors } = validateStep(i, currentErrors);
-      currentErrors = newErrors;
+      const { isValid, errors: stepErrors } = validateStep(i, currentErrors);
+      currentErrors = stepErrors;
       if (!isValid) {
         allValid = false;
       }
     }
+
     setErrors(currentErrors);
 
     if (!allValid) {
-      toast.error("Please fix all validation errors before submitting");
+      const firstMsg = Object.values(currentErrors)[0] || "Please fix all validation errors before submitting";
+      toast.error(firstMsg);
+      return; // stop execution here
+    }
+
+    if (!token) {
+      toast.error("You are not authenticated. Please login.");
       return;
     }
 
@@ -287,46 +325,40 @@ const Add = () => {
     try {
       const formDataToSend = new FormData();
 
-      // Add form fields
-      formDataToSend.append("name", formData.name.trim());
-      formDataToSend.append("description", formData.description.trim());
-      formDataToSend.append("price", parseFloat(formData.price) || 0);
-      formDataToSend.append("gender", formData.gender);
-      formDataToSend.append("category", formData.category);
-      formDataToSend.append("bestseller", formData.bestseller);
-      formDataToSend.append("hasSize", formData.hasSize);
+      // Add form fields (ensure strings for formData)
+      formDataToSend.append("name", String(formData.name).trim());
+      formDataToSend.append("description", String(formData.description).trim());
+      formDataToSend.append("price", String(parseFloat(formData.price) || 0));
+      formDataToSend.append("gender", String(formData.gender));
+      formDataToSend.append("category", String(formData.category));
+      formDataToSend.append("bestseller", String(Boolean(formData.bestseller)));
+      formDataToSend.append("hasSize", String(Boolean(formData.hasSize)));
       formDataToSend.append("sizes", JSON.stringify(formData.hasSize ? formData.sizes : []));
 
-      // Include all dynamic filter values
-      formDataToSend.append("occasion", JSON.stringify(formData.filterValues.occasion || []));
-      formDataToSend.append("type", JSON.stringify(formData.filterValues.type || []));
+      // Include known dynamic filters (safe access)
+      formDataToSend.append("occasion", JSON.stringify(formData.filterValues?.occasion || []));
+      formDataToSend.append("type", JSON.stringify(formData.filterValues?.type || []));
 
       // Add all filter values as a combined filters object
-      const allFilterValues = { ...formData.filterValues };
+      const allFilterValues = { ...(formData.filterValues || {}) };
       formDataToSend.append("filters", JSON.stringify(allFilterValues));
 
-      // Handle stock properly
-      // if (formData.hasSize) {
-      //   formDataToSend.append("stock", JSON.stringify(formData.stock));
-      // } else {
-      //   formDataToSend.append("stock", JSON.stringify({ value: formData.stock.value || 0 }));
-      // }
-      // ✅ Normalize stock before appending
+      // Normalize stock
       let normalizedStock = {};
       if (formData.hasSize) {
-        formData.sizes.forEach((size) => {
-          const val = formData.stock[size];
-          normalizedStock[size] = val === '' || val === undefined ? 0 : parseInt(val);
+        (formData.sizes || []).forEach((size) => {
+          const val = formData.stock?.[size];
+          const parsed = (val === '' || val === undefined || val === null) ? 0 : parseInt(val, 10);
+          normalizedStock[size] = Number.isNaN(parsed) ? 0 : parsed;
         });
       } else {
-        normalizedStock = {
-          value: formData.stock?.value === '' || formData.stock?.value === undefined
-            ? 0
-            : parseInt(formData.stock.value)
-        };
+        const v = formData.stock?.value;
+        const parsed = (v === '' || v === undefined || v === null) ? 0 : parseInt(v, 10);
+        normalizedStock = { value: Number.isNaN(parsed) ? 0 : parsed };
       }
 
       formDataToSend.append("stock", JSON.stringify(normalizedStock));
+
       // Add images
       images.forEach((image, index) => {
         if (image) {
@@ -334,18 +366,20 @@ const Add = () => {
         }
       });
 
+      // Build URL safely
+
       const response = await axios.post(backendUrl.join("/product/add"), formDataToSend, {
         headers: { token }
       });
 
-      if (response.data.success) {
-        toast.success(response.data.message);
+      if (response?.data?.success) {
+        toast.success(response.data.message || "Product created successfully");
 
         // Reset form
         setFormData({
           name: '',
           description: '',
-          price: '',
+          price: 0,
           gender: '',
           category: '',
           bestseller: false,
@@ -359,7 +393,7 @@ const Add = () => {
         setErrors({});
         setCurrentStep(1);
       } else {
-        toast.error(response.data.message);
+        toast.error(response?.data?.message || "Failed to add product");
       }
 
     } catch (error) {
@@ -370,7 +404,7 @@ const Add = () => {
     }
   };
 
-  // Render step content
+  // Render step content (unchanged UI, only logic above modified)
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
@@ -523,7 +557,6 @@ const Add = () => {
                   onChange={(e) => {
                     handleInputChange('gender', e.target.value);
                     handleInputChange('category', '');
-                    // handleInputChange('subCategory', ''); // Removed subCategory
                   }}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.gender
                     ? 'border-red-300 focus:ring-red-500'
@@ -545,7 +578,6 @@ const Add = () => {
                   value={formData.category}
                   onChange={(e) => {
                     handleInputChange('category', e.target.value);
-                    // handleInputChange('subCategory', ''); // Removed subCategory
                   }}
                   disabled={!formData.gender}
                   className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${!formData.gender
@@ -561,8 +593,6 @@ const Add = () => {
                   ))}
                 </select>
               </div>
-
-              {/* Removed subCategory field - not properly integrated with filter system */}
 
               <div className="flex items-center">
                 <label className="flex items-center cursor-pointer bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg px-4 py-3 hover:from-yellow-100 hover:to-orange-100 transition-all">
@@ -612,49 +642,57 @@ const Add = () => {
                           {filter.filterType === 'single-select' ? (
                             // Radio buttons for single select
                             <div className="grid grid-cols-2 gap-3">
-                              {filter.values.filter(v => v.isActive).map((item) => (
-                                <label key={item.value} className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
-                                  <input
-                                    type="radio"
-                                    name={filter.name}
-                                    checked={formData.filterValues[filter.name] === item.value}
-                                    onChange={() => handleFilterValueChange(filter.name, item.value, false)}
-                                    className="mr-3 w-4 h-4 text-blue-600 focus:ring-blue-500"
-                                  />
-                                  <span className="text-sm text-gray-700 flex items-center gap-2">
-                                    {item.colorCode && (
-                                      <span
-                                        className="w-4 h-4 rounded-full border-2 border-gray-300 shadow-sm"
-                                        style={{ backgroundColor: item.colorCode }}
-                                      />
-                                    )}
-                                    {item.displayName}
-                                  </span>
-                                </label>
-                              ))}
+                              {Array.isArray(filter.values) ? filter.values.filter(v => !v || v.isActive === undefined || v.isActive).map((item) => {
+                                const value = (item && item.value) || item;
+                                const display = (item && item.displayName) || String(item);
+                                return (
+                                  <label key={value} className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
+                                    <input
+                                      type="radio"
+                                      name={filter.name}
+                                      checked={formData.filterValues[filter.name] === value}
+                                      onChange={() => handleFilterValueChange(filter.name, value, false)}
+                                      className="mr-3 w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-gray-700 flex items-center gap-2">
+                                      {item && item.colorCode && (
+                                        <span
+                                          className="w-4 h-4 rounded-full border-2 border-gray-300 shadow-sm"
+                                          style={{ backgroundColor: item.colorCode }}
+                                        />
+                                      )}
+                                      {display}
+                                    </span>
+                                  </label>
+                                );
+                              }) : null}
                             </div>
                           ) : filter.filterType === 'multi-select' ? (
                             // Checkboxes for multi select
                             <div className="grid grid-cols-2 gap-3">
-                              {filter.values.filter(v => v.isActive).map((item) => (
-                                <label key={item.value} className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
-                                  <input
-                                    type="checkbox"
-                                    checked={(formData.filterValues[filter.name] || []).includes(item.value)}
-                                    onChange={() => handleFilterValueChange(filter.name, item.value, true)}
-                                    className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                                  />
-                                  <span className="text-sm text-gray-700 flex items-center gap-2">
-                                    {item.colorCode && (
-                                      <span
-                                        className="w-4 h-4 rounded-full border-2 border-gray-300 shadow-sm"
-                                        style={{ backgroundColor: item.colorCode }}
-                                      />
-                                    )}
-                                    {item.displayName}
-                                  </span>
-                                </label>
-                              ))}
+                              {Array.isArray(filter.values) ? filter.values.filter(v => !v || v.isActive === undefined || v.isActive).map((item) => {
+                                const value = (item && item.value) || item;
+                                const display = (item && item.displayName) || String(item);
+                                return (
+                                  <label key={value} className="flex items-center cursor-pointer p-2 rounded-lg hover:bg-white transition-colors">
+                                    <input
+                                      type="checkbox"
+                                      checked={(formData.filterValues[filter.name] || []).includes(value)}
+                                      onChange={() => handleFilterValueChange(filter.name, value, true)}
+                                      className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    />
+                                    <span className="text-sm text-gray-700 flex items-center gap-2">
+                                      {item && item.colorCode && (
+                                        <span
+                                          className="w-4 h-4 rounded-full border-2 border-gray-300 shadow-sm"
+                                          style={{ backgroundColor: item.colorCode }}
+                                        />
+                                      )}
+                                      {display}
+                                    </span>
+                                  </label>
+                                );
+                              }) : null}
                             </div>
                           ) : (
                             // Range input (for future use)
@@ -685,130 +723,6 @@ const Add = () => {
           </div>
         );
 
-      // case 4:
-      //   return (
-      //     <div className="space-y-6">
-      //       <div className="text-center">
-      //         <h3 className="text-xl font-semibold text-gray-800 mb-2">Stock & Pricing</h3>
-      //         <p className="text-gray-600">Set your product pricing and inventory</p>
-      //       </div>
-
-      //       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      //         <div>
-      //           <label className="block text-sm font-medium text-gray-700 mb-2">
-      //             Price (₹) <span className="text-red-500">*</span>
-      //           </label>
-      //           <input
-      //             type="number"
-      //             value={formData.price}
-      //             onChange={(e) => handleInputChange('price', e.target.value)}
-      //             placeholder="0"
-      //             min="1"
-      //             className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.price
-      //               ? 'border-red-300 focus:ring-red-500'
-      //               : 'border-gray-300 focus:ring-blue-500'
-      //               }`}
-      //           />
-
-      //         </div>
-
-      //         <div className="flex items-center">
-      //           <label className="flex items-center cursor-pointer bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 hover:bg-blue-100 transition-all">
-      //             <input
-      //               type="checkbox"
-      //               checked={formData.hasSize}
-      //               onChange={(e) => {
-      //                 handleInputChange('hasSize', e.target.checked);
-      //                 handleInputChange('sizes', []);
-      //                 handleInputChange('stock', {});
-      //               }}
-      //               className="mr-3 w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-      //             />
-      //             <span className="text-sm font-medium text-gray-700">Product has sizes</span>
-      //           </label>
-      //         </div>
-      //       </div>
-
-      //       {formData.hasSize ? (
-      //         <div className="space-y-4">
-      //           <div>
-      //             <label className="block text-sm font-medium text-gray-700 mb-3">
-      //               Available Sizes <span className="text-red-500">*</span>
-      //             </label>
-      //             <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-      //               {['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size'].map(size => (
-      //                 <button
-      //                   key={size}
-      //                   type="button"
-      //                   placeholder="0"
-      //                   min="1"
-      //                   onClick={() => {
-      //                     const newSizes = formData.sizes.includes(size)
-      //                       ? formData.sizes.filter(s => s !== size)
-      //                       : [...formData.sizes, size];
-      //                     handleInputChange('sizes', newSizes);
-
-      //                     // Remove stock for deselected size
-      //                     if (!newSizes.includes(size)) {
-      //                       const newStock = { ...formData.stock };
-      //                       delete newStock[size];
-      //                       handleInputChange('stock', newStock);
-      //                     }
-      //                   }}
-      //                   className={`px-3 py-2 text-sm font-medium rounded-lg border transition-all ${formData.sizes.includes(size)
-      //                     ? 'bg-blue-600 text-white border-blue-600'
-      //                     : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
-      //                     }`}
-      //                 >
-      //                   {size}
-      //                 </button>
-      //               ))}
-      //             </div>
-
-      //           </div>
-
-      //           {formData.sizes.length > 0 && (
-      //             <div>
-      //               <label className="block text-sm font-medium text-gray-700 mb-3">Stock per Size</label>
-      //               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-      //                 {formData.sizes.map(size => (
-      //                   <div key={size} className="flex items-center space-x-2">
-      //                     <span className="w-12 text-sm font-medium text-gray-700">{size}:</span>
-      //                     <input
-      //                       type="number"
-      //                       min="0"
-      //                       placeholder="0"
-
-      //                       value={formData.stock[size] || 0}
-      //                       onChange={(e) => handleInputChange('stock', {
-      //                         ...formData.stock,
-      //                         [size]: parseInt(e.target.value) || 0
-      //                       })}
-      //                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-      //                     />
-      //                   </div>
-      //                 ))}
-      //               </div>
-      //             </div>
-      //           )}
-      //         </div>
-      //       ) : (
-      //         <div>
-      //           <label className="block text-sm font-medium text-gray-700 mb-2">
-      //             Stock Quantity <span className="text-red-500">*</span>
-      //           </label>
-      //           <input
-      //             type="number"
-      //             min="0"
-      //             value={formData.stock.value || 0}
-      //             onChange={(e) => handleInputChange('stock', { value: parseInt(e.target.value) || 0 })}
-      //             className="w-full max-w-xs px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-      //           />
-      //         </div>
-      //       )}
-      //     </div>
-      //   );
-
       case 4:
         return (
           <div className="space-y-6">
@@ -829,7 +743,7 @@ const Add = () => {
                   value={formData.price === 0 ? '' : formData.price}
                   onChange={(e) => {
                     const value = e.target.value;
-                    handleInputChange('price', value === '' ? 0 : parseInt(value));
+                    handleInputChange('price', value === '' ? 0 : parseInt(value, 10));
                   }}
                   placeholder="0"
                   min="1"
@@ -838,6 +752,12 @@ const Add = () => {
                     : 'border-gray-300 focus:ring-blue-500'
                     }`}
                 />
+                {errors.price && (
+                  <p className="text-xs text-red-500 mt-2 flex items-center">
+                    <FaExclamationTriangle className="mr-1" />
+                    {errors.price}
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center">
@@ -911,7 +831,7 @@ const Add = () => {
                             onChange={(e) =>
                               handleInputChange('stock', {
                                 ...formData.stock,
-                                [size]: e.target.value === '' ? 0 : parseInt(e.target.value)
+                                [size]: e.target.value === '' ? 0 : parseInt(e.target.value, 10)
                               })
                             }
                             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -932,10 +852,10 @@ const Add = () => {
                   inputMode="numeric"
                   pattern="[0-9]*"
                   min="0"
-                  value={formData.stock?.value === 0 ? '' : formData.stock?.value}
+                  value={formData.stock?.value === 0 ? '' : (formData.stock?.value ?? '')}
                   onChange={(e) =>
                     handleInputChange('stock', {
-                      value: e.target.value === '' ? 0 : parseInt(e.target.value)
+                      value: e.target.value === '' ? 0 : parseInt(e.target.value, 10)
                     })
                   }
                   className="w-full max-w-xs px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -989,24 +909,19 @@ const Add = () => {
       </div>
 
       {/* Step Content */}
-      <form onSubmit={onSubmitHandler}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && currentStep !== totalSteps) {
-            e.preventDefault(); // Prevent auto-submit on intermediate steps
-          }
-        }}
-        className="p-6">
+      {/* Step Content */}
+      <div className="p-6">
         {renderStepContent()}
 
-        {/* Navigation Buttons */}
         <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+          {/* Previous Button */}
           <button
             type="button"
             onClick={prevStep}
             disabled={currentStep === 1}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${currentStep === 1
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
           >
             Previous
@@ -1016,13 +931,23 @@ const Add = () => {
             Step {currentStep} of {totalSteps}
           </div>
 
-          {currentStep === totalSteps ? (
+          {/* Next / Submit Button */}
+          {currentStep < totalSteps ? (
             <button
-              type="submit"
+              type="button"
+              onClick={nextStep}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            >
+              Next
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={onSubmitHandler} // Only runs when clicked
               disabled={uploading}
               className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${uploading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-green-600 hover:bg-green-700'
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-green-600 hover:bg-green-700'
                 }`}
             >
               {uploading ? (
@@ -1034,17 +959,10 @@ const Add = () => {
                 'Create Product'
               )}
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={nextStep}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              Next
-            </button>
           )}
         </div>
-      </form>
+      </div>
+
     </div>
   );
 };

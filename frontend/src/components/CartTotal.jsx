@@ -2,8 +2,9 @@ import React, { useContext, useState, useEffect } from "react";
 import { ShopContext } from "../context/ShopContext";
 import Title from "./Title";
 import CouponCode from "./CouponCode";
-//import sabpaisaLogo from '../assets/sabpaisa_logo.png'
-//import paytmLogo from '../assets/paytm_logo.png'
+import sabpaisaLogo from '../assets/sabpaisa_logo.png'
+import paytmLogo from '../assets/paytm_logo.png'
+import razorPayLogo from '../assets/razorpay_logo.png'
 import SabpaisaPaymentModal from "./SabpaisaPaymentModal";
 import axios from "axios";
 
@@ -50,8 +51,8 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
     console.log("Direct Buy Item", formData);
 
 
-    
-    const formDataToSend = {...formData, utrNumber, orderAmount: total };
+
+    const formDataToSend = { ...formData, utrNumber, orderAmount: total };
     if (paymentScreenshot) {
       formDataToSend.append("screenshot", paymentScreenshot);
     }
@@ -73,7 +74,7 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
     }
   };
 
-  const [paymentMethod, setPaymentMethod] = useState("paytm");
+  const [paymentMethod, setPaymentMethod] = useState("razorPay");
   const [isRedirecting, setIsRedirecting] = useState(false);
   const [showSabpaisaModal, setShowSabpaisaModal] = useState(false);
   // Reset isRedirecting on component mount to allow multiple submissions
@@ -127,6 +128,73 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
       alert("Payment failed. Try again.");
     }
   };
+
+  const loadRazorpay = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
+
+  const handleRazorpayPayment = async () => {
+    const loaded = await loadRazorpay();
+    if (!loaded) {
+      alert("Razorpay SDK failed to load.");
+      return;
+    }
+
+    try {
+      const { data } = await axios.post(`${backendUrl}/order/razorpay/create-order`, {
+        amount: total,
+      });
+
+      const options = {
+        key: data.key,
+        amount: data.amount,
+        currency: data.currency,
+        name: "Your Store Name",
+        description: "Order Payment",
+        order_id: data.orderId,
+        handler: async function (response) {
+          const res = await axios.post(`${backendUrl}/order/razorpay/verify-payment`, {
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+            orderData: {
+              items: directBuyItem ? [directBuyItem] : cartItems,
+              address: formData.address,
+              couponCode: appliedCoupon?.code,
+              isGuest: checkoutMode === "guest",
+              guestInfo: checkoutMode === "guest" ? formData : null
+            }
+          });
+
+          if (res.data.success) {
+            clearCart();
+            navigate(`/order-success/${res.data.orderId}`);
+          } else {
+            alert(res.data.message);
+          }
+        },
+        prefill: {
+          name: formData.name,
+          email: formData.email,
+          contact: formData.phone,
+        },
+        theme: { color: "#3399cc" },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (error) {
+      console.error(error);
+      alert("Payment initiation failed.");
+    }
+  };
+
 
   return (
     <div className='w-full bg-white border rounded-lg p-4 mb-4"'>
@@ -192,30 +260,37 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
       <div className="mt-12">
         <Title text1={"PAYMENT"} text2={"METHOD"} />
         {/* --------------- Payment Method Selection ------------- */}
-        {/* 
-<div className='flex gap-3 flex-col lg:flex-row'>
 
-    <div onClick={() => setPaymentMethod('sabpaisa')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
-        <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'sabpaisa' ? 'bg-green-400' : ''}`}></p>
-        <img
-            src={sabpaisaLogo}
-            alt="SabPaisa Logo"
-            className="h-6 mx-3"
-        />
-    </div>
+        <div className='flex gap-3 flex-col lg:flex-row'>
 
-    <div onClick={() => setPaymentMethod('paytm')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
-        <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'paytm' ? 'bg-green-400' : ''}`}></p>
-        {/* <p className='text-gray-500 text-sm font-medium mx-3'>Paytm</p> */}
-        {/*  <img
-            src={paytmLogo}
-            alt="SabPaisa Logo"
-            className="h-6 mx-3"
-        />
-    </div>
+          {/* <div onClick={() => setPaymentMethod('sabpaisa')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+            <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'sabpaisa' ? 'bg-green-400' : ''}`}></p>
+            <img
+              src={sabpaisaLogo}
+              alt="SabPaisa Logo"
+              className="h-6 mx-3"
+            />
+          </div>
 
-</div> 
-*/}
+          <div onClick={() => setPaymentMethod('paytm')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+            <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'paytm' ? 'bg-green-400' : ''}`}></p>
+            <img
+              src={paytmLogo}
+              alt="SabPaisa Logo"
+              className="h-6 mx-3"
+            />
+          </div> */}
+          <div onClick={() => setPaymentMethod('razorPay')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
+            <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'razorPay' ? 'bg-green-400' : ''}`}></p>
+            <img
+              src={razorPayLogo}
+              alt="SabPaisa Logo"
+              className="h-6 mx-3"
+            />
+          </div>
+
+        </div>
+
 
         <div className="w-full text-end mt-8">
           {hasCriticalStockIssues && (
@@ -284,26 +359,28 @@ const CartTotal = ({ checkoutMode, hasCriticalStockIssues }) => {
           <button
             type="button"
             disabled={isRedirecting || hasCriticalStockIssues}
-            className={`w-full mt-4 px-16 py-3 text-sm font-medium transition-all rounded-lg ${
-              hasCriticalStockIssues || isRedirecting
-                ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
+            className={`w-full mt-4 px-16 py-3 text-sm font-medium transition-all rounded-lg ${hasCriticalStockIssues || isRedirecting
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+              : "bg-black text-white hover:bg-gray-800"
+              }`}
             onClick={() => {
               if (paymentMethod === "paytm") {
                 setManualPaymentMode(true);
+              } else if (paymentMethod === "razorPay") {
+                handleRazorpayPayment();
               } else {
                 handleCheckoutClick();
               }
             }}
+
           >
             {hasCriticalStockIssues
               ? "RESOLVE STOCK ISSUES TO CONTINUE"
               : isRedirecting
-              ? "Redirecting..."
-              : checkoutMode === "guest"
-              ? "PLACE ORDER AS GUEST"
-              : "PROCEED TO CHECKOUT"}
+                ? "Redirecting..."
+                : checkoutMode === "guest"
+                  ? "PLACE ORDER AS GUEST"
+                  : "PROCEED TO CHECKOUT"}
           </button>
 
           <SabpaisaPaymentModal
