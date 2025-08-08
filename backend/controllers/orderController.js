@@ -12,6 +12,7 @@ import querystring from 'querystring';
 import PaytmChecksum from "paytmchecksum";
 import axios from "axios";
 import Razorpay from "razorpay";
+import ReturnRequestModel from '../models/ReturnRequestModel .js';
 
 
 const razorpayInstance = new Razorpay({
@@ -112,6 +113,7 @@ export async function createPaidOrder(data) {
     for (const item of items) {
         const product = await productModel.findById(item._id);
         if (product) {
+            item.image = product.image?.[0] || product.image || '';
             totalAmount += product.price * item.quantity;
         }
     }
@@ -270,70 +272,146 @@ export const placeOrder = async (req, res) => {
 
 
 
-const listOrdersPaginated = async (req, res) => {
-    try {
-        let { page = 1, limit = 10 } = req.body;
-        page = parseInt(page);
-        limit = parseInt(limit);
+// const listOrdersPaginated = async (req, res) => {
+//     try {
+//         let { page = 1, limit = 10 } = req.body;
+//         page = parseInt(page);
+//         limit = parseInt(limit);
 
-        const total = await orderModel.countDocuments();
+//         const total = await orderModel.countDocuments();
 
-        const orders = await orderModel.find({})
-            .sort({ date: -1 })
-            .skip((page - 1) * limit)
-            .limit(limit);
+//         const orders = await orderModel.find({})
+//             .sort({ date: -1 })
+//             .skip((page - 1) * limit)
+//             .limit(limit);
 
-        // Transform orders to include customer info for display
-        const transformedOrders = orders.map(order => {
-            const orderObj = order.toObject();
+//         // Transform orders to include customer info for display
+//         const transformedOrders = orders.map(order => {
+//             const orderObj = order.toObject();
 
-            if (order.isGuest) {
-                orderObj.customerInfo = {
-                    name: order.guestInfo.name,
-                    email: order.guestInfo.email,
-                    phone: order.guestInfo.phone,
-                    type: 'Guest'
-                };
-            } else {
-                orderObj.customerInfo = {
-                    userId: order.userId,
-                    type: 'Registered'
-                };
-            }
+//             if (order.isGuest) {
+//                 orderObj.customerInfo = {
+//                     name: order.guestInfo.name,
+//                     email: order.guestInfo.email,
+//                     phone: order.guestInfo.phone,
+//                     type: 'Guest'
+//                 };
+//             } else {
+//                 orderObj.customerInfo = {
+//                     userId: order.userId,
+//                     type: 'Registered'
+//                 };
+//             }
 
-            return orderObj;
-        });
+//             return orderObj;
+//         });
 
-        res.json({
-            success: true,
-            orders: transformedOrders,
-            totalPages: Math.ceil(total / limit),
-            currentPage: page,
-            totalOrders: total
-        });
+//         res.json({
+//             success: true,
+//             orders: transformedOrders,
+//             totalPages: Math.ceil(total / limit),
+//             currentPage: page,
+//             totalOrders: total
+//         });
 
-    } catch (error) {
-        console.log(error);
-        res.json({ success: false, message: error.message });
-    }
-};
+//     } catch (error) {
+//         console.log(error);
+//         res.json({ success: false, message: error.message });
+//     }
+// };
 
 // User Order Data For Frontend
-const userOrders = async (req, res) => {
-    try {
+// const userOrders = async (req, res) => {
+//     try {
 
-        const userId = req.user.userId // Get userId from authenticated token
+//         const userId = req.user.userId // Get userId from authenticated token
 
-        const orders = await orderModel.find({ userId, isGuest: false })
-        res.json({ success: true, orders })
+//         const orders = await orderModel.find({ userId, isGuest: false })
+//         res.json({ success: true, orders })
 
-    } catch (error) {
-        console.log(error)
-        res.json({ success: false, message: error.message })
-    }
-}
+//     } catch (error) {
+//         console.log(error)
+//         res.json({ success: false, message: error.message })
+//     }
+// }
 
 // Guest Order Tracking - New function for guests to track orders
+
+const listOrdersPaginated = async (req, res) => {
+  try {
+    let { page = 1, limit = 10 } = req.body;
+    page = parseInt(page);
+    limit = parseInt(limit);
+
+    const total = await orderModel.countDocuments();
+
+    const orders = await orderModel.find({})
+      .sort({ date: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const orderIds = orders.map(order => order._id);
+
+    // Fetch all return requests for these orders
+    const returnRequests = await ReturnRequestModel.find({
+      orderId: { $in: orderIds }
+    });
+
+    // Build a map of orderId -> Set of itemIds that have return requests
+    const returnMap = {};
+    returnRequests.forEach(req => {
+      const orderIdStr = req.orderId.toString();
+      if (!returnMap[orderIdStr]) returnMap[orderIdStr] = new Set();
+      req.itemIds.forEach(itemId => returnMap[orderIdStr].add(itemId.toString()));
+    });
+
+    // Transform orders to include customer info and isReturnRequested flag per item
+    const transformedOrders = orders.map(order => {
+      const orderObj = order.toObject();
+
+      if (order.isGuest) {
+        orderObj.customerInfo = {
+          name: order.guestInfo.name,
+          email: order.guestInfo.email,
+          phone: order.guestInfo.phone,
+          type: 'Guest'
+        };
+      } else {
+        orderObj.customerInfo = {
+          userId: order.userId,
+          type: 'Registered'
+        };
+      }
+
+      // Add isReturnRequested flag to each item
+      const orderIdStr = order._id.toString();
+      orderObj.items = orderObj.items.map(item => {
+        const itemIdStr = item._id.toString();
+        return {
+          ...item,
+          isReturnRequested: returnMap[orderIdStr]?.has(itemIdStr) || false
+        };
+      });
+
+      return orderObj;
+    });
+
+    res.json({
+      success: true,
+      orders: transformedOrders,
+      totalPages: Math.ceil(total / limit),
+      currentPage: page,
+      totalOrders: total
+    });
+
+  } catch (error) {
+    console.log(error);
+    res.json({ success: false, message: error.message });
+  }
+};
+
+
+
 export const guestOrderTracking = async (req, res) => {
     try {
         const { email, phone } = req.body;
@@ -887,6 +965,127 @@ export const verifyPaytmPayment = async (req, res) => {
         res.status(500).json({ success: false, message: "Paytm verification failed" });
     }
 };
+
+const userOrders = async (req, res) => {
+    try {
+        const userId = req.user.userId; // Get userId from authenticated token
+
+        // Fetch all user orders (not guest)
+        const orders = await orderModel.find({ userId, isGuest: false });
+
+        // Get all order IDs for this user
+        const orderIds = orders.map(order => order._id);
+
+        // Fetch all return requests made by this user for these orders
+        const returnRequests = await ReturnRequestModel.find({
+            userId,
+            orderId: { $in: orderIds },
+        });
+
+        // For quick lookup, create a map:
+        // { orderId: Set of itemIds requested for return }
+        const returnMap = {};
+        returnRequests.forEach(req => {
+            const key = req.orderId.toString();
+            if (!returnMap[key]) returnMap[key] = new Set();
+            req.itemIds.forEach(itemId => returnMap[key].add(itemId.toString()));
+        });
+
+        // Add isReturnRequested flag to each item based on return requests
+        const ordersWithReturnInfo = orders.map(order => {
+            const orderIdStr = order._id.toString();
+
+            // Map over items and check if they exist in returnMap for that order
+            const itemsWithReturnFlag = order.items.map(item => {
+                const itemIdStr = item._id.toString();
+                const isRequested =
+                    returnMap[orderIdStr] && returnMap[orderIdStr].has(itemIdStr);
+
+                return {
+                    ...item.toObject(),
+                    isReturnRequested: !!isRequested,
+                };
+            });
+
+            return {
+                ...order.toObject(),
+                items: itemsWithReturnFlag,
+            };
+        });
+
+        res.json({ success: true, orders: ordersWithReturnInfo });
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+
+export async function createReturnRequest(req, res) {
+    try {
+        const { orderId, itemIds, reason } = req.body;
+        const userId = req.user?.userId;
+
+        if (!orderId) {
+            return res.status(400).json({ success: false, message: "orderId is required" });
+        }
+
+        if (!userId) {
+            return res.status(401).json({ success: false, message: "Unauthorized" });
+        }
+
+        // Validate order ownership
+        const order = await orderModel.findOne({ _id: orderId, userId });
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found" });
+        }
+
+        // If itemIds provided, verify they exist in the order
+        if (itemIds && itemIds.length > 0) {
+            const invalidItems = itemIds.filter(id =>
+                !order.items.some(item => item._id.toString() === id)
+            );
+
+            if (invalidItems.length > 0) {
+                return res.status(400).json({ success: false, message: "Some itemIds not found in order" });
+            }
+        }
+
+        // Check if return request already exists for same order and user and same items (or whole order)
+        // Check if return request already exists for same order and user and any of the requested items
+        const existingRequests = await ReturnRequestModel.find({
+            orderId,
+            userId,
+            itemIds: { $in: itemIds || [] }
+        });
+
+        if (existingRequests.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: "Return request already submitted for one or more of these items"
+            });
+        }
+
+
+        // Create new return request
+        const returnRequest = new ReturnRequestModel({
+            orderId,
+            userId,
+            itemIds: itemIds || [],
+            reason: reason || 'No reason provided',
+            status: 'Pending',
+            requestedAt: Date.now(),
+        });
+
+        await returnRequest.save();
+
+        res.json({ success: true, message: "Return request created successfully" });
+
+    } catch (error) {
+        console.error("Return request error stack:", error.stack);
+        res.status(500).json({ success: false, message: "Internal Server Error" });
+    }
+}
 
 
 
