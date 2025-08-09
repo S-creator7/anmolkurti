@@ -35,7 +35,7 @@ export const FilterProvider = ({ children, token }) => {
       });
       if (response.data.success) {
         setFilters(response.data.filters);
-        
+
         // Update filter options from fetched filters
         const options = {};
         response.data.filters.forEach(filter => {
@@ -50,6 +50,7 @@ export const FilterProvider = ({ children, token }) => {
       setLoading(false);
     }
   };
+  
 
   // Fetch dynamic filters from products
   const fetchDynamicFilters = async () => {
@@ -157,16 +158,16 @@ export const FilterProvider = ({ children, token }) => {
 
   // Get category-specific filters for a category
   const getCategoryFilters = (category) => {
-    return filters.filter(f => 
-      f.type === 'category-specific' && 
+    return filters.filter(f =>
+      f.type === 'category-specific' &&
       f.applicableCategories.includes(category)
     );
   };
 
   // Get all applicable filters for a category (global + category-specific)
   const getApplicableFilters = (category) => {
-    return filters.filter(f => 
-      f.type === 'global' || 
+    return filters.filter(f =>
+      f.type === 'global' ||
       (f.type === 'category-specific' && f.applicableCategories.includes(category))
     );
   };
@@ -175,6 +176,9 @@ export const FilterProvider = ({ children, token }) => {
   const refreshFilters = async () => {
     await Promise.all([fetchFilters(), fetchDynamicFilters()]);
   };
+
+ 
+
 
   useEffect(() => {
     refreshFilters();

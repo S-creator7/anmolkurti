@@ -8,8 +8,11 @@ import { FaCloudUploadAlt, FaTimes, FaCheck, FaExclamationTriangle, FaInfoCircle
 const token = localStorage.getItem('token');
 
 const Add = () => {
-  const { filterOptions, getFilterValues, dynamicFilters, getGlobalFilters, getCategoryFilters, getApplicableFilters } = useFilters();
+  const { filterOptions, getFilterValues, dynamicFilters, getGlobalFilters, getCategoryFilters, getApplicableFilters, filters } = useFilters();
 
+  console.log("Global filters:", getGlobalFilters())
+  console.log("Filters:", filters)
+  console.log("get filter values", getFilterValues())
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
@@ -785,7 +788,7 @@ const Add = () => {
                     Available Sizes <span className="text-red-500">*</span>
                   </label>
                   <div className="grid grid-cols-4 md:grid-cols-8 gap-3">
-                    {['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'Free Size'].map((size) => (
+                    {getFilterOptions('size').map((size) => (
                       <button
                         key={size}
                         type="button"
@@ -802,13 +805,14 @@ const Add = () => {
                           }
                         }}
                         className={`px-3 py-2 text-sm font-medium rounded-lg border transition-all ${formData.sizes.includes(size)
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
                           }`}
                       >
                         {size}
                       </button>
                     ))}
+
                   </div>
                 </div>
 
@@ -921,8 +925,8 @@ const Add = () => {
             onClick={prevStep}
             disabled={currentStep === 1}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${currentStep === 1
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
               }`}
           >
             Previous
@@ -947,8 +951,8 @@ const Add = () => {
               onClick={onSubmitHandler} // Only runs when clicked
               disabled={uploading}
               className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${uploading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-green-600 hover:bg-green-700'
                 }`}
             >
               {uploading ? (

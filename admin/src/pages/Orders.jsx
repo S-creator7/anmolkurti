@@ -117,7 +117,7 @@ const Orders = ({ token }) => {
 
   const statusHandler = async (event, orderId) => {
     try {
-      const response = await axios.post(backendUrl + '/order/update-status',
+      const response = await axios.post(backendUrl.join('/order/update-status'),
         { orderId, status: event.target.value },
         { headers: { token } }
       )
