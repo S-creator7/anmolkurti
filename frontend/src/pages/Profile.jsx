@@ -178,7 +178,7 @@ const Profile = () => {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Total Spent</span>
-                  <span className="font-medium">${userData.stats.totalSpent}</span>
+                 <span className="font-medium">₹{userData.stats.totalSpent}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Wishlist Items</span>

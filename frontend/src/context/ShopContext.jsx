@@ -66,7 +66,7 @@ const ShopContextProvider = (props) => {
       }
 
       // Get real-time stock for the specific size
-      availableStock = await getRealTimeStock(itemId, size);
+      const availableStock = await getRealTimeStock(itemId, size, product);
       currentCartQty = cartItems[itemId]?.[size] ?? 0;
 
       if (availableStock <= 0) {
@@ -221,11 +221,13 @@ const ShopContextProvider = (props) => {
 
     let totalAmount = 0;
     for (const items in cartItems) {
+      // let itemInfo = products.find((product) => product._id === items);
       let itemInfo = products.find((product) => product._id === items);
       if (!itemInfo) {
         console.warn(`Product not found for cart item: ${items}`);
         continue;
       }
+
 
       for (const item in cartItems[items]) {
         try {
@@ -244,9 +246,9 @@ const ShopContextProvider = (props) => {
   };
 
   const clearCart = () => {
-  setCartItems({});
-  setDirectBuyItem(null);
-};
+    setCartItems({});
+    setDirectBuyItem(null);
+  };
 
   // Function to refresh stock data for all products
   const refreshProductStock = async () => {
@@ -283,7 +285,36 @@ const ShopContextProvider = (props) => {
   }, [cartItems, products.length]);
 
   // Helper function to get real-time stock for a product and size
-  const getRealTimeStock = async (productId, size = null) => {
+  // const getRealTimeStock = async (productId, size = null) => {
+  //   try {
+  //     const response = await axios.post(`${backendUrl}/product/stock-levels`, {
+  //       productIds: [productId]
+  //     });
+
+  //     if (response.data.success && response.data.stockLevels[productId]) {
+  //       const stockData = response.data.stockLevels[productId];
+
+  //       if (size) {
+  //         return stockData.stock?.[size] || 0;
+  //       } else {
+  //         return typeof stockData.stock === 'number' ? stockData.stock : 0;
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error('Error fetching real-time stock:', error);
+  //   }
+
+  //   // Fallback to local product data
+  //   const product = products.find(p => p._id === productId);
+  //   if (!product) return 0;
+
+  //   if (size) {
+  //     return product.stock?.[size] || 0;
+  //   } else {
+  //     return typeof product.stock === 'number' ? product.stock : 0;
+  //   }
+  // };
+  const getRealTimeStock = async (productId, size = null, fallbackProduct = null) => {
     try {
       const response = await axios.post(`${backendUrl}/product/stock-levels`, {
         productIds: [productId]
@@ -291,9 +322,8 @@ const ShopContextProvider = (props) => {
 
       if (response.data.success && response.data.stockLevels[productId]) {
         const stockData = response.data.stockLevels[productId];
-
         if (size) {
-          return stockData.stock?.[size] || 0;
+          return stockData.stock?.[size] ?? 0;
         } else {
           return typeof stockData.stock === 'number' ? stockData.stock : 0;
         }
@@ -302,16 +332,25 @@ const ShopContextProvider = (props) => {
       console.error('Error fetching real-time stock:', error);
     }
 
-    // Fallback to local product data
+    // Fallback to product passed in (from modal)
+    if (fallbackProduct) {
+      if (size) {
+        return fallbackProduct.stock?.[size] ?? 0;
+      } else {
+        return typeof fallbackProduct.stock === 'number' ? fallbackProduct.stock : 0;
+      }
+    }
+
+    // Fallback to products array in context
     const product = products.find(p => p._id === productId);
     if (!product) return 0;
-
     if (size) {
-      return product.stock?.[size] || 0;
+      return product.stock?.[size] ?? 0;
     } else {
       return typeof product.stock === 'number' ? product.stock : 0;
     }
   };
+
 
 
   const subscribeStockAlert = async (productId, email) => {
