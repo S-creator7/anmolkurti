@@ -16,7 +16,7 @@ const AccountManagement = ({ token }) => {
   const { dynamicFilters } = useFilters();
 
   // Get categories from dynamic filters with fallback
-  const categories = dynamicFilters?.category || ['Saree', 'Kurti', 'Suit', 'Shirt', 'Pants', 'Dress', 'Salwar'];
+  const categories = dynamicFilters?.category;
 
   // State for data
   const [orders, setOrders] = useState([]);
