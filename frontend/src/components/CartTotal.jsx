@@ -7,6 +7,9 @@ import paytmLogo from '../assets/paytm_logo.png'
 import razorPayLogo from '../assets/razorpay_logo.png'
 import SabpaisaPaymentModal from "./SabpaisaPaymentModal";
 import axios from "axios";
+import { toast } from 'react-toastify';
+import CheckoutForm from "./CheckoutForm";
+
 
 const CartTotal = ({ hasCriticalStockIssues }) => {
   const delivery_fee = 100;
@@ -14,9 +17,10 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
 
   const { backendUrl, token, navigate, currency, getCartAmount, cartItems, directBuyItem, formData, products, clearCart } = useContext(ShopContext);
 
+  const isFormFilled = Object.values(formData).every((val) => val.trim() !== "");
   const isLoggedIn = !!token;
   const [appliedCoupon, setAppliedCoupon] = useState(null);
- console.log("IS Logged in", isLoggedIn, token)
+  console.log("IS Logged in", isLoggedIn, token)
   let subtotal = directBuyItem
     ? Number(directBuyItem.price) * (directBuyItem.quantity)
     : Number(getCartAmount());
@@ -76,9 +80,6 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
     setAppliedCoupon(null);
   };
 
-  // const handleCheckoutClick = () => {
-  //   setShowSabpaisaModal(true);
-  // };
 
   const loadRazorpay = () => {
     return new Promise((resolve) => {
@@ -118,12 +119,27 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
     console.log("Form data", formData)
   }, [])
 
-  const handleRazorpayPayment = async () => {
-    const loaded = await loadRazorpay();
-    if (!loaded) {
-      alert("Razorpay SDK failed to load.");
+  const handleCheckout = () => {
+    if (!isFormFilled) {
+      toast.error("Please Sign Up To Proceed");
       return;
     }
+
+    // ✅ Proceed to Razorpay payment if form is filled
+    handleRazorpayPayment();
+  };
+
+  const handleRazorpayPayment = async () => {
+    console.log("Form data while submitting", formData)
+
+    const loaded = await loadRazorpay();
+    if (!loaded) {
+      toast.error("Razorpay SDK failed to load.");
+      return;
+    }
+
+
+
 
     try {
       // Step 1: Create Razorpay Order
@@ -273,6 +289,18 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
           </p>
         </div>
 
+        {/* Delivery Address Section */}
+        {formData?.street && (
+          <div className="mt-6 p-3 border rounded bg-gray-50 text-sm">
+            <h3 className="font-semibold mb-2">📦 Delivering To:</h3>
+            <p>{formData.firstName} {formData.lastName}</p>
+            <p>{formData.street}, {formData.city}</p>
+            <p>{formData.state} - {formData.zipcode}</p>
+            <p>{formData.country}</p>
+            <p>📞 {formData.phone}</p>
+          </div>
+        )}
+
         {appliedCoupon && (
           <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
             <p>
@@ -326,7 +354,7 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
               : "bg-black text-white hover:bg-gray-800"
               }`}
-            onClick={() => handleRazorpayPayment()}
+            onClick={() => handleCheckout()}
 
           >
             {hasCriticalStockIssues

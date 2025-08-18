@@ -7,6 +7,7 @@ import { toast } from 'react-toastify'
 import BestSeller from '../components/BestSeller'
 import OurPolicy from '../components/OurPolicy'
 import ScrollToTop from "../components/scrollToTop";
+import CheckoutForm from '../components/CheckoutForm'
 
 
 const PlaceOrder = () => {
@@ -131,9 +132,8 @@ const PlaceOrder = () => {
             <ScrollToTop />
             <form onSubmit={onSubmitHandler} className='flex flex-col sm:flex-row justify-between gap-4 pt-5 sm:pt-14 min-h-[80vh] border-t'>
                 {/* ------------- Left Side ---------------- */}
-                <div className='flex flex-col gap-4 w-full sm:max-w-[480px]'>
+                {/* <div className='flex flex-col gap-4 w-full sm:max-w-[480px]'>
 
-                    {/* Checkout Mode Indicator */}
                     <div className='flex items-center justify-between mb-4'>
                         <div className='text-xl sm:text-2xl'>
                             <Title text1={'DELIVERY'} text2={'INFORMATION'} />
@@ -152,7 +152,6 @@ const PlaceOrder = () => {
                         )}
                     </div>
 
-                    {/* User Profile Loading State */}
                     {userProfileLoading && isLoggedIn && (
                         <div className='bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4'>
                             <div className='flex items-center gap-3'>
@@ -162,7 +161,6 @@ const PlaceOrder = () => {
                         </div>
                     )}
 
-                    {/* Logged-in User Info */}
                     {isLoggedIn && !userProfileLoading && (
                         <div className='bg-green-50 border border-green-200 rounded-lg p-4 mb-4'>
                             <div className='flex items-center gap-2 mb-2'>
@@ -281,7 +279,9 @@ const PlaceOrder = () => {
                             </p>
                         </div>
                     )}
-                </div>
+                </div> */}
+
+                <CheckoutForm/>
 
                 {/* ------------- Right Side ------------------ */}
                 <div className='mt-8 w-full max-w-lg'>
