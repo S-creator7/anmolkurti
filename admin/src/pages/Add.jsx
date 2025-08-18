@@ -6,9 +6,10 @@ import { useFilters } from '../context/FilterContext'
 import { FaCloudUploadAlt, FaTimes, FaCheck, FaExclamationTriangle, FaInfoCircle, FaPlus, FaTrash, FaImage, FaFilter } from 'react-icons/fa'
 
 const token = localStorage.getItem('token');
-
+console.log('token',token )
 const Add = () => {
   const { filterOptions, getFilterValues, dynamicFilters, getGlobalFilters, getCategoryFilters, getApplicableFilters, filters } = useFilters();
+console.log('token',token )
 
   console.log("Global filters:", getGlobalFilters())
   console.log("Filters:", filters)

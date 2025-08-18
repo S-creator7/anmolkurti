@@ -1,0 +1,261 @@
+/* Comprehensive Responsive Design System for Anmol Kurti */
+
+/* Responsive Breakpoints */
+:root {
+  --mobile: 640px;
+  --tablet: 768px;
+  --desktop: 1024px;
+  --large-desktop: 1280px;
+}
+
+/* Responsive Container */
+.responsive-container {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+@media (max-width: 640px) {
+  .responsive-container {
+    padding: 0 0.5rem;
+  }
+}
+
+/* Responsive Grid System */
+.responsive-grid {
+  display: grid;
+  gap: 1.5rem;
+}
+
+/* Responsive Grid Columns */
+.grid-cols-1 { grid-template-columns: 1fr; }
+.grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* Responsive Grid Breakpoints */
+@media (max-width: 640px) {
+  .mobile-grid-cols-1 { grid-template-columns: 1fr; }
+  .mobile-grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .tablet-grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .tablet-grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .desktop-grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .desktop-grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+}
+
+@media (min-width: 1025px) {
+  .large-desktop-grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+  .large-desktop-grid-cols-5 { grid-template-columns: repeat(5, 1fr); }
+}
+
+/* Responsive Flexbox */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+
+/* Responsive Flex Breakpoints */
+@media (max-width: 768px) {
+  .mobile-flex-col { flex-direction: column; }
+  .mobile-flex-wrap { flex-wrap: wrap; }
+}
+
+/* Responsive Spacing */
+.space-y-2 > * + * { margin-top: 0.5rem; }
+.space-y-4 > * + * { margin-top: 1rem; }
+.space-x-2 > * + * { margin-left: 0.5rem; }
+.space-x-4 > * + * { margin-left: 1rem; }
+
+/* Responsive Spacing Breakpoints */
+@media (max-width: 640px) {
+  .mobile-space-y-2 > * + * { margin-top: 0.5rem; }
+  .mobile-space-x-2 > * + * { margin-left: 0.5rem; }
+}
+
+/* Responsive Images */
+.responsive-image {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+
+/* Responsive Buttons */
+.responsive-button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .responsive-button {
+    width: 100%;
+    padding: 1rem;
+  }
+}
+
+/* Responsive Cards */
+.responsive-card {
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .responsive-card {
+    padding: 1rem;
+    margin: 0.5rem;
+  }
+}
+
+/* Responsive Forms */
+.responsive-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .responsive-form {
+    padding: 1rem;
+  }
+}
+
+/* Responsive Tables */
+.responsive-table {
+  width: 100%;
+  overflow-x: auto;
+}
+
+@media (max-width: 640px) {
+  .responsive-table {
+    display: block;
+    font-size: 0.875rem;
+  }
+}
+
+/* Responsive Navigation */
+.responsive-nav {
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.responsive-nav-item {
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  transition: all 0.2s;
+}
+
+@media (max-width: 768px) {
+  .responsive-nav {
+    flex-direction: column;
+  }
+}
+
+/* Responsive Hero Section */
+.responsive-hero {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .responsive-hero {
+    min-height: 50vh;
+    padding: 2rem 1rem;
+  }
+}
+
+/* Responsive Product Grid */
+.responsive-product-grid {
+  display: grid;
+  gap: 2rem;
+  padding: 2rem;
+}
+
+@media (max-width: 640px) {
+  .responsive-product-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 768px) {
+  .responsive-product-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .responsive-product-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1025px) {
+  .responsive-product-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Responsive Typography */
+.responsive-text {
+  font-size: clamp(1rem, 2vw, 1.5rem);
+}
+
+.responsive-heading {
+  font-size: clamp(1.5rem, 4vw, 3rem);
+}
+
+/* Responsive Spacing */
+.responsive-padding {
+  padding: clamp(1rem, 3vw, 2rem);
+}
+
+.responsive-margin {
+  margin: clamp(1rem, 3vw, 2rem);
+}
+
+/* Responsive Utilities */
+.mobile-full-width { width: 100%; }
+.mobile-hide { display: none; }
+.mobile-show { display: block; }
+
+@media (min-width: 641px) {
+  .tablet-hide { display: none; }
+  .tablet-show { display: block; }
+}
+
+@media (min-width: 769px) {
+  .desktop-hide { display: none; }
+  .desktop-show { display: block; }
+}
+
+/* Responsive Container Queries */
+.responsive-container {
+  container-type: inline-size;
+}
+
+@container (max-width: 640px) {
+  .container-mobile { display: block; }
+  .container-desktop { display: none; }
+}
+
+@container (min-width: 641px) {
+  .container-mobile { display: none; }
+  .container-desktop { display: block; }
+}
