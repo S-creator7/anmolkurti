@@ -9,73 +9,46 @@ import SabpaisaPaymentModal from "./SabpaisaPaymentModal";
 import axios from "axios";
 
 const CartTotal = ({ hasCriticalStockIssues }) => {
-  const { backendUrl, token, navigate } = useContext(ShopContext)
+  const delivery_fee = 100;
+  const FREE_DELIVERY_THRESHOLD = 2000;
+
+  const { backendUrl, token, navigate, currency, getCartAmount, cartItems, directBuyItem, formData, products, clearCart } = useContext(ShopContext);
+
   const isLoggedIn = !!token;
-  const {
-    currency,
-    delivery_fee,
-    getCartAmount,
-    cartItems,
-    directBuyItem,
-    formData,
-    products,
-    clearCart
-  } = useContext(ShopContext);
-  // const [localAppliedCoupon, setLocalAppliedCoupon] = useState(null);
-  // Use props if provided (for PlaceOrder), otherwise use local state (for Cart)
-  // const appliedCoupon = propAppliedCoupon !== undefined ? propAppliedCoupon : localAppliedCoupon;
-  // const onCouponApplied = propOnCouponApplied || setLocalAppliedCoupon;
-  // const onRemoveCoupon = propOnRemoveCoupon || (() => setLocalAppliedCoupon(null));
-  const [onCouponApplied, setOnCouponApplied] = useState(null);
-  const [appliedCoupon, setAppliedCoupon] = useState();
-  const discountAmount = appliedCoupon ? appliedCoupon.discountAmount : 0;
-  const shippingFee =
-    appliedCoupon && appliedCoupon.discountType === "free_shipping"
-      ? 0
-      : delivery_fee;
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+ console.log("IS Logged in", isLoggedIn, token)
+  let subtotal = directBuyItem
+    ? Number(directBuyItem.price) * (directBuyItem.quantity)
+    : Number(getCartAmount());
 
-  let subtotal = 0;
-  if (directBuyItem) {
-    subtotal = directBuyItem.price;
+  // shipping
+  let shippingFee = 0;
+  if (appliedCoupon?.discountType === "free_shipping") {
+    shippingFee = 0;
   } else {
-    subtotal = getCartAmount();
+    shippingFee = subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : delivery_fee;
   }
-  const total = Math.max(0, subtotal - discountAmount + shippingFee);
-  //manual payment via QR code
-  const [utrNumber, setUtrNumber] = useState("");
-  const [paymentScreenshot, setPaymentScreenshot] = useState(null);
-  const [manualPaymentMode, setManualPaymentMode] = useState(false);
-  const handleManualPaytmSubmit = async () => {
-    if (!utrNumber) {
-      alert("Please provide UTR or screenshot");
-      return;
+
+  // discount
+  let discount = 0;
+  if (appliedCoupon) {
+    if (appliedCoupon.discountAmount !== undefined) {
+      // Use backend-calculated discount
+      discount = Number(appliedCoupon.discountAmount) || 0;
+    } else {
+      // fallback if only type/value is present
+      const value = Number(appliedCoupon.value || appliedCoupon.discountValue || 0);
+      if (appliedCoupon.discountType === "percentage") {
+        discount = (subtotal * value) / 100;
+      } else if (appliedCoupon.discountType === "fixed") {
+        discount = value;
+      }
     }
-    console.log("Direct Buy Item", formData);
+  }
 
-
-
-    const formDataToSend = { ...formData, utrNumber, orderAmount: total };
-    if (paymentScreenshot) {
-      formDataToSend.append("screenshot", paymentScreenshot);
-    }
-    console.log("Submitting payment details:", formDataToSend)
-
-    try {
-      const response = await axios.post(
-        `${backendUrl}/order/place-order`,
-        formDataToSend,
-      );
-      console.log("Payment details submitted:", response.data);
-      alert("Payment details submitted successfully!");
-      setManualPaymentMode(false);
-      setUtrNumber("");
-      setPaymentScreenshot(null);
-    } catch (err) {
-      console.error(err);
-      alert("Failed to submit payment details. Try again.");
-    }
-  };
-
+  const total = Math.max(0, subtotal - discount + Number(shippingFee));
+  const amountLeftForFreeDelivery =
+    subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : FREE_DELIVERY_THRESHOLD - subtotal;
 
   const [paymentMethod, setPaymentMethod] = useState("razorPay");
   const [isRedirecting, setIsRedirecting] = useState(false);
@@ -90,55 +63,21 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
       setCheckoutMode('guest'); // Default to guest if not logged in
     }
   }, [isLoggedIn, checkoutMode]);
+
   useEffect(() => {
     setIsRedirecting(false);
   }, []);
 
   const handleCouponApplied = (coupon) => {
-    setOnCouponApplied(coupon);
+    setAppliedCoupon(coupon);
   };
 
   const handleRemoveCoupon = () => {
-    onRemoveCoupon();
+    setAppliedCoupon(null);
   };
 
-  const handleCheckoutClick = () => {
-    setShowSabpaisaModal(true);
-  };
-
-  // const initiatePaytmPayment = async () => {
-  //   const orderId = "ORDER_" + new Date().getTime();
-  //   const customerId = "CUSTOMER_" + new Date().getTime();
-  //   try {
-  //     const res = await axios.post(`${backendUrl}/order/paytm/initiate`, {
-  //       orderId,
-  //       amount: total.toFixed(2),
-  //       customerId,
-  //       mobileNo: formData.phone,
-  //       emailId: formData.email,
-  //     });
-  //     console.log("Response", res);
-
-  //     const { paymentData, paytm_url } = res.data;
-
-  //     const form = document.createElement("form");
-  //     form.method = "POST";
-  //     form.action = paytm_url;
-
-  //     for (const key in paymentData) {
-  //       const input = document.createElement("input");
-  //       input.type = "hidden";
-  //       input.name = key;
-  //       input.value = paymentData[key];
-  //       form.appendChild(input);
-  //     }
-
-  //     document.body.appendChild(form);
-  //     form.submit();
-  //   } catch (error) {
-  //     console.error("Paytm Error:", error);
-  //     alert("Payment failed. Try again.");
-  //   }
+  // const handleCheckoutClick = () => {
+  //   setShowSabpaisaModal(true);
   // };
 
   const loadRazorpay = () => {
@@ -173,7 +112,7 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
   };
 
   useEffect(() => {
-    console.log("All Products:",products)
+    console.log("All Products:", products)
     console.log("Direct Buy Item:", directBuyItem)
     console.log("Cart Items:", buildCartItemsArray(cartItems, products))
     console.log("Form data", formData)
@@ -286,10 +225,9 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
 
       <div className="flex flex-col gap-2 mt-4 text-sm">
         <div className="flex justify-between">
-          <p>Subtotal</p>
+          <p>Subtotal:</p>
           <p>
-            {currency}
-            {subtotal}.00
+            {currency}{subtotal.toFixed(2)}
           </p>
         </div>
 
@@ -298,27 +236,40 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
             <div className="flex justify-between text-green-600">
               <p>Discount ({appliedCoupon.code})</p>
               <p>
-                -{currency}
-                {discountAmount}.00
+                -{currency}{discount.toFixed(2)}
               </p>
             </div>
             <hr />
           </>
         )}
 
-        <div className="flex justify-between">
+        {/* <div className="flex justify-between">
           <p>Shipping Fee</p>
           <p>
             {currency}
             {shippingFee}.00
           </p>
+        </div> */}
+        {/* Shipping Fee */}
+        <div className="flex justify-between text-sm mb-1">
+          <span>Shipping:</span>
+          <span>
+            {shippingFee === 0 ? "FREE" : `${currency}${shippingFee.toFixed(2)}`}
+          </span>
         </div>
+
+        {/* Free Delivery Message */}
+        {amountLeftForFreeDelivery > 0 && (
+          <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700">
+            🚚 Add {currency}
+            {amountLeftForFreeDelivery}.00 more to avail <b>FREE Delivery!</b>
+          </div>
+        )}
         <hr />
         <div className="flex justify-between text-lg font-bold">
-          <p>Total</p>
+          <p>Total:</p>
           <p>
-            {currency}
-            {total}.00
+            {currency}{total.toFixed(2)}
           </p>
         </div>
 
@@ -326,7 +277,7 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
           <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-700">
             <p>
               🎉 You saved {currency}
-              {discountAmount}.00 with coupon {appliedCoupon.code}!
+              {discount}.00 with coupon {appliedCoupon.code}!
             </p>
           </div>
         )}
@@ -338,23 +289,6 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
 
         <div className='flex gap-3 flex-col lg:flex-row'>
 
-          {/* <div onClick={() => setPaymentMethod('sabpaisa')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
-            <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'sabpaisa' ? 'bg-green-400' : ''}`}></p>
-            <img
-              src={sabpaisaLogo}
-              alt="SabPaisa Logo"
-              className="h-6 mx-3"
-            />
-          </div>
-
-          <div onClick={() => setPaymentMethod('paytm')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
-            <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'paytm' ? 'bg-green-400' : ''}`}></p>
-            <img
-              src={paytmLogo}
-              alt="SabPaisa Logo"
-              className="h-6 mx-3"
-            />
-          </div> */}
           <div onClick={() => setPaymentMethod('razorPay')} className='flex items-center gap-3 border p-2 px-3 cursor-pointer'>
             <p className={`min-w-3.5 h-3.5 border rounded-full ${paymentMethod === 'razorPay' ? 'bg-green-400' : ''}`}></p>
             <img
@@ -385,52 +319,6 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
           )}
         </div>
         <div className="mt-6">
-          {paymentMethod === "paytm" && manualPaymentMode && (
-            <div className="mt-6 border p-4 rounded-lg bg-gray-50">
-              <h3 className="text-md font-bold mb-2">Scan & Pay using Paytm</h3>
-              <img
-                src="/qrcode.jpg"
-                alt="Paytm QR Code"
-                className="w-60 h-60 mx-auto mb-4 border object-contain"
-              />
-
-              <label className="block text-sm font-medium mb-1">
-                Enter UTR Number:
-              </label>
-              <input
-                type="text"
-                value={utrNumber}
-                onChange={(e) => setUtrNumber(e.target.value)}
-                placeholder="Enter UTR or Reference Number"
-                className="w-full p-2 border rounded mb-3"
-              />
-
-              <label className="block text-sm font-medium mb-1">
-                Upload Screenshot:
-              </label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setPaymentScreenshot(e.target.files[0])}
-                className="w-full mb-4"
-              />
-
-              <button
-                className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                onClick={handleManualPaytmSubmit}
-                disabled={!utrNumber && !paymentScreenshot}
-              >
-                Submit Payment Details
-              </button>
-              <button
-                className="mt-2 w-full py-2 text-sm text-gray-600 underline"
-                onClick={() => setManualPaymentMode(false)}
-              >
-                Cancel
-              </button>
-            </div>
-          )}
-
           <button
             type="button"
             disabled={isRedirecting || hasCriticalStockIssues}
@@ -438,15 +326,7 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
               ? "bg-gray-300 text-gray-500 cursor-not-allowed"
               : "bg-black text-white hover:bg-gray-800"
               }`}
-            onClick={() => {
-              if (paymentMethod === "paytm") {
-                setManualPaymentMode(true);
-              } else if (paymentMethod === "razorPay") {
-                handleRazorpayPayment();
-              } else {
-                handleCheckoutClick();
-              }
-            }}
+            onClick={() => handleRazorpayPayment()}
 
           >
             {hasCriticalStockIssues

@@ -24,18 +24,18 @@ const uploadImageToCloudinary = async (file, options = {}) => {
 // Validate image file
 const validateImageFile = (file) => {
   if (!file) return false;
-  
+
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   const maxSize = 5 * 1024 * 1024; // 5MB
-  
+
   if (!allowedTypes.includes(file.mimetype)) {
     throw new Error('Invalid image format. Only JPEG, PNG, and WebP are allowed.');
   }
-  
+
   if (file.size > maxSize) {
     throw new Error('Image size too large. Maximum size is 5MB.');
   }
-  
+
   return true;
 };
 
@@ -210,7 +210,7 @@ export const editProduct = async (req, res) => {
 const addStockAlert = async (req, res) => {
   try {
     const { productId, email } = req.body;
-    
+
     // Validate inputs
     if (!productId || !email) {
       return res.json({ success: false, message: "Product ID and email are required" });
@@ -267,7 +267,7 @@ const addStockAlert = async (req, res) => {
 const validateStock = async (req, res) => {
   try {
     const { items } = req.body;
-    
+
     if (!items || !Array.isArray(items) || items.length === 0) {
       return res.json({ success: false, message: "Items array is required" });
     }
@@ -277,7 +277,7 @@ const validateStock = async (req, res) => {
 
     for (const item of items) {
       const { _id, quantity, size } = item;
-      
+
       if (!_id || !quantity || quantity <= 0) {
         stockIssues.push({ itemId: _id, message: "Invalid item data" });
         continue;
@@ -301,16 +301,16 @@ const validateStock = async (req, res) => {
       }
 
       if (availableStock <= 0) {
-        stockIssues.push({ 
-          itemId: _id, 
+        stockIssues.push({
+          itemId: _id,
           size: size || null,
-          message: `${product.name}${size ? ` (Size: ${size})` : ''} is out of stock` 
+          message: `${product.name}${size ? ` (Size: ${size})` : ''} is out of stock`
         });
       } else if (quantity > availableStock) {
-        stockIssues.push({ 
-          itemId: _id, 
+        stockIssues.push({
+          itemId: _id,
           size: size || null,
-          message: `Only ${availableStock} available for ${product.name}${size ? ` (Size: ${size})` : ''}` 
+          message: `Only ${availableStock} available for ${product.name}${size ? ` (Size: ${size})` : ''}`
         });
       } else {
         validatedItems.push({
@@ -324,18 +324,18 @@ const validateStock = async (req, res) => {
     }
 
     if (stockIssues.length > 0) {
-      return res.json({ 
-        success: false, 
+      return res.json({
+        success: false,
         message: "Stock validation failed",
         stockIssues,
         validatedItems
       });
     }
 
-    return res.json({ 
-      success: true, 
+    return res.json({
+      success: true,
       message: "All items have sufficient stock",
-      validatedItems 
+      validatedItems
     });
 
   } catch (error) {
@@ -347,19 +347,19 @@ const validateStock = async (req, res) => {
 // function for list product with pagination and filtering
 const listProducts = async (req, res) => {
   try {
-    let { 
-      page = 1, 
-      limit = 10, 
-      gender, 
-      occasion, 
-      type, 
-      category, 
-      subCategory, 
-      filterTags, 
+    let {
+      page = 1,
+      limit = 10,
+      gender,
+      occasion,
+      type,
+      category,
+      subCategory,
+      filterTags,
       search,
       sort = 'relavent'
     } = req.query;
-    
+
     page = parseInt(page);
     limit = parseInt(limit);
 
@@ -556,6 +556,7 @@ const getBestsellerProducts = async (req, res) => {
       productName: product.name,
       category: product.category,
       price: product.price,
+      image: product.image,
       totalQuantity: 0, // Placeholder, as no sales data available here
       totalRevenue: 0   // Placeholder
     }));
@@ -567,6 +568,20 @@ const getBestsellerProducts = async (req, res) => {
   }
 }
 
+export const getLatestProducts = async (req, res) => {
+  try {
+    const products = await productModel
+      .find()
+      .sort({ date: -1 }) // newest first
+      .limit(10);
+
+    res.json({ success: true, products });
+  } catch (error) {
+    console.error("Error fetching latest products:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 export const getLowStockProducts = async (req, res) => {
   try {
     const lowStockThreshold = 5;
@@ -574,7 +589,7 @@ export const getLowStockProducts = async (req, res) => {
     // Find products with stock less than threshold
     const lowStockProducts = await productModel.find({
       $or: [
-        { 
+        {
           hasSize: true,
           $expr: {
             $lt: [
@@ -583,7 +598,7 @@ export const getLowStockProducts = async (req, res) => {
             ]
           }
         },
-        { 
+        {
           hasSize: false,
           stock: { $lt: lowStockThreshold }
         }
@@ -622,7 +637,7 @@ const triggerStockAlerts = async (req, res) => {
 const getStockLevels = async (req, res) => {
   try {
     const { productIds } = req.body;
-    
+
     let query = {};
     if (productIds && Array.isArray(productIds) && productIds.length > 0) {
       query._id = { $in: productIds };
@@ -661,10 +676,10 @@ const getStockLevels = async (req, res) => {
       return stockInfo;
     });
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: "Stock levels retrieved successfully",
-      stockData 
+      stockData
     });
 
   } catch (error) {
@@ -677,16 +692,16 @@ const getStockLevels = async (req, res) => {
 const updateStockLevels = async (req, res) => {
   try {
     const { updates } = req.body;
-    
+
     if (!updates || !Array.isArray(updates) || updates.length === 0) {
       return res.json({ success: false, message: "Updates array is required" });
     }
 
     const results = [];
-    
+
     for (const update of updates) {
       const { productId, stock } = update;
-      
+
       if (!productId) {
         results.push({ productId, success: false, message: "Product ID is required" });
         continue;
@@ -705,7 +720,7 @@ const updateStockLevels = async (req, res) => {
             results.push({ productId, success: false, message: "Stock must be an object for products with sizes" });
             continue;
           }
-          
+
           // Validate all sizes exist
           const invalidSizes = Object.keys(stock).filter(size => !product.sizes.includes(size));
           if (invalidSizes.length > 0) {
@@ -726,13 +741,13 @@ const updateStockLevels = async (req, res) => {
             results.push({ productId, success: false, message: "Stock must be a number for products without sizes" });
             continue;
           }
-          
+
           product.stock = Math.max(0, stockValue);
         }
 
         await product.save();
         results.push({ productId, success: true, message: "Stock updated successfully" });
-        
+
       } catch (saveError) {
         results.push({ productId, success: false, message: `Error saving: ${saveError.message}` });
       }
@@ -741,10 +756,10 @@ const updateStockLevels = async (req, res) => {
     const successCount = results.filter(r => r.success).length;
     const failCount = results.length - successCount;
 
-    res.json({ 
-      success: failCount === 0, 
+    res.json({
+      success: failCount === 0,
       message: `Stock update complete: ${successCount} successful, ${failCount} failed`,
-      results 
+      results
     });
 
   } catch (error) {

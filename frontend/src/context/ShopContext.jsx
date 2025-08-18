@@ -16,9 +16,9 @@ const normalizeArray = (arr) => {
 };
 
 const ShopContextProvider = (props) => {
+
   let backendUrl = import.meta.env.VITE_BACKEND_URL;
   const currency = 'Rs. ';
-  const delivery_fee = 1;
   const [search, setSearch] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [cartItems, setCartItems] = useState({});
@@ -35,6 +35,8 @@ const ShopContextProvider = (props) => {
   const [token, setToken] = useState('');
   const navigate = useNavigate();
   const [directBuyItem, setDirectBuyItem] = useState(null);
+  const [bestsellers, setBestsellers] = useState([]);
+  const [latestProducts, setLatestProducts] = useState([]);
 
   const [formData, setFormData] = useState({
     firstName: '',
@@ -47,6 +49,15 @@ const ShopContextProvider = (props) => {
     country: '',
     phone: '',
   });
+  useEffect(() => {
+    if (!token && localStorage.getItem('token')) {
+      setToken(localStorage.getItem('token'));
+      getUserCart(localStorage.getItem('token'));
+    }
+    if (token) {
+      getUserCart(token);
+    }
+  }, [token]);
 
   const addToCart = async (product, size) => {
     if (!product) {
@@ -285,35 +296,7 @@ const ShopContextProvider = (props) => {
   }, [cartItems, products.length]);
 
   // Helper function to get real-time stock for a product and size
-  // const getRealTimeStock = async (productId, size = null) => {
-  //   try {
-  //     const response = await axios.post(`${backendUrl}/product/stock-levels`, {
-  //       productIds: [productId]
-  //     });
 
-  //     if (response.data.success && response.data.stockLevels[productId]) {
-  //       const stockData = response.data.stockLevels[productId];
-
-  //       if (size) {
-  //         return stockData.stock?.[size] || 0;
-  //       } else {
-  //         return typeof stockData.stock === 'number' ? stockData.stock : 0;
-  //       }
-  //     }
-  //   } catch (error) {
-  //     console.error('Error fetching real-time stock:', error);
-  //   }
-
-  //   // Fallback to local product data
-  //   const product = products.find(p => p._id === productId);
-  //   if (!product) return 0;
-
-  //   if (size) {
-  //     return product.stock?.[size] || 0;
-  //   } else {
-  //     return typeof product.stock === 'number' ? product.stock : 0;
-  //   }
-  // };
   const getRealTimeStock = async (productId, size = null, fallbackProduct = null) => {
     try {
       const response = await axios.post(`${backendUrl}/product/stock-levels`, {
@@ -367,6 +350,33 @@ const ShopContextProvider = (props) => {
     }
   };
 
+  const fetchBestsellers = async () => {
+    try {
+      const response = await axios.get(`${backendUrl}/product/bestsellers`);
+      if (response.data.success) {
+        setBestsellers(response.data.bestsellers);
+      } else {
+        toast.error(response.data.message || "Failed to fetch bestsellers");
+      }
+    } catch (error) {
+      console.error("Error fetching bestsellers:", error);
+      toast.error(error.response?.data?.message || error.message);
+    }
+  };
+
+  const fetchLatestProducts = async () => {
+    try {
+      const response = await axios.get(`${backendUrl}/product/latest`);
+      if (response.data.success) {
+        setLatestProducts(response.data.products);
+      } else {
+        toast.error(response.data.message || "Failed to fetch latest products");
+      }
+    } catch (error) {
+      console.error("Error fetching latest products:", error);
+      toast.error(error.response?.data?.message || error.message);
+    }
+  };
 
   const fetchDynamicFilters = async (category = null) => {
     try {
@@ -434,15 +444,7 @@ const ShopContextProvider = (props) => {
     }
   };
 
-  useEffect(() => {
-    if (!token && localStorage.getItem('token')) {
-      setToken(localStorage.getItem('token'));
-      getUserCart(localStorage.getItem('token'));
-    }
-    if (token) {
-      getUserCart(token);
-    }
-  }, [token]);
+
 
   const value = {
     fetchDynamicFilters,
@@ -453,7 +455,6 @@ const ShopContextProvider = (props) => {
     setFilters,
     currency,
     subscribeStockAlert,
-    delivery_fee,
     search,
     setSearch,
     showSearch,
@@ -477,7 +478,11 @@ const ShopContextProvider = (props) => {
 
     formData,
     setFormData,
-    clearCart
+    clearCart,
+    bestsellers,
+    fetchBestsellers,
+    latestProducts,
+    fetchLatestProducts,
   };
 
   return <ShopContext.Provider value={value}>{props.children}</ShopContext.Provider>;

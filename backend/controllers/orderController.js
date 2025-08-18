@@ -21,7 +21,6 @@ const razorpayInstance = new Razorpay({
 });
 // global variables
 const currency = 'inr';
-const deliveryCharge = 10;
 
 
 // Helper function to update stock
@@ -117,7 +116,7 @@ export async function createPaidOrder(data) {
             totalAmount += product.price * item.quantity;
         }
     }
-    totalAmount += deliveryCharge;
+    totalAmount;
 
     // Apply coupon
     let discountAmount = 0;
@@ -842,129 +841,7 @@ const sabpaisaPaymentCallback = async (req, res) => {
     }
 };
 
-export const paytmInitiatePayment = async (req, res) => {
-    try {
-        const { amount, orderId, customerId, mobileNo, emailId } = req.body;
-        console.log("Paytm init", req.body)
 
-        const paytmParams = {
-            MID: process.env.PAYTM_MID,
-            WEBSITE: process.env.PAYTM_WEBSITE,
-            INDUSTRY_TYPE_ID: process.env.PAYTM_INDUSTRY_TYPE_ID,
-            CHANNEL_ID: process.env.PAYTM_CHANNEL_ID,
-            ORDER_ID: orderId,
-            CUST_ID: customerId,
-            TXN_AMOUNT: String(amount),
-            CALLBACK_URL: process.env.PAYTM_CALLBACK_URL,
-            MOBILE_NO: mobileNo,
-            EMAIL: emailId,
-        };
-
-        const checksum = await PaytmChecksum.generateSignature(
-            paytmParams,
-            process.env.PAYTM_MERCHANT_KEY
-        );
-
-        const paymentData = {
-            ...paytmParams,
-            CHECKSUMHASH: checksum,
-        };
-
-        res.json({
-            success: true,
-            paymentData,
-            paytm_url: "https://securegw-stage.paytm.in/order/process",
-        });
-    } catch (error) {
-        console.error("Paytm Initiate Payment Error:", error);
-        res.status(500).json({ success: false, message: "Failed to initiate payment" });
-    }
-};
-
-export const paytmCallback = async (req, res) => {
-    try {
-        const received_data = req.body;
-        const paytmChecksum = received_data.CHECKSUMHASH;
-        delete received_data.CHECKSUMHASH;
-
-        const isVerifySignature = PaytmChecksum.verifySignature(
-            received_data,
-            process.env.PAYTM_MERCHANT_KEY,
-            paytmChecksum
-        );
-
-        if (!isVerifySignature) {
-            return res.status(400).send("Checksum mismatched");
-        }
-
-        // Verify transaction status with Paytm
-        const params = {
-            MID: process.env.PAYTM_MID,
-            ORDERID: received_data.ORDERID,
-        };
-
-        const checksum = await PaytmChecksum.generateSignature(params, process.env.PAYTM_MERCHANT_KEY);
-
-        const post_data = JSON.stringify({
-            ...params,
-            CHECKSUMHASH: checksum,
-        });
-
-        const options = {
-            hostname: "securegw-stage.paytm.in",
-            port: 443,
-            path: "/order/status",
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Content-Length": post_data.length,
-            },
-        };
-
-        let responseData = "";
-        const verifyReq = https.request(options, (verifyRes) => {
-            verifyRes.on("data", (chunk) => {
-                responseData += chunk;
-            });
-
-            verifyRes.on("end", () => {
-                const result = JSON.parse(responseData);
-                console.log("Paytm Payment Verification:", result);
-
-                if (txnStatus === 'SUCCESS') {
-                    // Save txn details to temp order or redirect to frontend
-                    return res.redirect(`${process.env.FRONTEND_URL}/payment/success?txnId=${clientTxnId}`);
-                } else {
-                    return res.redirect(`${process.env.FRONTEND_URL}/payment/failure`);
-                }
-
-            });
-        });
-
-        verifyReq.write(post_data);
-        verifyReq.end();
-    } catch (error) {
-        console.error("Paytm Callback Error:", error);
-        res.status(500).send("Server error");
-    }
-};
-
-export const verifyPaytmPayment = async (req, res) => {
-    try {
-        // Your existing Paytm verification logic...
-        // If verification passes:
-        const order = await createPaidOrder({
-            ...req.body.orderData,
-            paymentMethod: "Paytm",
-            userId: req.user?.userId
-        });
-
-        res.json({ success: true, message: "Paytm payment verified", orderId: order._id, order });
-    } catch (error) {
-        console.error("Error verifying Paytm payment:", error);
-        res.status(500).json({ success: false, message: "Paytm verification failed" });
-    }
-};
 
 const userOrders = async (req, res) => {
     try {

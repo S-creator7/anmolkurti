@@ -1,5 +1,5 @@
 import express from 'express'
-import { addProduct, editProduct ,listProducts, removeProduct, singleProduct, addStockAlert, validateStock, getStockLevels, updateStockLevels, getFilterValues, getBestsellerProducts, triggerStockAlerts } from '../controllers/productController.js'
+import { addProduct, editProduct ,listProducts, removeProduct, singleProduct, addStockAlert, validateStock, getStockLevels, updateStockLevels, getFilterValues, getBestsellerProducts, triggerStockAlerts, getLatestProducts } from '../controllers/productController.js'
 import upload from '../middleware/multer.js'
 import {adminAuth} from '../middleware/auth.js'
 
@@ -17,5 +17,6 @@ productRouter.post('/update-stock', adminAuth, updateStockLevels)
 productRouter.get('/filter-values', getFilterValues)
 productRouter.get('/bestsellers', getBestsellerProducts)
 productRouter.post('/trigger-stock-alerts', adminAuth, triggerStockAlerts)
+productRouter.get("/latest", getLatestProducts);
 
 export default productRouter
