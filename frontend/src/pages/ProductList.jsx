@@ -21,6 +21,7 @@ const ProductList = () => {
   const [loading, setLoading] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
   
   const debounceRef = useRef(null);
   const limit = 12;
@@ -128,13 +129,32 @@ const ProductList = () => {
   };
 
   return (
-    <div className="flex gap-6 p-4">
-      <FilterPanel 
-        backendUrl={backendUrl} 
-        onFilterChange={handleFilterChange} 
-        selectedCategory={filters.category.length > 0 ? filters.category : []} 
-        selectedFilters={filters}
-      />
+    <div className="flex flex-col lg:flex-row gap-4 p-4">
+      {/* Mobile Filter Toggle Button */}
+      <div className="lg:hidden flex justify-between items-center mb-4">
+        <h2 className="text-xl font-semibold text-gray-800">
+          {getResultsText()}
+        </h2>
+        <button
+          onClick={() => setShowMobileFilters(!showMobileFilters)}
+          className="bg-hotpink-500 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.707A1 1 0 013 7V4z" />
+          </svg>
+          Filters
+        </button>
+      </div>
+
+      {/* Filter Panel - Hidden on mobile by default, shown when toggled */}
+      <div className={`${showMobileFilters ? 'block' : 'hidden'} lg:block lg:w-64 xl:w-80`}>
+        <FilterPanel 
+          backendUrl={backendUrl} 
+          onFilterChange={handleFilterChange} 
+          selectedCategory={filters.category.length > 0 ? filters.category : []} 
+          selectedFilters={filters}
+        />
+      </div>
       <div className="flex flex-col flex-1">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
           <div className="flex flex-col gap-2">
@@ -187,7 +207,7 @@ const ProductList = () => {
           <select 
             value={sortType} 
             onChange={handleSortChange} 
-            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-hotpink-500 bg-white shadow-sm min-w-[200px]"
+            className="border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:border-hotpink-500 bg-white shadow-sm min-w-[200px] text-sm sm:text-base"
             disabled={loading}
           >
             <option value="relavent">Sort by: Relevant</option>
@@ -210,7 +230,7 @@ const ProductList = () => {
 
         {/* Products Grid */}
         {!loading && (
-          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 gap-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 gap-y-6">
             {products.length === 0 ? (
               <div className="col-span-full text-center py-16">
                 <div className="mb-4">
@@ -262,11 +282,11 @@ const ProductList = () => {
 
         {/* Pagination Controls */}
         {!loading && totalPages > 1 && (
-          <div className="mt-8 flex justify-center items-center gap-4">
+          <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1 || loading}
-              className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm sm:text-base"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -274,7 +294,7 @@ const ProductList = () => {
               Previous
             </button>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
               {/* Page numbers */}
               {[...Array(Math.min(5, totalPages))].map((_, index) => {
                 let pageNumber;
@@ -293,7 +313,7 @@ const ProductList = () => {
                     key={pageNumber}
                     onClick={() => handlePageChange(pageNumber)}
                     disabled={loading}
-                    className={`px-3 py-2 rounded-lg transition-colors ${
+                    className={`px-2 sm:px-3 py-1 sm:py-2 rounded-lg transition-colors text-sm sm:text-base ${
                       pageNumber === currentPage
                         ? 'bg-hotpink-500 text-white'
                         : 'border border-gray-300 hover:bg-gray-50 disabled:opacity-50'
@@ -308,7 +328,7 @@ const ProductList = () => {
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages || loading}
-              className="px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2"
+              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm sm:text-base"
             >
               Next
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

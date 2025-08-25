@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Responsive Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .responsive-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .test-card {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .mobile-view {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .responsive-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+            
+            .test-card {
+                padding: 15px;
+            }
+            
+            .mobile-view {
+                display: block;
+                background: #ff69b4;
+                color: white;
+                padding: 10px;
+                border-radius: 5px;
+                margin: 10px 0;
+            }
+            
+            .desktop-view {
+                display: none;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .test-card {
+                padding: 10px;
+                font-size: 14px;
+            }
+            
+            .mobile-view {
+                font-size: 12px;
+                padding: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Responsive Design Test</h1>
+        <p>Resize your browser window to test responsiveness.</p>
+        
+        <div class="desktop-view">
+            <p>This is visible on desktop screens (768px and above)</p>
+        </div>
+        
+        <div class="mobile-view">
+            <p>This is visible on mobile screens (below 768px)</p>
+        </div>
+        
+        <div class="responsive-grid">
+            <div class="test-card">
+                <h3>Product 1</h3>
+                <p>This is a product card that should stack on mobile.</p>
+            </div>
+            <div class="test-card">
+                <h3>Product 2</h3>
+                <p>This is a product card that should stack on mobile.</p>
+            </div>
+            <div class="test-card">
+                <h3>Product 3</h3>
+                <p>This is a product card that should stack on mobile.</p>
+            </div>
+            <div class="test-card">
+                <h3>Product 4</h3>
+                <p>This is a product card that should stack on mobile.</p>
+            </div>
+        </div>
+        
+        <div class="test-info">
+            <h3>Breakpoints:</h3>
+            <ul>
+                <li>Mobile: < 768px (single column)</li>
+                <li>Tablet: 768px - 1024px (2-3 columns)</li>
+                <li>Desktop: > 1024px (4 columns)</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

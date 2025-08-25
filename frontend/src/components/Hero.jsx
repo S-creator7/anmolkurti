@@ -14,7 +14,7 @@ const Hero = () => {
       subtitle: "OUR BESTSELLERS",
       description: "Discover our newest collection of premium kurties",
       buttonText: "SHOP NOW",
-      image: assets.hero_img,
+      image: assets.hero6_img,
       link: "/collection"
     },
     {
@@ -23,7 +23,7 @@ const Hero = () => {
       subtitle: "FESTIVE COLLECTION", 
       description: "Perfect for every celebration and occasion",
       buttonText: "EXPLORE",
-      image: assets.hero_img,
+      image: assets.hero7_img,
       link: "/collection?category=Women"
     },
     {
@@ -32,7 +32,7 @@ const Hero = () => {
       subtitle: "COMPLETE SETS",
       description: "Coordinated kurti sets for the modern woman", 
       buttonText: "VIEW SETS",
-      image: assets.hero_img,
+      image: assets.hero5_img,
       link: "/collection?category=Sets"
     }
   ];
@@ -93,9 +93,9 @@ const Hero = () => {
             </div>
             
             {/* Image Side */}
-            <div className='w-full sm:w-1/2 relative overflow-hidden'>
+            <div className='w-full sm:w-1/2 relative overflow-hidden flex items-center justify-center'>
               <img 
-                className='w-full h-full object-cover transform scale-105 hover:scale-110 transition-transform duration-700' 
+                className='w-full h-full object-contain transform scale-100 hover:scale-105 transition-transform duration-700' 
                 src={slide.image} 
                 alt={slide.title} 
               />
