@@ -11,13 +11,15 @@ import NewsletterBox from '../components/NewsletterBox'
 import ScrollToTop from "../components/scrollToTop";
 import { toast } from 'react-toastify';
 import { ShoppingBag } from 'lucide-react';
+import CheckoutForm from '../components/CheckoutForm';
+import OrderSummary from '../components/OrderSummary';
 
 const Cart = () => {
 
-  const { products, currency, cartItems, updateQuantity, navigate, getCartAmount } = useContext(ShopContext);
-
+  const { token, products, currency, cartItems, updateQuantity, navigate, getCartAmount } = useContext(ShopContext);
+  const [checkoutMode, setCheckoutMode] = useState(token ? 'login' : 'guest');
   const [cartData, setCartData] = useState([]);
-
+  const isLoggedIn = !!token;
   useEffect(() => {
 
     console.log("Cart.jsx - cartItems:", cartItems);
@@ -44,7 +46,7 @@ const Cart = () => {
   // Check if item is out of stock
   const isItemOutOfStock = (productData, size) => {
     if (!productData) return true;
-    
+
     if (productData.hasSize) {
       const sizeStock = productData.stock?.[size] || 0;
       return sizeStock <= 0;
@@ -57,7 +59,7 @@ const Cart = () => {
   // Check if quantity exceeds available stock
   const quantityExceedsStock = (productData, size, quantity) => {
     if (!productData) return true;
-    
+
     if (productData.hasSize) {
       const sizeStock = productData.stock?.[size] || 0;
       return quantity > sizeStock;
@@ -70,7 +72,7 @@ const Cart = () => {
   // Get available stock for an item
   const getAvailableStock = (productData, size) => {
     if (!productData) return 0;
-    
+
     if (productData.hasSize) {
       return productData.stock?.[size] || 0;
     } else {
@@ -81,7 +83,7 @@ const Cart = () => {
   // Handle quantity update with stock validation
   const handleQuantityUpdate = (itemId, size, newQuantity) => {
     const productData = products.find((product) => product._id === itemId);
-    
+
     if (!productData) {
       toast.error('Product not found');
       return;
@@ -93,7 +95,7 @@ const Cart = () => {
     }
 
     const availableStock = getAvailableStock(productData, size);
-    
+
     if (newQuantity > availableStock) {
       toast.error(`Only ${availableStock} items available in stock`, {
         style: {
@@ -108,15 +110,28 @@ const Cart = () => {
     updateQuantity(itemId, size, newQuantity);
   };
 
-  const handleCouponApplied = (coupon) => {
-    // Coupon state is managed by the CouponContext
-    // This callback can be used for additional actions if needed
-  };
+
+  const onSubmitHandler = async (event) => {
+    event.preventDefault()
+
+  }
 
   return (
     <div className='border-t pt-14'>
       <ScrollToTop />
-      
+      {cartData.length > 0 &&
+        <form
+          onSubmit={onSubmitHandler}
+          className="w-full flex flex-col sm:flex-row justify-between gap-4 pt-5 sm:pt-14 min-h-[80vh] border-t"
+        >
+          <CheckoutForm
+            checkoutMode={checkoutMode}
+            setCheckoutMode={setCheckoutMode}
+            isLoggedIn={isLoggedIn}
+          />
+        </form>}
+
+
       <div className='text-2xl mb-8'>
         <Title text1={'YOUR'} text2={'CART'} />
       </div>
@@ -130,7 +145,7 @@ const Cart = () => {
           </div>
           <h3 className="text-xl font-medium text-gray-900 mb-2">Your cart is empty</h3>
           <p className="text-gray-600 mb-6">Add some products to get started!</p>
-          <button 
+          <button
             onClick={() => navigate('/collection')}
             className="bg-hotpink-600 text-white px-6 py-3 rounded-lg hover:bg-hotpink-700 transition-colors"
           >
@@ -148,7 +163,7 @@ const Cart = () => {
                   Cart Items ({cartData.length} item{cartData.length > 1 ? 's' : ''})
                 </h3>
               </div>
-              
+
               <div className='divide-y divide-gray-200'>
                 {cartData.map((item, index) => {
                   const productData = products.find((product) => product._id === item._id);
@@ -166,9 +181,9 @@ const Cart = () => {
                       <div className='flex gap-4'>
                         {/* Product Image */}
                         <div className="relative flex-shrink-0">
-                          <img 
+                          <img
                             className={`w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-lg cursor-pointer hover:scale-105 transition-transform ${outOfStock ? 'grayscale' : ''}`}
-                            src={productData.image[0]} 
+                            src={productData.image[0]}
                             alt=""
                             onClick={() => navigate(`/product/${productData._id}`)}
                           />
@@ -183,7 +198,7 @@ const Cart = () => {
 
                         {/* Product Details */}
                         <div className="flex-1 min-w-0">
-                          <h4 
+                          <h4
                             className={`font-medium text-gray-800 cursor-pointer hover:text-hotpink-500 transition-colors mb-2 ${outOfStock ? 'text-gray-500' : ''}`}
                             onClick={() => navigate(`/product/${productData._id}`)}
                             style={{
@@ -196,7 +211,7 @@ const Cart = () => {
                           >
                             {productData.name}
                           </h4>
-                          
+
                           <div className='flex items-center gap-4 mb-3'>
                             <span className={`text-lg font-semibold ${outOfStock ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
                               {currency}{productData.price}
@@ -210,25 +225,25 @@ const Cart = () => {
                           {outOfStock && (
                             <div className="mb-3 flex items-center gap-2 text-red-600 text-sm">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
                               </svg>
                               📦 Out of stock
                             </div>
                           )}
-                          
+
                           {!outOfStock && exceedsStock && (
                             <div className="mb-3 flex items-center gap-2 text-orange-600 text-sm">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
                               </svg>
                               Only {availableStock} available in stock
                             </div>
                           )}
-                          
+
                           {!outOfStock && !exceedsStock && availableStock <= 5 && (
                             <div className="mb-3 flex items-center gap-2 text-yellow-600 text-sm">
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/>
+                                <path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" />
                               </svg>
                               Low stock: {availableStock} remaining
                             </div>
@@ -238,7 +253,7 @@ const Cart = () => {
                           <div className='flex items-center gap-4'>
                             <div className='flex items-center gap-2'>
                               <label className='text-sm text-gray-600'>Quantity:</label>
-                              <input 
+                              <input
                                 onChange={(e) => {
                                   const newValue = Number(e.target.value);
                                   if (newValue === 0 || e.target.value === '' || e.target.value === '0') {
@@ -248,20 +263,20 @@ const Cart = () => {
                                   }
                                 }}
                                 className={`w-20 px-3 py-2 border rounded-lg text-center ${outOfStock ? 'bg-gray-100 text-gray-400' : exceedsStock ? 'border-orange-300 bg-orange-50' : 'border-gray-300 focus:border-hotpink-500 focus:outline-none'}`}
-                                type="number" 
+                                type="number"
                                 min={0}
                                 max={availableStock}
                                 value={item.quantity}
                                 disabled={outOfStock}
                               />
                             </div>
-                            
+
                             <button
                               onClick={() => handleQuantityUpdate(item._id, item.size, 0)}
                               className='flex items-center gap-2 px-3 py-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg transition-colors'
                             >
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M3 6v18h18v-18h-18zm5 14c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm4-18v2h-20v-2h5.711c.9 0 1.631-1.099 1.631-2h5.315c0 .901.73 2 1.631 2h5.712z"/>
+                                <path d="M3 6v18h18v-18h-18zm5 14c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm5 0c0 .552-.448 1-1 1s-1-.448-1-1v-10c0-.552.448-1 1-1s1 .448 1 1v10zm4-18v2h-20v-2h5.711c.9 0 1.631-1.099 1.631-2h5.315c0 .901.73 2 1.631 2h5.712z" />
                               </svg>
                               <span className='text-sm'>Remove</span>
                             </button>
@@ -282,7 +297,9 @@ const Cart = () => {
             </div>
           </div>
         </div>
+
       )}
+
 
       <div className='mt-16'>
         <BestSeller />
