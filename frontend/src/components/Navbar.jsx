@@ -13,7 +13,8 @@ const Navbar = () => {
 
   const logout = () => {
     navigate('/login')
-    localStorage.removeItem('token')
+    localStorage.clear()
+    sessionStorage.clear()
     setToken('')
     setCartItems({})
     clearWishlist() // Clear wishlist on logout
