@@ -117,6 +117,7 @@ const [loading, setLoading] = useState(false); // Remove this line
   const sentinelRef = useRef(null);
   const observerRef = useRef(null);
   const isFetchingRef = useRef(false);
+  const lastFetchTimeRef = useRef(0);
 
   useEffect(() => {
     const el = sentinelRef.current;
@@ -125,16 +126,22 @@ const [loading, setLoading] = useState(false); // Remove this line
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (entry.isIntersecting && !loading && !isFetchingRef.current && currentPage < totalPages) {
+        // Only trigger if the sentinel is actually visible and we're not already loading
+        // Add a debounce to prevent rapid triggering (minimum 500ms between fetches)
+        const now = Date.now();
+        if (entry.isIntersecting && entry.intersectionRatio > 0 && 
+            !loading && !isFetchingRef.current && currentPage < totalPages &&
+            now - lastFetchTimeRef.current > 500) {
           isFetchingRef.current = true;
+          lastFetchTimeRef.current = now;
           // Increment page; fetchProducts will run via effect on currentPage change
           setCurrentPage((prev) => prev + 1);
         }
       },
       {
         root: null,
-        rootMargin: '300px',
-        threshold: 0.1
+        rootMargin: '50px', // Reduced from 100px to be less aggressive
+        threshold: 0.1 // Increased threshold to require more visibility
       }
     );
 
@@ -362,8 +369,6 @@ const [loading, setLoading] = useState(false); // Remove this line
             )}
           </div>
         )}
-        {/* Fallback sentinel at the end if grid not rendered (e.g., while loading) */}
-        <div ref={sentinelRef} className="h-px" />
 
         {/* Pagination Controls - Commented out for infinite scrolling */}
         {/* {!loading && totalPages > 1 && (
