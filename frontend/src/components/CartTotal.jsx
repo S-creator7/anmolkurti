@@ -121,7 +121,7 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
 
   const handleCheckout = () => {
     if (!isFormFilled) {
-      toast.error("Please Sign Up To Proceed");
+      toast.error("Fill Address Details to Proceed");
       return;
     }
 
@@ -188,7 +188,10 @@ const CartTotal = ({ hasCriticalStockIssues }) => {
                 },
                 couponCode: appliedCoupon?.code,
                 isGuest: checkoutMode === "guest",
-                guestInfo: checkoutMode === "guest" ? formData : null
+                guestInfo: checkoutMode === "guest" ? {
+                  ...formData,
+                  name: formData.firstName + " " + formData.lastName
+                } : null
               }
 
             },

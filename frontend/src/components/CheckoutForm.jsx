@@ -2,13 +2,12 @@
 import React, { useContext, useState, useEffect } from "react";
 import { ShopContext } from "../context/ShopContext";
 import Title from '../components/Title'
-import OrderSummary from "./OrderSummary";
+import axios from "axios";
 
-const CheckoutForm = () => {
+const CheckoutForm = ({ checkoutMode, setCheckoutMode, isLoggedIn }) => {
     const [userProfileLoading, setUserProfileLoading] = useState(false);
-    const [checkoutMode, setCheckoutMode] = useState(null);
     const { formData, setFormData, backendUrl, token } = useContext(ShopContext);
-    const isLoggedIn = !!token;
+
     const onChangeHandler = (event) => {
         const name = event.target.name
         const value = event.target.value
@@ -49,13 +48,12 @@ const CheckoutForm = () => {
 
     // Auto-set checkout mode based on login status
     useEffect(() => {
-        if (isLoggedIn) {
+        if (isLoggedIn && token) {
             setCheckoutMode('login');
             loadUserProfile();
-        } else if (checkoutMode === null) {
-            setCheckoutMode('guest');
         }
-    }, [isLoggedIn, checkoutMode]);
+    }, [isLoggedIn, token, checkoutMode]);
+
 
 
     const onSubmitHandler = async (event) => {
@@ -65,7 +63,8 @@ const CheckoutForm = () => {
 
     return (
 
-        <div className='flex flex-col gap-4 w-full sm:max-w-[480px]'>
+        // <div className='flex flex-col gap-4 w-full sm:max-w-[480px]'>
+        <div className='flex flex-col gap-4 w-full'>
 
             {/* Checkout Mode Indicator */}
             <div className='flex items-center justify-between mb-4'>
