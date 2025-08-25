@@ -89,7 +89,7 @@ const App = () => {
                       </Routes>
                     </main>
 
-                    <Footer />
+                      {location.pathname !== '/collection' && <Footer />}
                   </div>
                 </div>
               </div>

@@ -11,8 +11,8 @@ const Collection = () => {
       <div className='flex flex-col lg:flex-row gap-4 pt-6 sm:pt-10 border-t'>
         <ProductList />
       </div>
-      <BestSeller />
-      <OurPolicy />
+      {/* <BestSeller />
+      <OurPolicy /> */}
       {/* <NewsletterBox /> */}
     </div>
   );
