@@ -11,9 +11,17 @@ const ProductItem = ({ id, image, name, price }) => {
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [showPreview, setShowPreview] = useState(false);
 
+  // Track image load for per-card loading indicator
+  const [imgLoaded, setImgLoaded] = useState(false);
+
   // Get full product data
   // const productData = products.find(product => product._id === id);
   const [productData, setProductData] = useState(null);
+
+  // Reset image-loaded state when product/image changes
+  useEffect(() => {
+    setImgLoaded(false);
+  }, [id, image?.[0]]);
 
   useEffect(() => {
     const localProduct = products.find(product => product._id === id);
@@ -114,10 +122,19 @@ const ProductItem = ({ id, image, name, price }) => {
         to={`/product/${id}`}
       >
         <div className="relative w-full h-64 overflow-hidden bg-gray-50 rounded-t-2xl">
+          {/* Image loading skeleton/spinner */}
+          {!imgLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-gray-300 border-t-hotpink-500"></div>
+            </div>
+          )}
           <img
-            className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ease-out ${outOfStock ? 'grayscale' : ''}`}
+            className={`w-full h-full object-cover transition-transform duration-700 ease-out ${outOfStock ? 'grayscale' : ''} ${imgLoaded ? 'group-hover:scale-110' : 'opacity-0'}`}
             src={image[0]}
             alt={name}
+            loading="lazy"
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgLoaded(true)}
           />
 
           {/* Out of Stock Overlay */}

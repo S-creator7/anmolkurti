@@ -349,7 +349,7 @@ const listProducts = async (req, res) => {
   try {
     let {
       page = 1,
-      limit = 10,
+      limit = 12, // Changed from 10 to 12 to match frontend
       gender,
       occasion,
       type,
@@ -394,6 +394,7 @@ const listProducts = async (req, res) => {
     if (filterTags) filter.filterTags = { $in: filterTags.split(',') };
 
     const total = await productModel.countDocuments(filter);
+    console.log(`Total products found: ${total}, Limit: ${limit}`);
 
     // Enhanced sorting options
     let sortObj = {};
@@ -430,10 +431,34 @@ const listProducts = async (req, res) => {
         break;
     }
 
+    // Optimize query by selecting only necessary fields
+    const selectFields = {
+      name: 1,
+      price: 1,
+      image: 1,
+      gender: 1,
+      category: 1,
+      subCategory: 1,
+      occasion: 1,
+      type: 1,
+      filterTags: 1,
+      bestseller: 1,
+      date: 1,
+      hasSize: 1,
+      sizes: 1,
+      stock: 1
+    };
+
+    console.log('Fetching products with params:', { filter, sortObj, page, limit });
+    
     const products = await productModel.find(filter)
+      .select(selectFields)
       .sort(sortObj)
       .skip((page - 1) * limit)
-      .limit(limit);
+      .limit(limit)
+      .lean(); // Use lean() for faster queries
+
+    console.log('Fetched products:', products);
 
     res.json({
       success: true,

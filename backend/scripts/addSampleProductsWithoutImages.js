@@ -15,7 +15,7 @@ const sampleProducts = Array.from({ length: 20 }, (_, index) => ({
   sizes: ['S', 'M', 'L'],
   hasSize: true,
   stock: { S: 10, M: 10, L: 10 },
-  image: ['https://via.placeholder.com/150'],
+  image: [], // No images for this test
   bestseller: false,
   date: Date.now(),
 }));

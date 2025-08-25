@@ -149,7 +149,7 @@ const CheckoutForm = ({ checkoutMode, setCheckoutMode, isLoggedIn }) => {
                 value={formData.street}
                 className='border border-gray-300 rounded py-1.5 px-3.5 w-full focus:border-hotpink-500 focus:outline-none'
                 type="text"
-                placeholder='Street'
+                placeholder='Building Number &amp; Street'
                 disabled={userProfileLoading}
             />
             <div className='flex gap-3'>

@@ -1,4 +1,4 @@
-import { useContext, useState, useEffect, useRef } from 'react';
+ import { useContext, useState, useEffect, useRef } from 'react';
 import { ShopContext } from '../context/ShopContext';
 import FilterPanel from '../components/FilterPanel';
 import ProductItem from '../components/ProductItem';
@@ -67,16 +67,35 @@ const ProductList = () => {
         params.sort = sort;
       }
 
-      const response = await axios.get(`${backendUrl}/product/list`, { params });
-      if (response.data.success) {
-        setProducts(response.data.products);
+    console.log('Fetching products with params:', params);
+    
+    const response = await axios.get(`${backendUrl}/product/list`, { params });
+    console.log('API Response:', response.data);
+    if (response.data.success) {
+      console.log('API Response:', {
+        page: response.data.currentPage,
+        totalPages: response.data.totalPages,
+        totalProducts: response.data.totalProducts,
+        productsCount: response.data.products.length
+      });
+        
+        if (page === 1) {
+          // First page - replace products
+          setProducts(response.data.products);
+        } else {
+          // Subsequent pages - append products
+          setProducts(prevProducts => [...prevProducts, ...response.data.products]);
+        }
         setTotalPages(response.data.totalPages);
         setCurrentPage(response.data.currentPage);
         setTotalProducts(response.data.totalProducts || response.data.products.length);
       }
     } catch (error) {
       console.error('Failed to fetch products:', error);
-      setProducts([]);
+      if (page === 1) {
+          setLoading(false); // Reset loading state on error
+          setProducts([]);
+      }
       setTotalPages(1);
       setTotalProducts(0);
     } finally {
@@ -93,6 +112,48 @@ const ProductList = () => {
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearch, filters, sortType]);
+
+  // Use Intersection Observer for infinite scrolling with a bottom sentinel
+  const sentinelRef = useRef(null);
+  const observerRef = useRef(null);
+  const isFetchingRef = useRef(false);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting && !loading && !isFetchingRef.current && currentPage < totalPages) {
+          isFetchingRef.current = true;
+          // Increment page; fetchProducts will run via effect on currentPage change
+          setCurrentPage((prev) => prev + 1);
+        }
+      },
+      {
+        root: null,
+        rootMargin: '300px',
+        threshold: 0.1
+      }
+    );
+
+    observer.observe(el);
+    observerRef.current = observer;
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [loading, currentPage, totalPages]);
+
+  // Reset fetching gate when loading completes
+  useEffect(() => {
+    if (!loading) {
+      isFetchingRef.current = false;
+    }
+  }, [loading]);
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -218,13 +279,19 @@ const ProductList = () => {
           </select>
         </div>
 
-        {/* Loading State */}
-        {loading && (
-          <div className="flex justify-center items-center py-16">
-            <div className="flex flex-col items-center gap-4">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-hotpink-500"></div>
-              <p className="text-gray-600">Loading products...</p>
-            </div>
+        {/* Loading State - show skeletons only during initial load (no products yet) */}
+        {loading && products.length === 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 gap-y-6 py-4">
+            {Array.from({ length: 8 }).map((_, idx) => (
+              <div key={idx} className="animate-pulse bg-white rounded-2xl overflow-hidden border border-gray-100">
+                <div className="h-64 bg-gray-200" />
+                <div className="p-4 space-y-3">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-4 bg-gray-200 rounded w-1/2" />
+                  <div className="h-8 bg-gray-200 rounded w-full mt-2" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -267,76 +334,43 @@ const ProductList = () => {
                 )}
               </div>
             ) : (
-              products.map(product => (
-                <ProductItem
-                  key={product._id}
-                  id={product._id}
-                  image={product.image}
-                  name={product.name}
-                  price={product.price}
-                />
-              ))
+              <>
+                {products.map(product => (
+                  <ProductItem
+                    key={product._id}
+                    id={product._id}
+                    image={product.image}
+                    name={product.name}
+                    price={product.price}
+                  />
+                ))}
+                
+                {/* Loading indicator for infinite scroll */}
+                {currentPage < totalPages && (
+                  <>
+                    <div className="col-span-full flex justify-center items-center py-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-hotpink-500"></div>
+                        <p className="text-gray-600 text-sm">Loading more products...</p>
+                      </div>
+                    </div>
+                    {/* Sentinel element to trigger loading next page */}
+                    <div ref={sentinelRef} className="col-span-full h-px" />
+                  </>
+                )}
+              </>
             )}
           </div>
         )}
+        {/* Fallback sentinel at the end if grid not rendered (e.g., while loading) */}
+        <div ref={sentinelRef} className="h-px" />
 
-        {/* Pagination Controls */}
-        {!loading && totalPages > 1 && (
+        {/* Pagination Controls - Commented out for infinite scrolling */}
+        {/* {!loading && totalPages > 1 && (
           <div className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1 || loading}
-              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm sm:text-base"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Previous
-            </button>
-            
-            <div className="flex items-center gap-1 sm:gap-2">
-              {/* Page numbers */}
-              {[...Array(Math.min(5, totalPages))].map((_, index) => {
-                let pageNumber;
-                if (totalPages <= 5) {
-                  pageNumber = index + 1;
-                } else if (currentPage <= 3) {
-                  pageNumber = index + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNumber = totalPages - 4 + index;
-                } else {
-                  pageNumber = currentPage - 2 + index;
-                }
-
-                return (
-                  <button
-                    key={pageNumber}
-                    onClick={() => handlePageChange(pageNumber)}
-                    disabled={loading}
-                    className={`px-2 sm:px-3 py-1 sm:py-2 rounded-lg transition-colors text-sm sm:text-base ${
-                      pageNumber === currentPage
-                        ? 'bg-hotpink-500 text-white'
-                        : 'border border-gray-300 hover:bg-gray-50 disabled:opacity-50'
-                    }`}
-                  >
-                    {pageNumber}
-                  </button>
-                );
-              })}
-            </div>
-
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages || loading}
-              className="px-3 sm:px-4 py-2 border border-gray-300 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm sm:text-base"
-            >
-              Next
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+            ...
           </div>
-        )}
+        )} */}
 
         {/* Results info */}
         {!loading && products.length > 0 && (
