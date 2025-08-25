@@ -18,7 +18,7 @@ const ProductList = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [sortType, setSortType] = useState('relavent');
-  const [loading, setLoading] = useState(false);
+const [loading, setLoading] = useState(false); // Remove this line
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [totalProducts, setTotalProducts] = useState(0);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
