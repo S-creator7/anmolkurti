@@ -803,10 +803,10 @@ const AccountManagement = ({ token }) => {
                               src={product.image[0]}
                               alt={product.name || 'Product'}
                               className="w-12 h-12 rounded-lg object-cover"
-                              onError={(e) => {
-                                e.target.onerror = null;
-                                e.target.src = '/placeholder-product.png';
-                              }}
+                              // onError={(e) => {
+                              //   e.target.onerror = null;
+                              //   e.target.src = '/placeholder-product.png';
+                              // }}
                             />
                           ) : (
                             <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
@@ -1361,7 +1361,7 @@ const AccountManagement = ({ token }) => {
                 <tr key={product._id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <img
-                      src={product.image?.[0] || '/placeholder-product.png'}
+                      src={product.image?.[0]}
                       alt={product.name}
                       className="w-20 h-20 object-cover rounded-lg shadow-sm hover:scale-150 transition-transform cursor-zoom-in"
                     />

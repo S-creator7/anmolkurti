@@ -6,14 +6,16 @@ import { useFilters } from '../context/FilterContext'
 import { FaCloudUploadAlt, FaTimes, FaCheck, FaExclamationTriangle, FaInfoCircle, FaPlus, FaTrash, FaImage, FaFilter } from 'react-icons/fa'
 
 const token = localStorage.getItem('token');
-console.log('token',token )
+console.log('token', token)
 const Add = () => {
   const { filterOptions, getFilterValues, dynamicFilters, getGlobalFilters, getCategoryFilters, getApplicableFilters, filters } = useFilters();
-console.log('token',token )
+  console.log('token', token)
 
   console.log("Global filters:", getGlobalFilters())
   console.log("Filters:", filters)
   console.log("get filter values", getFilterValues())
+  console.log("GET Category Filters",)
+
   // Step management
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 4;
@@ -32,6 +34,7 @@ console.log('token',token )
     price: 0,
     gender: '',
     category: '',
+    subCategory: '',
     bestseller: false,
     sizes: [],
     stock: {},
@@ -336,6 +339,7 @@ console.log('token',token )
       formDataToSend.append("price", String(parseFloat(formData.price) || 0));
       formDataToSend.append("gender", String(formData.gender));
       formDataToSend.append("category", String(formData.category));
+      formDataToSend.append("subCategory", String(formData.subCategory?.trim() || ""));
       formDataToSend.append("bestseller", String(Boolean(formData.bestseller)));
       formDataToSend.append("hasSize", String(Boolean(formData.hasSize)));
       formDataToSend.append("sizes", JSON.stringify(formData.hasSize ? formData.sizes : []));
@@ -387,6 +391,7 @@ console.log('token',token )
           price: 0,
           gender: '',
           category: '',
+          subCategory: '',
           bestseller: false,
           sizes: [],
           stock: {},
@@ -575,7 +580,7 @@ console.log('token',token )
                 </select>
               </div>
 
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Category <span className="text-red-500">*</span>
                 </label>
@@ -597,7 +602,57 @@ console.log('token',token )
                     <option key={cat} value={cat}>{cat}</option>
                   ))}
                 </select>
+              </div> */}
+              {/* Category Dropdown */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={formData.category}
+                  onChange={(e) => handleInputChange('category', e.target.value)}
+                  className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.category
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-gray-300 focus:ring-blue-500'
+                    }`}
+                >
+                  <option value="">Select Category</option>
+                  {filters
+                    .filter(cat => cat.type === "category-specific")
+                    .map((cat) => (
+                      <option key={cat._id} value={cat.name}>
+                        {cat.displayName}
+                      </option>
+                    ))}
+                </select>
               </div>
+
+              {/* Subcategory Dropdown */}
+              {formData.category && (
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Subcategory <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.subCategory}
+                    onChange={(e) => handleInputChange('subCategory', e.target.value)}
+                    className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 transition-colors ${errors.subCategory
+                      ? 'border-red-300 focus:ring-red-500'
+                      : 'border-gray-300 focus:ring-blue-500'
+                      }`}
+                  >
+                    <option value="">Select Subcategory</option>
+                    {filters
+                      .find((cat) => cat.name === formData.category) // match by name now
+                      ?.values.map((val) => (
+                        <option key={val._id} value={val.value}>
+                          {val.displayName}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
+
 
               <div className="flex items-center">
                 <label className="flex items-center cursor-pointer bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-lg px-4 py-3 hover:from-yellow-100 hover:to-orange-100 transition-all">
@@ -806,8 +861,8 @@ console.log('token',token )
                           }
                         }}
                         className={`px-3 py-2 text-sm font-medium rounded-lg border transition-all ${formData.sizes.includes(size)
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-300'
                           }`}
                       >
                         {size}

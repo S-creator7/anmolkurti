@@ -163,10 +163,10 @@ const Product = () => {
                   key={index}
                   className={`w-[24%] sm:w-full sm:mb-3 flex-shrink-0 cursor-pointer border-2 ${index === imageIndex ? 'border-hotpink-500' : 'border-transparent'
                     } hover:border-hotpink-300 transition-colors`}
-                  alt=""
-                  onError={(e) => {
-                    e.target.src = '/placeholder-image.jpg'; // ✅ Fallback image
-                  }}
+                  alt="product Image"
+                  // onError={(e) => {
+                  //   e.target.src = '/placeholder-image.jpg';
+                  // }}
                 />
               )) || []
             }

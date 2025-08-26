@@ -17,14 +17,7 @@ export const FilterProvider = ({ children, token }) => {
   const [filters, setFilters] = useState([]);
   const [dynamicFilters, setDynamicFilters] = useState({});
   const [loading, setLoading] = useState(false);
-  const [filterOptions, setFilterOptions] = useState({
-    gender: ['Women', 'Men', 'Children'],
-    occasion: ['Casual', 'Office', 'Party', 'Wedding', 'Festival'],
-    type: ['Plain', 'Printed', 'Embroidered', 'Designer'],
-    color: ['Red', 'Blue', 'Green', 'Yellow', 'Pink', 'Purple', 'Black', 'White'],
-    size: ['S', 'M', 'L', 'XL', 'XXL'],
-    material: ['Cotton', 'Silk', 'Polyester', 'Georgette']
-  });
+  const [filterOptions, setFilterOptions] = useState({});
 
   // Fetch all filters from backend
   const fetchFilters = async () => {

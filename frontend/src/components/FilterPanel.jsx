@@ -250,6 +250,7 @@ const FilterPanel = ({ backendUrl, onFilterChange, selectedCategory, selectedFil
             occasion: [],
             type: [],
             category: [],
+            subCategory: [],
             color: [],
             material: [],
             size: []

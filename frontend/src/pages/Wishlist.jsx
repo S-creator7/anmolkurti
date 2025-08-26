@@ -107,13 +107,13 @@ const Wishlist = () => {
                         <img
                           onClick={() => navigate(`/product/${product._id}`)}
                           className='w-full h-full object-cover cursor-pointer group-hover:scale-110 transition-transform duration-700 ease-out'
-                          src={product.image?.[0] || '/placeholder-image.jpg'}
+                          src={product.image?.[0]}
                           alt={product.name || 'Product'}
                           loading="lazy"
-                          onError={(e) => {
-                            e.target.src = '/placeholder-image.jpg';
-                            e.target.onerror = null; // Prevent infinite loop
-                          }}
+                          // onError={(e) => {
+                          //   e.target.src = '/placeholder-image.jpg';
+                          //   e.target.onerror = null; 
+                          // }}
                         />
                       </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

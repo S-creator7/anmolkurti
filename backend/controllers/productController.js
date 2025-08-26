@@ -109,7 +109,7 @@ const addProduct = async (req, res) => {
       gender,
       category,
       price: Number(price),
-      subCategory: subCategory?.trim() || '',
+      subCategory: subCategory,
       occasion: occasionArr,
       type: typeArr,
       filterTags: filterTagsArr,
