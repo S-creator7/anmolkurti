@@ -1,4 +1,5 @@
- import { useContext, useState, useEffect, useRef } from 'react';
+import { useContext, useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ShopContext } from '../context/ShopContext';
 import FilterPanel from '../components/FilterPanel';
 import ProductItem from '../components/ProductItem';
@@ -7,6 +8,48 @@ import axios from 'axios';
 const ProductList = () => {
   const { backendUrl, search, setSearch } = useContext(ShopContext);
   const [products, setProducts] = useState([]);
+  const location = useLocation();
+
+  // Restore scroll position from location state or sessionStorage on mount
+  useEffect(() => {
+    const restoreScrollPosition = () => {
+      let scrollPosition = 0;
+
+      // First check location state (from programmatic navigation)
+      if (location.state && location.state.scrollPosition) {
+        scrollPosition = location.state.scrollPosition;
+      } else {
+        // Then check sessionStorage (from browser back button)
+        const savedPosition = sessionStorage.getItem('collectionScrollPosition');
+        if (savedPosition) {
+          scrollPosition = parseInt(savedPosition, 10);
+        }
+      }
+
+      if (scrollPosition > 0) {
+        // Use setTimeout with a small delay to ensure DOM is ready
+        const timeoutId = setTimeout(() => {
+          window.scrollTo({
+            top: scrollPosition,
+            left: 0,
+            behavior: 'instant' // Use instant to avoid smooth scroll conflicts
+          });
+          // Clear the saved position after restoring
+          sessionStorage.removeItem('collectionScrollPosition');
+        }, 50);
+
+        // Cleanup timeout if component unmounts
+        return () => clearTimeout(timeoutId);
+      }
+    };
+
+    // Small delay to ensure component is fully mounted
+    const mountTimeoutId = setTimeout(restoreScrollPosition, 10);
+
+    return () => clearTimeout(mountTimeoutId);
+  }, [location.pathname]); // Only depend on pathname to avoid unnecessary re-runs
+
+  // Remove previous scroll position save logic
   const [filters, setFilters] = useState({
     gender: [],
     occasion: [],
@@ -44,6 +87,7 @@ const ProductList = () => {
   }, [search]);
 
   const fetchProducts = async (page, filters, sort, searchTerm = '') => {
+    console.log(` Fetching page ${page}, loading: ${loading}`);
     setLoading(true);
     try {
       const params = {
@@ -67,39 +111,43 @@ const ProductList = () => {
         params.sort = sort;
       }
 
-    console.log('Fetching products with params:', params);
-    
-    const response = await axios.get(`${backendUrl}/product/list`, { params });
-    console.log('API Response:', response.data);
-    if (response.data.success) {
+      console.log('API params:', params);
+      
+      const response = await axios.get(`${backendUrl}/product/list`, { params });
       console.log('API Response:', {
-        page: response.data.currentPage,
+        success: response.data.success,
+        currentPage: response.data.currentPage,
         totalPages: response.data.totalPages,
         totalProducts: response.data.totalProducts,
-        productsCount: response.data.products.length
+        productsCount: response.data.products?.length || 0
       });
+      
+      if (response.data.success) {
+        console.log(` Received ${response.data.products?.length || 0} products for page ${page}`);
         
         if (page === 1) {
           // First page - replace products
-          setProducts(response.data.products);
+          setProducts(response.data.products || []);
         } else {
           // Subsequent pages - append products
-          setProducts(prevProducts => [...prevProducts, ...response.data.products]);
+          setProducts(prevProducts => [...prevProducts, ...(response.data.products || [])]);
         }
-        setTotalPages(response.data.totalPages);
-        setCurrentPage(response.data.currentPage);
-        setTotalProducts(response.data.totalProducts || response.data.products.length);
+        setTotalPages(response.data.totalPages || 1);
+        setCurrentPage(response.data.currentPage || page);
+        setTotalProducts(response.data.totalProducts || (response.data.products?.length || 0));
+      } else {
+        console.error(' API returned success: false', response.data);
       }
     } catch (error) {
-      console.error('Failed to fetch products:', error);
+      console.error(' Failed to fetch products:', error.response?.data || error.message);
       if (page === 1) {
-          setLoading(false); // Reset loading state on error
-          setProducts([]);
+        setProducts([]);
       }
       setTotalPages(1);
       setTotalProducts(0);
     } finally {
       setLoading(false);
+      console.log(` Fetch completed for page ${page}, loading set to false`);
     }
   };
 
@@ -118,39 +166,77 @@ const ProductList = () => {
   const observerRef = useRef(null);
   const isFetchingRef = useRef(false);
 
+  // Keep latest values in refs so observer callback uses fresh state
+  const loadingRef = useRef(loading);
+  const currentPageRef = useRef(currentPage);
+  const totalPagesRef = useRef(totalPages);
+  useEffect(() => { loadingRef.current = loading; }, [loading]);
+  useEffect(() => { currentPageRef.current = currentPage; }, [currentPage]);
+  useEffect(() => { totalPagesRef.current = totalPages; }, [totalPages]);
+
+  // Create observer - recreated when dependencies change
   useEffect(() => {
     const el = sentinelRef.current;
-    if (!el) return;
+    if (!el) {
+      console.log(' Sentinel element not found');
+      return;
+    }
 
+    // Clean up previous observer
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    console.log(' Creating new Intersection Observer');
     const observer = new IntersectionObserver(
       (entries) => {
         const [entry] = entries;
-        if (entry.isIntersecting && !loading && !isFetchingRef.current && currentPage < totalPages) {
+          console.log(' Intersection Observer triggered:', {
+            isIntersecting: entry.isIntersecting,
+            loading: loadingRef.current,
+            isFetching: isFetchingRef.current,
+            currentPage: currentPageRef.current,
+            totalPages: totalPagesRef.current,
+            canLoadMore: currentPageRef.current < totalPagesRef.current
+          });
+
+        if (
+          entry.isIntersecting &&
+          !loadingRef.current &&
+          !isFetchingRef.current &&
+          currentPageRef.current < totalPagesRef.current
+        ) {
+          console.log('Loading next page...');
           isFetchingRef.current = true;
-          // Increment page; fetchProducts will run via effect on currentPage change
-          setCurrentPage((prev) => prev + 1);
+          setCurrentPage((prev) => {
+            console.log(` Current page updated to: ${prev + 1}`);
+            return prev + 1;
+          });
         }
       },
       {
         root: null,
-        rootMargin: '300px',
-        threshold: 0.1
+        rootMargin: '200px', // Reduced margin for better timing
+        threshold: 0.01, // Lower threshold for better detection
       }
     );
 
     observer.observe(el);
     observerRef.current = observer;
+    console.log(' Observer created and observing sentinel');
 
     return () => {
       if (observerRef.current) {
         observerRef.current.disconnect();
+        console.log('🧹 Observer disconnected');
       }
     };
-  }, [loading, currentPage, totalPages]);
+  }, [filters, sortType, debouncedSearch]); // Recreate observer when key filters change
 
   // Reset fetching gate when loading completes
   useEffect(() => {
     if (!loading) {
+      console.log(' Resetting isFetching flag');
       isFetchingRef.current = false;
     }
   }, [loading]);
@@ -296,70 +382,61 @@ const ProductList = () => {
         )}
 
         {/* Products Grid */}
-        {!loading && (
+        {products.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 gap-y-6">
-            {products.length === 0 ? (
-              <div className="col-span-full text-center py-16">
-                <div className="mb-4">
-                  <svg className="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+            {products.map(product => (
+              <ProductItem
+                key={product._id}
+                id={product._id}
+                image={product.image}
+                name={product.name}
+                price={product.price}
+              />
+            ))}
+
+            {/* Loading indicator for infinite scroll while fetching next page */}
+            {loading && currentPage < totalPages && (
+              <div className="col-span-full flex justify-center items-center py-8">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="animate-spin rounded-full h-8 w-8 border-4 border-hotpink-200 border-t-hotpink-500"></div>
+                  <p className="text-gray-600 text-sm font-medium">Loading more products...</p>
+                  <p className="text-gray-400 text-xs">Scroll down to load more</p>
                 </div>
-                <h3 className="text-xl font-medium text-gray-900 mb-2">
-                  {debouncedSearch ? `No results for "${debouncedSearch}"` : 'No products found'}
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  {debouncedSearch 
-                    ? 'Try searching for different keywords or check your spelling.' 
-                    : 'Try adjusting your filters to see more products.'
-                  }
-                </p>
-                {(debouncedSearch || Object.values(filters).some(f => f.length > 0)) && (
-                  <button
-                    onClick={() => {
-                      setSearch('');
-                      handleFilterChange({
-                        gender: [],
-                        occasion: [],
-                        type: [],
-                        category: [],
-                        subCategory: [],
-                        filterTags: []
-                      });
-                    }}
-                    className="bg-hotpink-500 hover:bg-hotpink-600 text-white px-6 py-2 rounded-lg transition-colors duration-300"
-                  >
-                    Clear All Filters
-                  </button>
-                )}
               </div>
-            ) : (
-              <>
-                {products.map(product => (
-                  <ProductItem
-                    key={product._id}
-                    id={product._id}
-                    image={product.image}
-                    name={product.name}
-                    price={product.price}
-                  />
-                ))}
-                
-                {/* Loading indicator for infinite scroll */}
-                {currentPage < totalPages && (
-                  <>
-                    <div className="col-span-full flex justify-center items-center py-8">
-                      <div className="flex flex-col items-center gap-2">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-hotpink-500"></div>
-                        <p className="text-gray-600 text-sm">Loading more products...</p>
-                      </div>
-                    </div>
-                    {/* Sentinel element to trigger loading next page */}
-                    <div ref={sentinelRef} className="col-span-full h-px" />
-                  </>
-                )}
-              </>
             )}
+
+            {/* End of results message */}
+            {!loading && currentPage >= totalPages && totalPages > 1 && (
+              <div className="col-span-full flex justify-center items-center py-8">
+                <div className="text-center">
+                  <p className="text-gray-600 font-medium">🎉 You've reached the end!</p>
+                  <p className="text-gray-400 text-sm mt-1">All {totalProducts} products loaded</p>
+                </div>
+              </div>
+            )}
+
+            {/* Manual load more button (fallback if intersection observer fails) */}
+            {!loading && currentPage < totalPages && (
+              <div className="col-span-full flex justify-center items-center py-6">
+                <button
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  className="bg-hotpink-500 hover:bg-hotpink-600 text-white px-6 py-2 rounded-lg transition-colors duration-300 flex items-center gap-2"
+                >
+                  <span>Load More Products</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Sentinel element to trigger loading next page */}
+            <div 
+              ref={sentinelRef} 
+              className="col-span-full h-20" 
+              style={{ overflowAnchor: 'none' }}
+              aria-hidden="true"
+            />
           </div>
         )}
 
@@ -370,8 +447,43 @@ const ProductList = () => {
           </div>
         )} */}
 
-        {/* Fallback sentinel at the end if grid not rendered (e.g., while loading) */}
-        <div ref={sentinelRef} className="h-px" />
+        {/* Empty state when no products */}
+        {!loading && products.length === 0 && (
+          <div className="text-center py-16">
+            <div className="mb-4">
+              <svg className="w-16 h-16 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-medium text-gray-900 mb-2">
+              {debouncedSearch ? `No results for "${debouncedSearch}"` : 'No products found'}
+            </h3>
+            <p className="text-gray-600 mb-4">
+              {debouncedSearch 
+                ? 'Try searching for different keywords or check your spelling.' 
+                : 'Try adjusting your filters to see more products.'
+              }
+            </p>
+            {(debouncedSearch || Object.values(filters).some(f => f.length > 0)) && (
+              <button
+                onClick={() => {
+                  setSearch('');
+                  handleFilterChange({
+                    gender: [],
+                    occasion: [],
+                    type: [],
+                    category: [],
+                    subCategory: [],
+                    filterTags: []
+                  });
+                }}
+                className="bg-hotpink-500 hover:bg-hotpink-600 text-white px-6 py-2 rounded-lg transition-colors duration-300"
+              >
+                Clear All Filters
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Results info */}
         {!loading && products.length > 0 && (

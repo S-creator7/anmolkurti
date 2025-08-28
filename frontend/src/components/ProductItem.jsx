@@ -1,6 +1,6 @@
 import React, { useContext, useState , useEffect} from 'react';
 import { ShopContext } from '../context/ShopContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import ProductPreviewModal from './ProductPreviewModal';
 import { useWishlist } from '../context/WishlistContext';
@@ -10,6 +10,7 @@ const ProductItem = ({ id, image, name, price }) => {
   const { currency, addToCart, products } = useContext(ShopContext);
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [showPreview, setShowPreview] = useState(false);
+  const navigate = useNavigate();
 
 
 
@@ -113,9 +114,15 @@ const ProductItem = ({ id, image, name, price }) => {
   return (
     <>
       <Link
-        onClick={() => scrollTo(0, 0)}
+        onClick={(e) => {
+          e.preventDefault();
+          const scrollPosition = window.scrollY;
+          try {
+            sessionStorage.setItem('collectionScrollPosition', String(scrollPosition));
+          } catch {}
+          navigate(`/product/${id}`, { state: { scrollPosition } });
+        }}
         className={`group text-gray-700 cursor-pointer flex flex-col w-full h-full bg-white rounded-2xl overflow-hidden shadow-soft hover:shadow-medium transition-all duration-500 transform hover:-translate-y-2 border border-gray-50 hover:border-hotpink-200 ${outOfStock ? 'opacity-75' : ''}`}
-        to={`/product/${id}`}
       >
         <div className="relative w-full h-64 overflow-hidden bg-gray-50 rounded-t-2xl">
           <img
