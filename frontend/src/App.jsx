@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import React, { useState, useEffect, useLayoutEffect } from 'react'
+import { Routes, Route, useLocation, useNavigationType } from 'react-router-dom'
 import Home from './pages/Home'
 import Collection from './pages/Collection'
 import About from './pages/About'
@@ -31,8 +31,34 @@ import Profile from './pages/Profile'
 import OrderSuccess from './components/OrderSuccess'
 import OrderFailure from './components/OrderFail'
 
+function ScrollRestoration() {
+  const location = useLocation();
+  const navigationType = useNavigationType();
+
+  useEffect(() => {
+    // Disable browser auto scroll restoration; handle back navigation manually in pages
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+  }, []);
+
+  useLayoutEffect(() => {
+    // When navigating back (POP action), don't scroll to top
+    if (navigationType === 'POP') {
+      // Let our ProductList component handle the scroll restoration
+      return;
+    }
+
+    // For other navigations, scroll to top
+    window.scrollTo(0, 0);
+  }, [location, navigationType]);
+
+  return null;
+}
+
 const App = () => {
   const [loading, setLoading] = useState(true);
+  const location = useLocation();
 
   return (
     <>
@@ -42,6 +68,7 @@ const App = () => {
         <ShopContextProvider>
           <CouponProvider>
             <WishlistProvider>
+              <ScrollRestoration />
               <div className='min-h-screen bg-gradient-to-br from-gray-50 to-white'>
                 <ToastContainer
                   position="top-right"
