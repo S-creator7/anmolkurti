@@ -6,7 +6,7 @@ import ProductPreviewModal from './ProductPreviewModal';
 import { useWishlist } from '../context/WishlistContext';
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
-const ProductItem = ({ id, image, name, price }) => {
+const ProductItem = ({ id, image, name, price, currentPage }) => {
   const { currency, addToCart, products } = useContext(ShopContext);
   const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlist();
   const [showPreview, setShowPreview] = useState(false);
@@ -114,11 +114,16 @@ const ProductItem = ({ id, image, name, price }) => {
   return (
     <>
       <Link
+        data-product-id={id}
         onClick={(e) => {
           e.preventDefault();
           const scrollPosition = window.scrollY;
           try {
             sessionStorage.setItem('collectionScrollPosition', String(scrollPosition));
+            if (typeof currentPage === 'number') {
+              sessionStorage.setItem('collectionCurrentPage', String(currentPage));
+            }
+            sessionStorage.setItem('collectionActiveProductId', String(id));
           } catch {}
           navigate(`/product/${id}`, { state: { scrollPosition } });
         }}

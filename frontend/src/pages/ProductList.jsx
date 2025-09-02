@@ -10,44 +10,40 @@ const ProductList = () => {
   const [products, setProducts] = useState([]);
   const location = useLocation();
 
-  // Restore scroll position from location state or sessionStorage on mount
+  // Restore to the previously active product if available, else use saved scroll
   useEffect(() => {
-    const restoreScrollPosition = () => {
-      let scrollPosition = 0;
+    const restore = () => {
+      const activeId = sessionStorage.getItem('collectionActiveProductId');
+      if (activeId) {
+        const el = document.querySelector(`[data-product-id="${activeId}"]`);
+        if (el) {
+          el.scrollIntoView({ block: 'center', behavior: 'instant' });
+          try { sessionStorage.removeItem('collectionActiveProductId'); } catch {}
+          try { sessionStorage.removeItem('collectionScrollPosition'); } catch {}
+          return;
+        }
+      }
 
-      // First check location state (from programmatic navigation)
+      let scrollPosition = 0;
       if (location.state && location.state.scrollPosition) {
         scrollPosition = location.state.scrollPosition;
       } else {
-        // Then check sessionStorage (from browser back button)
         const savedPosition = sessionStorage.getItem('collectionScrollPosition');
         if (savedPosition) {
           scrollPosition = parseInt(savedPosition, 10);
         }
       }
-
       if (scrollPosition > 0) {
-        // Use setTimeout with a small delay to ensure DOM is ready
         const timeoutId = setTimeout(() => {
-          window.scrollTo({
-            top: scrollPosition,
-            left: 0,
-            behavior: 'instant' // Use instant to avoid smooth scroll conflicts
-          });
-          // Clear the saved position after restoring
-          sessionStorage.removeItem('collectionScrollPosition');
-        }, 50);
-
-        // Cleanup timeout if component unmounts
+          window.scrollTo({ top: scrollPosition, left: 0, behavior: 'instant' });
+          try { sessionStorage.removeItem('collectionScrollPosition'); } catch {}
+        }, 0);
         return () => clearTimeout(timeoutId);
       }
     };
-
-    // Small delay to ensure component is fully mounted
-    const mountTimeoutId = setTimeout(restoreScrollPosition, 10);
-
+    const mountTimeoutId = setTimeout(restore, 10);
     return () => clearTimeout(mountTimeoutId);
-  }, [location.pathname]); // Only depend on pathname to avoid unnecessary re-runs
+  }, [location.pathname]);
 
   // Remove previous scroll position save logic
   const [filters, setFilters] = useState({
@@ -59,6 +55,7 @@ const ProductList = () => {
     filterTags: []
   });
   const [currentPage, setCurrentPage] = useState(1);
+  const [initializedFromSession, setInitializedFromSession] = useState(false);
   const [totalPages, setTotalPages] = useState(1);
   const [sortType, setSortType] = useState('relavent');
   const [loading, setLoading] = useState(false);
@@ -68,6 +65,9 @@ const ProductList = () => {
   
   const debounceRef = useRef(null);
   const limit = 12;
+  const isRestoringRef = useRef(false);
+  const didRunInitialResetRef = useRef(false);
+  const skipNextFetchRef = useRef(false);
 
   // Debounce search input
   useEffect(() => {
@@ -130,7 +130,13 @@ const ProductList = () => {
           setProducts(response.data.products || []);
         } else {
           // Subsequent pages - append products
-          setProducts(prevProducts => [...prevProducts, ...(response.data.products || [])]);
+          const newItems = response.data.products || [];
+          setProducts(prevProducts => {
+            if (prevProducts.length === 0) return newItems;
+            const seen = new Set(prevProducts.map(p => p._id));
+            const filtered = newItems.filter(p => !seen.has(p._id));
+            return [...prevProducts, ...filtered];
+          });
         }
         setTotalPages(response.data.totalPages || 1);
         setCurrentPage(response.data.currentPage || page);
@@ -151,15 +157,49 @@ const ProductList = () => {
     }
   };
 
+  // On first mount, restore up to saved page and then mark initialized
+  useEffect(() => {
+    if (initializedFromSession) return;
+    const restore = async () => {
+      const savedPageStr = sessionStorage.getItem('collectionCurrentPage');
+      const savedPage = savedPageStr ? parseInt(savedPageStr, 10) : 1;
+      if (!Number.isNaN(savedPage) && savedPage > 1) {
+        isRestoringRef.current = true;
+        for (let p = 1; p <= savedPage; p += 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await fetchProducts(p, filters, sortType, debouncedSearch);
+        }
+        // Prevent immediate effect from re-fetching the same page
+        skipNextFetchRef.current = true;
+        setCurrentPage(savedPage);
+        try { sessionStorage.removeItem('collectionCurrentPage'); } catch {}
+        isRestoringRef.current = false;
+      }
+      setInitializedFromSession(true);
+    };
+    restore();
+  }, [initializedFromSession, filters, sortType, debouncedSearch]);
+
   // Fetch products when dependencies change
   useEffect(() => {
+    if (!initializedFromSession) return;
+    if (isRestoringRef.current) return;
+    if (skipNextFetchRef.current) {
+      skipNextFetchRef.current = false;
+      return;
+    }
     fetchProducts(currentPage, filters, sortType, debouncedSearch);
-  }, [currentPage, filters, sortType, debouncedSearch]);
+  }, [currentPage, filters, sortType, debouncedSearch, initializedFromSession]);
 
-  // Reset to first page when search or filters change
+  // Reset to first page when search or filters change (skip on first mount)
   useEffect(() => {
+    if (!initializedFromSession) return;
+    if (!didRunInitialResetRef.current) {
+      didRunInitialResetRef.current = true;
+      return;
+    }
     setCurrentPage(1);
-  }, [debouncedSearch, filters, sortType]);
+  }, [debouncedSearch, filters, sortType, initializedFromSession]);
 
   // Use Intersection Observer for infinite scrolling with a bottom sentinel
   const sentinelRef = useRef(null);
@@ -238,8 +278,18 @@ const ProductList = () => {
     if (!loading) {
       console.log(' Resetting isFetching flag');
       isFetchingRef.current = false;
+      // After products are present, try to center on active product if not done yet
+      const activeId = sessionStorage.getItem('collectionActiveProductId');
+      if (activeId) {
+        const el = document.querySelector(`[data-product-id="${activeId}"]`);
+        if (el) {
+          el.scrollIntoView({ block: 'center', behavior: 'instant' });
+          try { sessionStorage.removeItem('collectionActiveProductId'); } catch {}
+          try { sessionStorage.removeItem('collectionScrollPosition'); } catch {}
+        }
+      }
     }
-  }, [loading]);
+  }, [loading, products.length]);
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -391,6 +441,7 @@ const ProductList = () => {
                 image={product.image}
                 name={product.name}
                 price={product.price}
+                currentPage={currentPage}
               />
             ))}
 
