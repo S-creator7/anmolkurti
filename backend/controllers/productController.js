@@ -392,6 +392,23 @@ const listProducts = async (req, res) => {
     if (category) filter.category = { $in: createRegexArray(category.split(',')) };
     if (subCategory) filter.subCategory = { $in: createRegexArray(subCategory.split(',')) };
     if (filterTags) filter.filterTags = { $in: filterTags.split(',') };
+    // 🔥 Size filter
+    if (req.query.size) {
+      const sizes = req.query.size.split(',').map(size => new RegExp(`^${size}$`, 'i'));
+      filter.sizes = { $in: sizes };
+    }
+
+    // 🔥 Material filter (array support)
+    if (req.query.material) {
+      const materials = req.query.material.split(',').map(m => new RegExp(`^${m}$`, 'i'));
+      filter['filters.material'] = { $in: materials };
+    }
+
+    // 🔥 Color filter (array support)
+    if (req.query.color) {
+      const colors = req.query.color.split(',').map(c => new RegExp(`^${c}$`, 'i'));
+      filter['filters.color'] = { $in: colors };
+    }
 
     const total = await productModel.countDocuments(filter);
     console.log(`Total products found: ${total}, Limit: ${limit}`);
@@ -450,7 +467,7 @@ const listProducts = async (req, res) => {
     };
 
     console.log('Fetching products with params:', { filter, sortObj, page, limit });
-    
+
     const products = await productModel.find(filter)
       .select(selectFields)
       .sort(sortObj)

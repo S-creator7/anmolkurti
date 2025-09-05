@@ -9,6 +9,8 @@ const productSchema = new mongoose.Schema({
     category: { type: String, required: true, index: true },
     subCategory: { type: String, required: false, index: true, default: '' }, // Made optional - not integrated with filter system
     occasion: { type: [String], default: [], index: true },
+    material: { type: [String], default: [], index: true },
+    color: { type: [String], default: [], index: true },
     type: { type: [String], default: [], index: true },
     filterTags: { type: [String], default: [], index: true },
     sizes: { type: Array, required: true },
@@ -30,6 +32,6 @@ const productSchema = new mongoose.Schema({
 
 })
 
-const productModel  = mongoose.models.product || mongoose.model("product",productSchema);
+const productModel = mongoose.models.product || mongoose.model("product", productSchema);
 
 export default productModel
